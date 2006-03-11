@@ -1,3 +1,4 @@
+/* $Id: informix.ec,v 1.2 2006/03/11 02:24:24 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -482,6 +483,42 @@ database_initialize(int argc, VALUE *argv, VALUE self)
 	return database_open(argc, argv, self);
 }
 
+static VALUE
+database_rollback(VALUE self)
+{
+	EXEC SQL rollback;
+	return self;
+}
+
+static VALUE
+database_commit(VALUE self)
+{
+	EXEC SQL commit;
+	return self;
+}
+
+static VALUE
+database_transfail(VALUE self)
+{
+	database_rollback(self);
+	return Qundef;
+}
+
+static VALUE
+database_transaction(VALUE self)
+{
+	VALUE ret;
+
+	EXEC SQL commit;
+
+	EXEC SQL begin work;
+	ret = rb_rescue(rb_yield, self, database_transfail, self);
+	if (ret == Qundef) {
+		rb_raise(rb_eRuntimeError, "Transaction rolled back");
+	}
+	EXEC SQL commit;
+	return ret;
+}
 
 /* class Statement ------------------------------------------------------- */
 
@@ -699,7 +736,6 @@ inscur_flush(VALUE self)
 
 	Data_Get_Struct(self, cursor_t, c);
 	EXEC SQL flush :c->nmCursor;
-	EXEC SQL commit;
 	return self;
 }
 
@@ -841,7 +877,6 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 			EXEC SQL open :c->nmCursor;
 	}
 	else {
-		EXEC SQL begin work;
 		EXEC SQL open :c->nmCursor;
 	}
 	if (sqlca.sqlcode < 0) {
@@ -902,6 +937,9 @@ void Init_informix(void)
 	rb_define_method(rb_cDatabase, "close", database_close, 0);
 	rb_define_method(rb_cDatabase, "immediate", database_immediate, 1);
 	rb_define_alias(rb_cDatabase, "do", "immediate");
+	rb_define_method(rb_cDatabase, "rollback", database_rollback, 0);
+	rb_define_method(rb_cDatabase, "commit", database_commit, 0);
+	rb_define_method(rb_cDatabase, "transaction", database_transaction, 0);
 	/*
 	rb_define_method(rb_cDatabase, "prepare", database_prepare, 1);
 	rb_define_method(rb_cDatabase, "cursor", database_cursor, -1);
