@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.2 2006/03/11 02:24:24 santana Exp $ */
+/* $Id: informix.ec,v 1.3 2006/03/19 09:42:00 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -699,6 +699,33 @@ seqcur_fetch_hash(VALUE self)
 	return fetch(self, T_HASH);
 }
 
+static VALUE
+seqcur_fetch_many(VALUE self, VALUE n)
+{
+	VALUE row, rows;
+	int i, max, all = n == Qnil;
+
+	if (!all) {
+		max = FIX2INT(n);
+	}
+
+	rows = rb_ary_new();
+	for(i = 0; all || i < max; i++) {
+		row = fetch(self, T_ARRAY);
+		if (row == Qnil) {
+			break;
+		}
+		rb_ary_push(rows, row);
+	}
+	return i == 0? Qnil: rows;
+}
+
+static VALUE
+seqcur_fetch_all(VALUE self)
+{
+	return seqcur_fetch_many(self, Qnil);
+}
+
 /* module InsertCursor --------------------------------------------------- */
 
 static VALUE
@@ -958,6 +985,8 @@ void Init_informix(void)
 	rb_mSequentialCursor = rb_define_module_under(rb_mInformix, "SequentialCursor");
 	rb_define_method(rb_mSequentialCursor, "fetch", seqcur_fetch, 0);
 	rb_define_method(rb_mSequentialCursor, "fetch_hash", seqcur_fetch_hash, 0);
+	rb_define_method(rb_mSequentialCursor, "fetch_many", seqcur_fetch_many, 1);
+	rb_define_method(rb_mSequentialCursor, "fetch_all", seqcur_fetch_all, 0);
 
 	/* InsertCursor ------------------------------------------------------- */
 	rb_define_method(rb_mInsertCursor, "put", inscur_put, -1);
