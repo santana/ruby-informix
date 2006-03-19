@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.3 2006/03/19 09:42:00 santana Exp $ */
+/* $Id: informix.ec,v 1.4 2006/03/19 20:55:33 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -520,6 +520,13 @@ database_transaction(VALUE self)
 	return ret;
 }
 
+static VALUE
+database_prepare(VALUE self, VALUE query)
+{
+	VALUE argv[] = { self, query };
+	return rb_class_new_instance(2, argv, rb_cStatement);
+}
+
 /* class Statement ------------------------------------------------------- */
 
 static void
@@ -967,8 +974,8 @@ void Init_informix(void)
 	rb_define_method(rb_cDatabase, "rollback", database_rollback, 0);
 	rb_define_method(rb_cDatabase, "commit", database_commit, 0);
 	rb_define_method(rb_cDatabase, "transaction", database_transaction, 0);
-	/*
 	rb_define_method(rb_cDatabase, "prepare", database_prepare, 1);
+	/*
 	rb_define_method(rb_cDatabase, "cursor", database_cursor, -1);
 	*/
 
