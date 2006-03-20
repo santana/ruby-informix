@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.4 2006/03/19 20:55:33 santana Exp $ */
+/* $Id: informix.ec,v 1.5 2006/03/20 19:41:58 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -527,6 +527,164 @@ database_prepare(VALUE self, VALUE query)
 	return rb_class_new_instance(2, argv, rb_cStatement);
 }
 
+/*
+ * Obtains information for every column for the table given.
+ * IBM Informix Guide to SQL: Reference (syscolumns)
+ */
+static VALUE
+database_columns(VALUE self, VALUE table)
+{
+	VALUE v, column, result;
+	char *stype;
+	static char *stypes[] = {
+		"CHAR", "SMALLINT", "INTEGER", "FLOAT", "SMALLFLOAT", "DECIMAL",
+		"SERIAL", "DATE", "MONEY", "NULL", "DATETIME", "BYTE",
+		"TEXT", "VARCHAR", "INTERVAL", "NCHAR", "NVARCHAR", "INT8",
+		"SERIAL8", "SET", "MULTISET", "LIST", "UNNAMED ROW", "NAMED ROW",
+		"VARIABLE-LENGTH OPAQUE TYPE"
+	};
+
+	static char *qualifiers[] = {
+		"YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"
+	};
+
+	EXEC SQL begin declare section;
+		char *tabname;
+		int tabid;
+		varchar colname[129];
+		short coltype, collength;
+		char deftype[2];
+		varchar defvalue[257];
+	EXEC SQL end   declare section;
+
+	table = StringValue(table);
+	tabname = RSTRING(table)->ptr;
+
+	EXEC SQL select tabid into :tabid from systables where tabname = :tabname;
+
+	if (sqlca.sqlcode == 100) {
+		rb_raise(rb_eRuntimeError, "Table '%s' doesn't exist", tabname);
+	}
+
+	result = rb_ary_new();
+
+	EXEC SQL declare cur cursor for
+		select colname, coltype, collength, type, default
+		from syscolumns c, outer sysdefaults d
+		where c.tabid = :tabid and c.tabid = d.tabid and c.colno = d.colno
+		order by c.colno;
+
+	if (sqlca.sqlcode < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	}
+	EXEC SQL open cur;
+	if (sqlca.sqlcode < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	}
+
+	for(;;) {
+		EXEC SQL fetch cur into :colname, :coltype, :collength,
+			:deftype, :defvalue;
+		if (sqlca.sqlcode < 0) {
+			rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+		}
+		if (sqlca.sqlcode == 100) {
+			break;
+		}
+		column = rb_hash_new();
+		rb_hash_aset(column, ID2SYM(rb_intern("name")), rb_str_new2(colname));
+		rb_hash_aset(column, ID2SYM(rb_intern("type")), INT2FIX(coltype));
+		rb_hash_aset(column, ID2SYM(rb_intern("nullable")),
+			coltype&0x100? Qfalse: Qtrue);
+
+		if ((coltype&0xFF) < 23) {
+			stype = coltype == 4118? stypes[23]: stypes[coltype&0xFF];
+		}
+		else {
+			stype = stypes[24];
+		}
+		rb_hash_aset(column, ID2SYM(rb_intern("stype")), rb_str_new2(stype));
+		rb_hash_aset(column, ID2SYM(rb_intern("length")), INT2FIX(collength));
+
+		switch(coltype&0xFF) {
+		case SQLVCHAR:
+		case SQLNVCHAR:
+		case SQLMONEY:
+		case SQLDECIMAL:
+			rb_hash_aset(column, ID2SYM(rb_intern("precision")),
+				INT2FIX(collength >> 8));
+			rb_hash_aset(column, ID2SYM(rb_intern("scale")), INT2FIX(collength&0xFF));
+			break;
+		case SQLDATE:
+		case SQLDTIME:
+		case SQLINTERVAL:
+			rb_hash_aset(column, ID2SYM(rb_intern("length")), INT2FIX(collength >> 8));
+			rb_hash_aset(column, ID2SYM(rb_intern("precision")), INT2FIX((collength&0xF0) >> 4));
+			rb_hash_aset(column, ID2SYM(rb_intern("scale")), INT2FIX(collength&0xF));
+			break;
+		default:
+			rb_hash_aset(column, ID2SYM(rb_intern("precision")), INT2FIX(0));
+			rb_hash_aset(column, ID2SYM(rb_intern("scale")), INT2FIX(0));
+		}
+
+		if (!deftype[0]) {
+			v = Qnil;
+		}
+		else {
+			switch(deftype[0]) {
+			case 'C': {
+				char current[28];
+				snprintf(current, sizeof(current), "CURRENT %s TO %s",
+					qualifiers[(collength&0xF0) >> 5],
+					qualifiers[(collength&0xF)>>1]);
+				v = rb_str_new2(current);
+				break;
+			}
+			case 'L':
+				switch (coltype & 0xFF) {
+				case SQLCHAR:
+				case SQLNCHAR:
+				case SQLVCHAR:
+				case SQLNVCHAR:
+					v = rb_str_new2(defvalue);
+					break;
+				default: {
+					char *s = defvalue;
+					while(*s++ != ' ');
+					if ((coltype&0xFF) == SQLFLOAT ||
+						(coltype&0xFF) == SQLSMFLOAT ||
+						(coltype&0xFF) == SQLMONEY ||
+						(coltype&0xFF) == SQLDECIMAL)
+						v = rb_float_new(atof(s));
+					else
+						v = LONG2FIX(atol(s));
+				}
+				}
+				break;
+			case 'N':
+				v = rb_str_new2("NULL");
+				break;
+			case 'T':
+				v = rb_str_new2("today");
+				break;
+			case 'U':
+				v = rb_str_new2("user");
+				break;
+			case 'S':
+			default: /* XXX */
+				v = Qnil;
+			}
+		}
+		rb_hash_aset(column, ID2SYM(rb_intern("default")), v);
+		rb_ary_push(result, column);
+	}
+
+	EXEC SQL close cur;
+	EXEC SQL free cur;
+
+	return result;
+}
+
 /* class Statement ------------------------------------------------------- */
 
 static void
@@ -975,6 +1133,7 @@ void Init_informix(void)
 	rb_define_method(rb_cDatabase, "commit", database_commit, 0);
 	rb_define_method(rb_cDatabase, "transaction", database_transaction, 0);
 	rb_define_method(rb_cDatabase, "prepare", database_prepare, 1);
+	rb_define_method(rb_cDatabase, "columns", database_columns, 1);
 	/*
 	rb_define_method(rb_cDatabase, "cursor", database_cursor, -1);
 	*/
