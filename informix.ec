@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.5 2006/03/20 19:41:58 santana Exp $ */
+/* $Id: informix.ec,v 1.6 2006/03/21 05:45:25 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -405,7 +405,7 @@ database_open(int argc, VALUE *argv, VALUE self)
 		char *db, *user = NULL, *pass = NULL, conn[30];
 	EXEC SQL end   declare section;
 
-	rb_scan_args(argc, argv, "03", &arg[0], &arg[1], &arg[2]);
+	rb_scan_args(argc, argv, "12", &arg[0], &arg[1], &arg[2]);
 
 	if (NIL_P(arg[0])) {
 		rb_raise(rb_eRuntimeError, "Database name must be specified");
@@ -525,6 +525,16 @@ database_prepare(VALUE self, VALUE query)
 {
 	VALUE argv[] = { self, query };
 	return rb_class_new_instance(2, argv, rb_cStatement);
+}
+
+static VALUE
+database_cursor(int argc, VALUE *argv, VALUE self)
+{
+	VALUE query, options, arg[2];
+
+	rb_scan_args(argc, argv, "11", &query, &options);
+	arg[0] = self; arg[1] = query; arg[2] = options;
+	return rb_class_new_instance(3, arg, rb_cCursor);
 }
 
 /*
@@ -966,10 +976,9 @@ cursor_alloc(VALUE klass)
 }
 
 static VALUE
-cursor_initialize(int argc, VALUE *argv, VALUE self)
+cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 {
-	VALUE db, query, scroll, hold;
-	int c_scroll = 0, c_hold = 0;
+	VALUE scroll, hold;
 	struct sqlda *output;
 
 	EXEC SQL begin declare section;
@@ -978,17 +987,7 @@ cursor_initialize(int argc, VALUE *argv, VALUE self)
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
-	rb_scan_args(argc, argv, "22", &db, &query, &scroll, &hold);
-
-	if (NIL_P(db)) {
-		rb_raise(rb_eRuntimeError, "A Database object name must be specified");
-	}
-
-	if (NIL_P(query)) {
-		rb_raise(rb_eRuntimeError, "A query must be specified");
-	}
-	c_scroll = RTEST(scroll);
-	c_hold = RTEST(hold);
+	scroll = hold = Qfalse;
 
 	snprintf(c->nmCursor, sizeof(c->nmCursor), "CUR%p", self);
 	snprintf(c->nmStmt, sizeof(c->nmStmt), "STMT%p", self);
@@ -999,6 +998,11 @@ cursor_initialize(int argc, VALUE *argv, VALUE self)
 	query = StringValue(query);
 	c_query = RSTRING(query)->ptr;
 
+	if (RTEST(options)) {
+		scroll = rb_hash_aref(options, ID2SYM(rb_intern("scroll")));
+		hold = rb_hash_aref(options, ID2SYM(rb_intern("hold")));
+	}
+
 	alloc_input_slots(c, c_query);
 
 	EXEC SQL prepare :c->nmStmt from :c_query;
@@ -1006,13 +1010,13 @@ cursor_initialize(int argc, VALUE *argv, VALUE self)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
 	}
 
-	if (c_scroll && c_hold) {
+	if (RTEST(scroll) && RTEST(hold)) {
 		EXEC SQL declare :c->nmCursor scroll cursor with hold for :c->nmStmt;
 	}
-	else if (c_hold) {
+	else if (RTEST(hold)) {
 		EXEC SQL declare :c->nmCursor cursor with hold for :c->nmStmt;
 	}
-	else if (c_scroll) {
+	else if (RTEST(scroll)) {
 		EXEC SQL declare :c->nmCursor scroll cursor for :c->nmStmt;
 	}
 	else {
@@ -1134,9 +1138,7 @@ void Init_informix(void)
 	rb_define_method(rb_cDatabase, "transaction", database_transaction, 0);
 	rb_define_method(rb_cDatabase, "prepare", database_prepare, 1);
 	rb_define_method(rb_cDatabase, "columns", database_columns, 1);
-	/*
 	rb_define_method(rb_cDatabase, "cursor", database_cursor, -1);
-	*/
 
 	/* class Statement ---------------------------------------------------- */
 	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement", rb_cObject);
@@ -1161,7 +1163,7 @@ void Init_informix(void)
 	/* class Cursor ------------------------------------------------------- */
 	rb_cCursor = rb_define_class_under(rb_mInformix, "Cursor", rb_cObject);
 	rb_define_alloc_func(rb_cCursor, cursor_alloc);
-	rb_define_method(rb_cCursor, "initialize", cursor_initialize, -1);
+	rb_define_method(rb_cCursor, "initialize", cursor_initialize, 3);
 	rb_define_method(rb_cCursor, "open", cursor_open, -1);
 	rb_define_method(rb_cCursor, "close", cursor_close, 0);
 	rb_define_method(rb_cCursor, "drop", cursor_drop, 0);
