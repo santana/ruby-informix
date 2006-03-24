@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.6 2006/03/21 05:45:25 santana Exp $ */
+/* $Id: informix.ec,v 1.7 2006/03/24 00:28:46 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -133,6 +133,14 @@ alloc_output_slots(cursor_t *c)
 
 	var = c->daOutput->sqlvar;
 	for (i = 0; i < c->daOutput->sqld; i++, var++) {
+		buffer = (char *)rtypalign((mint)buffer, var->sqltype);
+		if ((var->sqltype&0xFF) == SQLBYTES || (var->sqltype&0xFF) == SQLTEXT) {
+			loc_t *p;
+			p = (loc_t *)buffer;
+			byfill(p, sizeof(loc_t), 0);
+			p->loc_loctype = LOCMEMORY;
+			p->loc_bufsize = -1;
+		}
 		var->sqldata = buffer;
 		buffer += var->sqllen;
 		if (var->sqltype == SQLDTIME) {
@@ -157,6 +165,12 @@ clean_input_slots(cursor_t *c)
 	count = c->daInput.sqld;
 	while(count--) {
 		if (var->sqldata != NULL) {
+			if (var->sqltype == CLOCATORTYPE) {
+				loc_t *p = (loc_t *)var->sqldata;
+				if (p->loc_buffer != NULL) {
+					free(p->loc_buffer);
+				}
+			}
 			free(var->sqldata);
 			var->sqldata = NULL;
 			var++;
@@ -187,6 +201,18 @@ static void
 free_output_slots(cursor_t *c)
 {
 	if (c->daOutput != NULL) {
+		struct sqlvar_struct *var = c->daOutput->sqlvar;
+		if (var) {
+			int i;
+			for (i = 0; i < c->daOutput->sqld; i++, var++) {
+				if ((var->sqltype&0xFF) == SQLBYTES ||
+					(var->sqltype&0xFF) == SQLTEXT) {
+					loc_t *p = (loc_t *) var->sqldata;
+					if(p -> loc_buffer)
+						free(p->loc_buffer);
+				}
+			}
+		}
 		free(c->daOutput);
 		c->daOutput = NULL;
 	}
@@ -207,22 +233,46 @@ bind_input_params(cursor_t *c, VALUE *argv)
 	register int i;
 	register struct sqlvar_struct *var;
 
-	int len;
+	long len;
 	union {
 		char c_bool, *c_str;
 		long c_long;
 		double c_double;
+		loc_t *p;
 	} u;
 
 	var = c->daInput.sqlvar;
 	for (i = 0; i < c->daInput.sqld; i++, var++) {
 		data = argv[i];
 
-		if(data == Qnil) {
+		if (data == Qnil) {
 			var->sqltype = CSTRINGTYPE;
 			var->sqldata = NULL;
 			var->sqllen = 0;
 			*var->sqlind = -1;
+			continue;
+		}
+		if (rb_respond_to(data, rb_intern("read"))) {
+			char *str;
+
+			data = rb_funcall(data, rb_intern("read"), 0);
+			data = StringValue(data);
+			str = RSTRING(data)->ptr;
+			len = RSTRING(data)->len;
+
+			u.p = (loc_t *)ALLOC(loc_t);
+			assert(u.p != NULL);
+			byfill(u.p, sizeof(loc_t), 0);
+			u.p->loc_loctype = LOCMEMORY;
+			u.p->loc_buffer = (char *)ALLOC_N(char, len);
+			assert(u.p->loc_buffer != NULL);
+			memcpy(u.p->loc_buffer, str, len);
+			u.p->loc_bufsize = u.p->loc_size = len;
+
+			var->sqldata = (char *)u.p;
+			var->sqltype = CLOCATORTYPE;
+			var->sqllen = sizeof(loc_t);
+			*var->sqlind = 0;
 			continue;
 		}
 		switch(TYPE(data)) {
@@ -258,7 +308,7 @@ bind_input_params(cursor_t *c, VALUE *argv)
 		default:
 			data = StringValue(data);
 			u.c_str = RSTRING(data)->ptr;
-			len = FIX2LONG(rb_funcall(data, rb_intern("size"), 0));
+			len = RSTRING(data)->len;
 			var->sqldata = ALLOC_N(char, len + 1);
 			assert(var->sqldata != NULL);
 			memcpy(var->sqldata, u.c_str, len);
@@ -281,6 +331,7 @@ make_result(VALUE self, VALUE type)
 	union {
 		double c_double;
 		char strDatetime[30];
+		loc_t *p;
 	} u;
 
 	Data_Get_Struct(self, cursor_t, c);
@@ -340,6 +391,9 @@ make_result(VALUE self, VALUE type)
 			break;
 		case SQLBYTES:
 		case SQLTEXT:
+			u.p = (loc_t *)var->sqldata;
+			item = rb_str_new(u.p->loc_buffer, u.p->loc_size);
+			break;
 		case SQLSET:
 		case SQLMULTISET:
 		case SQLLIST:
@@ -530,10 +584,10 @@ database_prepare(VALUE self, VALUE query)
 static VALUE
 database_cursor(int argc, VALUE *argv, VALUE self)
 {
-	VALUE query, options, arg[2];
+	VALUE arg[3];
 
-	rb_scan_args(argc, argv, "11", &query, &options);
-	arg[0] = self; arg[1] = query; arg[2] = options;
+	arg[0] = self;
+	rb_scan_args(argc, argv, "11", &arg[1], &arg[2]);
 	return rb_class_new_instance(3, arg, rb_cCursor);
 }
 
