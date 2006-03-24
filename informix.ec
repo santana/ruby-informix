@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.7 2006/03/24 00:28:46 santana Exp $ */
+/* $Id: informix.ec,v 1.8 2006/03/24 23:49:53 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -633,7 +633,7 @@ database_columns(VALUE self, VALUE table)
 	result = rb_ary_new();
 
 	EXEC SQL declare cur cursor for
-		select colname, coltype, collength, type, default
+		select colname, coltype, collength, type, default, c.colno
 		from syscolumns c, outer sysdefaults d
 		where c.tabid = :tabid and c.tabid = d.tabid and c.colno = d.colno
 		order by c.colno;
