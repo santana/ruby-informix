@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.10 2006/03/25 06:04:25 santana Exp $ */
+/* $Id: informix.ec,v 1.11 2006/03/25 07:52:45 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -35,6 +35,8 @@
 #include <sqlstype.h>
 #include <sqltypes.h>
 
+static VALUE rb_cDate;
+
 static VALUE rb_mInformix;
 static VALUE rb_mSequentialCursor;
 static VALUE rb_mScrollCursor;
@@ -43,6 +45,11 @@ static VALUE rb_mInsertCursor;
 static VALUE rb_cDatabase;
 static VALUE rb_cStatement;
 static VALUE rb_cCursor;
+
+static ID s_read, s_day, s_month, s_year;
+static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
+static VALUE sym_precision, sym_scale, sym_default;
+static VALUE sym_scroll, sym_hold;
 
 EXEC SQL begin declare section;
 typedef struct {
@@ -239,6 +246,7 @@ bind_input_params(cursor_t *c, VALUE *argv)
 		long c_long;
 		double c_double;
 		loc_t *p;
+		int4 date;
 	} u;
 
 	var = c->daInput.sqlvar;
@@ -281,10 +289,25 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			*var->sqlind = 0;
 			break;
 		default:
-			if (rb_respond_to(data, rb_intern("read"))) {
+			if (rb_obj_class(data) == rb_cDate) {
+				int2 mdy[3];
+
+				mdy[0] = FIX2INT(rb_funcall(data, s_month, 0));
+				mdy[1] = FIX2INT(rb_funcall(data, s_day, 0));
+				mdy[2] = FIX2INT(rb_funcall(data, s_year, 0));
+				rmdyjul(mdy, &u.date);
+				var->sqldata = (char *)ALLOC(int4);
+				assert(var->sqldata != NULL);
+				*((int4 *)var->sqldata) = u.date;
+				var->sqltype = CDATETYPE;
+				var->sqllen = sizeof(int4);
+				*var->sqlind = 0;
+				break;
+			}
+			if (rb_respond_to(data, s_read)) {
 				char *str;
 
-				data = rb_funcall(data, rb_intern("read"), 0);
+				data = rb_funcall(data, s_read, 0);
 				data = StringValue(data);
 				str = RSTRING(data)->ptr;
 				len = RSTRING(data)->len;
@@ -304,15 +327,15 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				*var->sqlind = 0;
 				break;
 			}
+			{
+			VALUE str;
+			str = rb_check_string_type(data);
+			if (NIL_P(str)) {
+				data = rb_obj_as_string(data);
+			}
 			else {
-				VALUE str;
-				str = rb_check_string_type(data);
-				if (NIL_P(str)) {
-					data = rb_obj_as_string(data);
-				}
-				else {
-					data = str;
-				}
+				data = str;
+			}
 			}
 		case T_STRING:
 			u.c_str = RSTRING(data)->ptr;
@@ -664,10 +687,9 @@ database_columns(VALUE self, VALUE table)
 			break;
 		}
 		column = rb_hash_new();
-		rb_hash_aset(column, ID2SYM(rb_intern("name")), rb_str_new2(colname));
-		rb_hash_aset(column, ID2SYM(rb_intern("type")), INT2FIX(coltype));
-		rb_hash_aset(column, ID2SYM(rb_intern("nullable")),
-			coltype&0x100? Qfalse: Qtrue);
+		rb_hash_aset(column, sym_name, rb_str_new2(colname));
+		rb_hash_aset(column, sym_type, INT2FIX(coltype));
+		rb_hash_aset(column, sym_nullable, coltype&0x100? Qfalse: Qtrue);
 
 		if ((coltype&0xFF) < 23) {
 			stype = coltype == 4118? stypes[23]: stypes[coltype&0xFF];
@@ -675,28 +697,27 @@ database_columns(VALUE self, VALUE table)
 		else {
 			stype = stypes[24];
 		}
-		rb_hash_aset(column, ID2SYM(rb_intern("stype")), rb_str_new2(stype));
-		rb_hash_aset(column, ID2SYM(rb_intern("length")), INT2FIX(collength));
+		rb_hash_aset(column, sym_stype, rb_str_new2(stype));
+		rb_hash_aset(column, sym_length, INT2FIX(collength));
 
 		switch(coltype&0xFF) {
 		case SQLVCHAR:
 		case SQLNVCHAR:
 		case SQLMONEY:
 		case SQLDECIMAL:
-			rb_hash_aset(column, ID2SYM(rb_intern("precision")),
-				INT2FIX(collength >> 8));
-			rb_hash_aset(column, ID2SYM(rb_intern("scale")), INT2FIX(collength&0xFF));
+			rb_hash_aset(column, sym_precision, INT2FIX(collength >> 8));
+			rb_hash_aset(column, sym_scale, INT2FIX(collength&0xFF));
 			break;
 		case SQLDATE:
 		case SQLDTIME:
 		case SQLINTERVAL:
-			rb_hash_aset(column, ID2SYM(rb_intern("length")), INT2FIX(collength >> 8));
-			rb_hash_aset(column, ID2SYM(rb_intern("precision")), INT2FIX((collength&0xF0) >> 4));
-			rb_hash_aset(column, ID2SYM(rb_intern("scale")), INT2FIX(collength&0xF));
+			rb_hash_aset(column, sym_length, INT2FIX(collength >> 8));
+			rb_hash_aset(column, sym_precision, INT2FIX((collength&0xF0) >> 4));
+			rb_hash_aset(column, sym_scale, INT2FIX(collength&0xF));
 			break;
 		default:
-			rb_hash_aset(column, ID2SYM(rb_intern("precision")), INT2FIX(0));
-			rb_hash_aset(column, ID2SYM(rb_intern("scale")), INT2FIX(0));
+			rb_hash_aset(column, sym_precision, INT2FIX(0));
+			rb_hash_aset(column, sym_scale, INT2FIX(0));
 		}
 
 		if (!deftype[0]) {
@@ -747,7 +768,7 @@ database_columns(VALUE self, VALUE table)
 				v = Qnil;
 			}
 		}
-		rb_hash_aset(column, ID2SYM(rb_intern("default")), v);
+		rb_hash_aset(column, sym_default, v);
 		rb_ary_push(result, column);
 	}
 
@@ -1061,8 +1082,8 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 	c_query = RSTRING(query)->ptr;
 
 	if (RTEST(options)) {
-		scroll = rb_hash_aref(options, ID2SYM(rb_intern("scroll")));
-		hold = rb_hash_aref(options, ID2SYM(rb_intern("hold")));
+		scroll = rb_hash_aref(options, sym_scroll);
+		hold = rb_hash_aref(options, sym_hold);
 	}
 
 	alloc_input_slots(c, c_query);
@@ -1230,4 +1251,24 @@ void Init_informix(void)
 	rb_define_method(rb_cCursor, "open", cursor_open, -1);
 	rb_define_method(rb_cCursor, "close", cursor_close, 0);
 	rb_define_method(rb_cCursor, "drop", cursor_drop, 0);
+
+	/* Global constants --------------------------------------------------- */
+	rb_require("date");
+	rb_cDate = rb_const_get(rb_cObject, rb_intern("Date"));
+
+	/* Global symbols ----------------------------------------------------- */
+	s_read = rb_intern("read");
+	s_day = rb_intern("day");
+	s_month = rb_intern("month");
+	s_year = rb_intern("year");
+	sym_name = ID2SYM(rb_intern("name"));
+	sym_type = ID2SYM(rb_intern("type"));
+	sym_nullable = ID2SYM(rb_intern("nullable"));
+	sym_stype = ID2SYM(rb_intern("stype"));
+	sym_length = ID2SYM(rb_intern("length"));
+	sym_precision = ID2SYM(rb_intern("precision"));
+	sym_scale = ID2SYM(rb_intern("scale"));
+	sym_default = ID2SYM(rb_intern("default"));
+	sym_scroll = ID2SYM(rb_intern("scroll"));
+	sym_hold = ID2SYM(rb_intern("hold"));
 }
