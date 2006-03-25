@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.9 2006/03/25 00:06:11 santana Exp $ */
+/* $Id: informix.ec,v 1.10 2006/03/25 06:04:25 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -245,37 +245,13 @@ bind_input_params(cursor_t *c, VALUE *argv)
 	for (i = 0; i < c->daInput.sqld; i++, var++) {
 		data = argv[i];
 
-		if (data == Qnil) {
+		switch(TYPE(data)) {
+		case T_NIL:
 			var->sqltype = CSTRINGTYPE;
 			var->sqldata = NULL;
 			var->sqllen = 0;
 			*var->sqlind = -1;
-			continue;
-		}
-		if (rb_respond_to(data, rb_intern("read"))) {
-			char *str;
-
-			data = rb_funcall(data, rb_intern("read"), 0);
-			data = StringValue(data);
-			str = RSTRING(data)->ptr;
-			len = RSTRING(data)->len;
-
-			u.p = (loc_t *)ALLOC(loc_t);
-			assert(u.p != NULL);
-			byfill(u.p, sizeof(loc_t), 0);
-			u.p->loc_loctype = LOCMEMORY;
-			u.p->loc_buffer = (char *)ALLOC_N(char, len);
-			assert(u.p->loc_buffer != NULL);
-			memcpy(u.p->loc_buffer, str, len);
-			u.p->loc_bufsize = u.p->loc_size = len;
-
-			var->sqldata = (char *)u.p;
-			var->sqltype = CLOCATORTYPE;
-			var->sqllen = sizeof(loc_t);
-			*var->sqlind = 0;
-			continue;
-		}
-		switch(TYPE(data)) {
+			break;
 		case T_FIXNUM:
 			u.c_long = FIX2LONG(data);
 			var->sqldata = (char *)ALLOC(long);
@@ -304,9 +280,41 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			var->sqllen = sizeof(char);
 			*var->sqlind = 0;
 			break;
-		case T_STRING:
 		default:
-			data = StringValue(data);
+			if (rb_respond_to(data, rb_intern("read"))) {
+				char *str;
+
+				data = rb_funcall(data, rb_intern("read"), 0);
+				data = StringValue(data);
+				str = RSTRING(data)->ptr;
+				len = RSTRING(data)->len;
+
+				u.p = (loc_t *)ALLOC(loc_t);
+				assert(u.p != NULL);
+				byfill(u.p, sizeof(loc_t), 0);
+				u.p->loc_loctype = LOCMEMORY;
+				u.p->loc_buffer = (char *)ALLOC_N(char, len);
+				assert(u.p->loc_buffer != NULL);
+				memcpy(u.p->loc_buffer, str, len);
+				u.p->loc_bufsize = u.p->loc_size = len;
+
+				var->sqldata = (char *)u.p;
+				var->sqltype = CLOCATORTYPE;
+				var->sqllen = sizeof(loc_t);
+				*var->sqlind = 0;
+				break;
+			}
+			else {
+				VALUE str;
+				str = rb_check_string_type(data);
+				if (NIL_P(str)) {
+					data = rb_obj_as_string(data);
+				}
+				else {
+					data = str;
+				}
+			}
+		case T_STRING:
 			u.c_str = RSTRING(data)->ptr;
 			len = RSTRING(data)->len;
 			var->sqldata = ALLOC_N(char, len + 1);
