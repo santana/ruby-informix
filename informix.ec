@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.8 2006/03/24 23:49:53 santana Exp $ */
+/* $Id: informix.ec,v 1.9 2006/03/25 00:06:11 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -1120,11 +1120,12 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 		}
 		if (argc) {
 			bind_input_params(c, argv);
-			EXEC SQL open :c->nmCursor using descriptor input;
+			EXEC SQL open :c->nmCursor using descriptor input
+				with reoptimization;
 			clean_input_slots(c);
 		}
 		else
-			EXEC SQL open :c->nmCursor;
+			EXEC SQL open :c->nmCursor with reoptimization;
 	}
 	else {
 		EXEC SQL open :c->nmCursor;
