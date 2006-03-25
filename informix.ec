@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.12 2006/03/25 20:55:58 santana Exp $ */
+/* $Id: informix.ec,v 1.13 2006/03/25 23:46:30 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -46,7 +46,7 @@ static VALUE rb_cDatabase;
 static VALUE rb_cStatement;
 static VALUE rb_cCursor;
 
-static ID s_read, s_new, s_day, s_month, s_year;
+static ID s_read, s_new, s_utc, s_day, s_month, s_year;
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
 static VALUE sym_precision, sym_scale, sym_default;
 static VALUE sym_scroll, sym_hold;
@@ -411,10 +411,53 @@ make_result(VALUE self, VALUE type)
 			break;
 		}
 		case SQLDTIME: {
-			char str[80];
+			register short qual;
+			short year, month, day, hour, minute, second;
+			int usec;
+			dtime_t *dt;
+			register char *dgts;
 
-			dttoasc((dtime_t *)var->sqldata, str);
-			item = rb_str_new2(str);
+			month = day = 1;
+			year = hour = minute = second = usec = 0;
+			dt = (dtime_t *)var->sqldata;
+			dgts = dt->dt_dec.dec_dgts;
+			qual = TU_START(dt->dt_qual);
+			for (; qual <= TU_END(dt->dt_qual); qual++) {
+				switch(qual) {
+				case TU_YEAR:
+					year = 100**dgts++ + *dgts++;
+					break;
+				case TU_MONTH:
+					month = *dgts++;
+					break;
+				case TU_DAY:
+					day = *dgts++;
+					break;
+				case TU_HOUR:
+					hour = *dgts++;
+					break;
+				case TU_MINUTE:
+					minute = *dgts++;
+					break;
+				case TU_SECOND:
+					second = *dgts++;
+					break;
+				case TU_F1:
+					usec = 10000**dgts++;
+					break;
+				case TU_F3:
+					usec += 100**dgts++;
+					break;
+				case TU_F5:
+					usec += *dgts++;
+					break;
+				}
+			}
+
+			item = rb_funcall(rb_cTime, s_utc, 7,
+				INT2FIX(year), INT2FIX(month), INT2FIX(day),
+				INT2FIX(hour), INT2FIX(minute), INT2FIX(second),
+				INT2FIX(usec));
 			break;
 		}
 		case SQLDECIMAL:
@@ -1268,6 +1311,7 @@ void Init_informix(void)
 	/* Global symbols ----------------------------------------------------- */
 	s_read = rb_intern("read");
 	s_new = rb_intern("new");
+	s_utc = rb_intern("utc");
 	s_day = rb_intern("day");
 	s_month = rb_intern("month");
 	s_year = rb_intern("year");
