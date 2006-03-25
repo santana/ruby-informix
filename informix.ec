@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.11 2006/03/25 07:52:45 santana Exp $ */
+/* $Id: informix.ec,v 1.12 2006/03/25 20:55:58 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -46,7 +46,7 @@ static VALUE rb_cDatabase;
 static VALUE rb_cStatement;
 static VALUE rb_cCursor;
 
-static ID s_read, s_day, s_month, s_year;
+static ID s_read, s_new, s_day, s_month, s_year;
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
 static VALUE sym_precision, sym_scale, sym_default;
 static VALUE sym_scroll, sym_hold;
@@ -65,7 +65,7 @@ EXEC SQL end   declare section;
 /* Helper functions ------------------------------------------------------- */
 
 /*
- * Counts the number of markes '?' in the query
+ * Counts the number of markers '?' in the query
  */
 static int count_markers(const char *query)
 {
@@ -359,11 +359,6 @@ make_result(VALUE self, VALUE type)
 	cursor_t *c;
 	register int i;
 	register struct sqlvar_struct *var;
-	union {
-		double c_double;
-		char strDatetime[30];
-		loc_t *p;
-	} u;
 
 	Data_Get_Struct(self, cursor_t, c);
 
@@ -404,27 +399,41 @@ make_result(VALUE self, VALUE type)
 		case SQLFLOAT:
 			item = rb_float_new(*(double *)var->sqldata);
 			break;
-		case SQLDATE:
-			rdatestr(*(long *)var->sqldata, u.strDatetime);
-			item = rb_str_new2(u.strDatetime);
+		case SQLDATE: {
+			VALUE year, month, day;
+			int2 mdy[3];
+
+			rjulmdy(*(int4 *)var->sqldata, mdy);
+			year = INT2FIX(mdy[2]);
+			month = INT2FIX(mdy[0]);
+			day = INT2FIX(mdy[1]);
+			item = rb_funcall(rb_cDate, s_new, 3, year, month, day);
 			break;
-		case SQLDTIME:
-			dttoasc((dtime_t *)var->sqldata, u.strDatetime);
-			item = rb_str_new2(u.strDatetime);
+		}
+		case SQLDTIME: {
+			char str[80];
+
+			dttoasc((dtime_t *)var->sqldata, str);
+			item = rb_str_new2(str);
 			break;
+		}
 		case SQLDECIMAL:
-		case SQLMONEY:
-			dectodbl((dec_t *)var->sqldata, &u.c_double);
-			item = rb_float_new(u.c_double);
+		case SQLMONEY: {
+			double dblValue;
+			dectodbl((dec_t *)var->sqldata, &dblValue);
+			item = rb_float_new(dblValue);
 			break;
+		}
 		case SQLBOOL:
 			item = var->sqldata[0] == 't'? Qtrue: Qfalse;
 			break;
 		case SQLBYTES:
-		case SQLTEXT:
-			u.p = (loc_t *)var->sqldata;
-			item = rb_str_new(u.p->loc_buffer, u.p->loc_size);
+		case SQLTEXT: {
+			loc_t *loc;
+			loc = (loc_t *)var->sqldata;
+			item = rb_str_new(loc->loc_buffer, loc->loc_size);
 			break;
+		}
 		case SQLSET:
 		case SQLMULTISET:
 		case SQLLIST:
@@ -1258,6 +1267,7 @@ void Init_informix(void)
 
 	/* Global symbols ----------------------------------------------------- */
 	s_read = rb_intern("read");
+	s_new = rb_intern("new");
 	s_day = rb_intern("day");
 	s_month = rb_intern("month");
 	s_year = rb_intern("year");
