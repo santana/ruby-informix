@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.14 2006/03/26 00:22:41 santana Exp $ */
+/* $Id: informix.ec,v 1.15 2006/03/26 02:57:58 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -47,6 +47,7 @@ static VALUE rb_cStatement;
 static VALUE rb_cCursor;
 
 static ID s_read, s_new, s_utc, s_day, s_month, s_year;
+static ID s_hour, s_min, s_sec, s_usec;
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
 static VALUE sym_precision, sym_scale, sym_default;
 static VALUE sym_scroll, sym_hold;
@@ -236,7 +237,7 @@ free_output_slots(cursor_t *c)
 static void
 bind_input_params(cursor_t *c, VALUE *argv)
 {
-	VALUE data;
+	VALUE data, klass;
 	register int i;
 	register struct sqlvar_struct *var;
 
@@ -277,7 +278,8 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			*var->sqlind = 0;
 			break;
 		default:
-			if (rb_obj_class(data) == rb_cDate) {
+			klass = rb_obj_class(data);
+			if (klass == rb_cDate) {
 				int2 mdy[3];
 				int4 date;
 
@@ -285,11 +287,40 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				mdy[1] = FIX2INT(rb_funcall(data, s_day, 0));
 				mdy[2] = FIX2INT(rb_funcall(data, s_year, 0));
 				rmdyjul(mdy, &date);
+
 				var->sqldata = (char *)ALLOC(int4);
 				assert(var->sqldata != NULL);
 				*((int4 *)var->sqldata) = date;
 				var->sqltype = CDATETYPE;
 				var->sqllen = sizeof(int4);
+				*var->sqlind = 0;
+				break;
+			}
+			if (klass == rb_cTime) {
+				char buffer[30];
+				short year, month, day, hour, minute, second;
+				int usec;
+				dtime_t *dt;
+
+				year = FIX2INT(rb_funcall(data, s_year, 0));
+				month = FIX2INT(rb_funcall(data, s_month, 0));
+				day = FIX2INT(rb_funcall(data, s_day, 0));
+				hour = FIX2INT(rb_funcall(data, s_hour, 0));
+				minute = FIX2INT(rb_funcall(data, s_min, 0));
+				second = FIX2INT(rb_funcall(data, s_sec, 0));
+				usec = FIX2INT(rb_funcall(data, s_usec, 0));
+
+				dt = ALLOC(dtime_t);
+				assert(dt != NULL);
+
+				dt->dt_qual = TU_DTENCODE(TU_YEAR, TU_F5);
+				snprintf(buffer, sizeof(buffer), "%d-%d-%d %d:%d:%d.%d",
+					year, month, day, hour, minute, second, usec/10);
+				dtcvasc(buffer, dt);
+
+				var->sqldata = (char *)dt;
+				var->sqltype = CDTIMETYPE;
+				var->sqllen = sizeof(dtime_t);
 				*var->sqlind = 0;
 				break;
 			}
@@ -1310,6 +1341,10 @@ void Init_informix(void)
 	s_day = rb_intern("day");
 	s_month = rb_intern("month");
 	s_year = rb_intern("year");
+	s_hour = rb_intern("hour");
+	s_min = rb_intern("min");
+	s_sec = rb_intern("sec");
+	s_usec = rb_intern("usec");
 	sym_name = ID2SYM(rb_intern("name"));
 	sym_type = ID2SYM(rb_intern("type"));
 	sym_nullable = ID2SYM(rb_intern("nullable"));
