@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.13 2006/03/25 23:46:30 santana Exp $ */
+/* $Id: informix.ec,v 1.14 2006/03/26 00:22:41 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -240,15 +240,6 @@ bind_input_params(cursor_t *c, VALUE *argv)
 	register int i;
 	register struct sqlvar_struct *var;
 
-	long len;
-	union {
-		char c_bool, *c_str;
-		long c_long;
-		double c_double;
-		loc_t *p;
-		int4 date;
-	} u;
-
 	var = c->daInput.sqlvar;
 	for (i = 0; i < c->daInput.sqld; i++, var++) {
 		data = argv[i];
@@ -261,29 +252,26 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			*var->sqlind = -1;
 			break;
 		case T_FIXNUM:
-			u.c_long = FIX2LONG(data);
 			var->sqldata = (char *)ALLOC(long);
 			assert(var->sqldata != NULL);
-			*((long *)var->sqldata) = u.c_long;
+			*((long *)var->sqldata) = FIX2LONG(data);
 			var->sqltype = CLONGTYPE;
 			var->sqllen = sizeof(long);
 			*var->sqlind = 0;
 			break;
 		case T_FLOAT:
-			u.c_double = NUM2DBL(data);
 			var->sqldata = (char *)ALLOC(double);
 			assert(var->sqldata != NULL);
-			*((double *)var->sqldata) = u.c_double;
+			*((double *)var->sqldata) = NUM2DBL(data);
 			var->sqltype = CDOUBLETYPE;
 			var->sqllen = sizeof(double);
 			*var->sqlind = 0;
 			break;
 		case T_TRUE:
 		case T_FALSE:
-			u.c_bool = TYPE(data) == T_TRUE? 't': 'f';
 			var->sqldata = ALLOC(char);
 			assert(var->sqldata != NULL);
-			*var->sqldata = u.c_bool;
+			*var->sqldata = TYPE(data) == T_TRUE? 't': 'f';
 			var->sqltype = CBOOLTYPE;
 			var->sqllen = sizeof(char);
 			*var->sqlind = 0;
@@ -291,14 +279,15 @@ bind_input_params(cursor_t *c, VALUE *argv)
 		default:
 			if (rb_obj_class(data) == rb_cDate) {
 				int2 mdy[3];
+				int4 date;
 
 				mdy[0] = FIX2INT(rb_funcall(data, s_month, 0));
 				mdy[1] = FIX2INT(rb_funcall(data, s_day, 0));
 				mdy[2] = FIX2INT(rb_funcall(data, s_year, 0));
-				rmdyjul(mdy, &u.date);
+				rmdyjul(mdy, &date);
 				var->sqldata = (char *)ALLOC(int4);
 				assert(var->sqldata != NULL);
-				*((int4 *)var->sqldata) = u.date;
+				*((int4 *)var->sqldata) = date;
 				var->sqltype = CDATETYPE;
 				var->sqllen = sizeof(int4);
 				*var->sqlind = 0;
@@ -306,22 +295,24 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			}
 			if (rb_respond_to(data, s_read)) {
 				char *str;
+				loc_t *loc;
+				long len;
 
 				data = rb_funcall(data, s_read, 0);
 				data = StringValue(data);
 				str = RSTRING(data)->ptr;
 				len = RSTRING(data)->len;
 
-				u.p = (loc_t *)ALLOC(loc_t);
-				assert(u.p != NULL);
-				byfill(u.p, sizeof(loc_t), 0);
-				u.p->loc_loctype = LOCMEMORY;
-				u.p->loc_buffer = (char *)ALLOC_N(char, len);
-				assert(u.p->loc_buffer != NULL);
-				memcpy(u.p->loc_buffer, str, len);
-				u.p->loc_bufsize = u.p->loc_size = len;
+				loc = (loc_t *)ALLOC(loc_t);
+				assert(loc != NULL);
+				byfill(loc, sizeof(loc_t), 0);
+				loc->loc_loctype = LOCMEMORY;
+				loc->loc_buffer = (char *)ALLOC_N(char, len);
+				assert(loc->loc_buffer != NULL);
+				memcpy(loc->loc_buffer, str, len);
+				loc->loc_bufsize = loc->loc_size = len;
 
-				var->sqldata = (char *)u.p;
+				var->sqldata = (char *)loc;
 				var->sqltype = CLOCATORTYPE;
 				var->sqllen = sizeof(loc_t);
 				*var->sqlind = 0;
@@ -337,17 +328,21 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				data = str;
 			}
 			}
-		case T_STRING:
-			u.c_str = RSTRING(data)->ptr;
+		case T_STRING: {
+			char *str;
+			long len;
+
+			str = RSTRING(data)->ptr;
 			len = RSTRING(data)->len;
 			var->sqldata = ALLOC_N(char, len + 1);
 			assert(var->sqldata != NULL);
-			memcpy(var->sqldata, u.c_str, len);
+			memcpy(var->sqldata, str, len);
 			var->sqldata[len] = 0;
 			var->sqltype = CSTRINGTYPE;
 			var->sqllen = len;
 			*var->sqlind = 0;
 			break;
+		}
 		}
 	}
 }
