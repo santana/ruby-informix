@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.16 2006/03/26 16:56:49 santana Exp $ */
+/* $Id: informix.ec,v 1.17 2006/03/26 20:31:51 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -588,7 +588,7 @@ database_open(int argc, VALUE *argv, VALUE self)
 
 	if (!NIL_P(arg[2])) {
 		str  = StringValue(arg[2]);
-		user = RSTRING(str)->ptr;
+		pass = RSTRING(str)->ptr;
 	}
 
 	if (user && pass) {
