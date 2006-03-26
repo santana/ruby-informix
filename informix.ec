@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.15 2006/03/26 02:57:58 santana Exp $ */
+/* $Id: informix.ec,v 1.16 2006/03/26 16:56:49 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -273,7 +273,7 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			var->sqldata = ALLOC(char);
 			assert(var->sqldata != NULL);
 			*var->sqldata = TYPE(data) == T_TRUE? 't': 'f';
-			var->sqltype = CBOOLTYPE;
+			var->sqltype = CCHARTYPE;
 			var->sqllen = sizeof(char);
 			*var->sqlind = 0;
 			break;
