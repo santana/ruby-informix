@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.18 2006/03/27 04:17:42 santana Exp $ */
+/* $Id: informix.ec,v 1.19 2006/03/27 07:05:47 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -137,6 +137,7 @@ alloc_output_slots(cursor_t *c)
 	}
 
 	buffer = c->bfOutput = ALLOC_N(char, count);
+	memset(buffer, 0, count);
 	assert(buffer != NULL);
 
 	var = c->daOutput->sqlvar;
@@ -485,6 +486,12 @@ make_result(VALUE self, VALUE type)
 				INT2FIX(year), INT2FIX(month), INT2FIX(day),
 				INT2FIX(hour), INT2FIX(minute), INT2FIX(second),
 				INT2FIX(usec));
+
+			/* Clean the buffer for DATETIME columns because
+			 * ESQL/C leaves the previous content when a
+			 * a time field is zero.
+			 */
+			memset(dt, 0, sizeof(dtime_t));
 			break;
 		}
 		case SQLDECIMAL:
@@ -1009,25 +1016,13 @@ statement_drop(VALUE self)
 static VALUE
 fetch(VALUE self, VALUE type)
 {
-	register int i;
 	struct sqlda *output;
-	register struct sqlvar_struct *var;
 	EXEC SQL begin declare section;
 		cursor_t *c;
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
 	output = c->daOutput;
-
-	/* Clean the buffer for DATETIME columns because
-	 * ESQL/C leaves the previous content when a
-	 * a time field is zero.
-	 */
-	var = output->sqlvar;
-	for (i = 0; i < c->daOutput->sqld; i++, var++) {
-		if (var->sqltype == SQLDTIME)
-			memset(var->sqldata, 0, sizeof(dtime_t));
-	}
 
 	EXEC SQL fetch :c->nmCursor using descriptor output;
 	if (sqlca.sqlcode < 0) {
