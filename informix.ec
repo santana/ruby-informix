@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.20 2006/03/28 07:23:56 santana Exp $ */
+/* $Id: informix.ec,v 1.21 2006/03/28 07:41:59 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -573,7 +573,7 @@ get_column_info(VALUE self, struct sqlda *d)
  * call-seq:
  * Informix.connect(database, user = nil, password = nil)  => Database
  *
- * Returns a <code>Database</code> object connected to <i>database<i> as
+ * Returns a <code>Database</code> object connected to <i>database</i> as
  * <i>user</i> with <i>password</i>. If these are not given, connects to
  * <i>database</i> as the current user.
  */
@@ -1138,7 +1138,7 @@ seqcur_fetch(VALUE self)
 
 /*
  * call-seq:
- * fetch  => hash
+ * fetch_hash  => hash
  *
  * Fetches the next record and returns it as a hash, or nil if there are no
  * records left.
