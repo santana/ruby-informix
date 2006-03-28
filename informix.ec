@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.19 2006/03/27 07:05:47 santana Exp $ */
+/* $Id: informix.ec,v 1.20 2006/03/28 07:23:56 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -206,6 +206,10 @@ free_input_slots(cursor_t *c)
 	}
 }
 
+/*
+ * Frees the memory for the output parameters, their slots, and the indicators
+ * array. Allocated by alloc_output_slots.
+ */
 static void
 free_output_slots(cursor_t *c)
 {
@@ -235,6 +239,10 @@ free_output_slots(cursor_t *c)
 	}
 }
 
+/*
+ * Gets an array of Ruby objects as input parameters and place them in input
+ * slots, converting data types and allocating memory as needed.
+ */
 static void
 bind_input_params(cursor_t *c, VALUE *argv)
 {
@@ -379,6 +387,9 @@ bind_input_params(cursor_t *c, VALUE *argv)
 	}
 }
 
+/*
+ * Returns an array or a hash  of Ruby objects containing the record fetched.
+ */
 static VALUE
 make_result(VALUE self, VALUE type)
 {
@@ -558,6 +569,14 @@ get_column_info(VALUE self, struct sqlda *d)
 
 /* module Informix -------------------------------------------------------- */
 
+/*
+ * call-seq:
+ * Informix.connect(database, user = nil, password = nil)  => Database
+ *
+ * Returns a <code>Database</code> object connected to <i>database<i> as
+ * <i>user</i> with <i>password</i>. If these are not given, connects to
+ * <i>database</i> as the current user.
+ */
 static VALUE
 informix_connect(int argc, VALUE *argv, VALUE self)
 {
@@ -567,8 +586,16 @@ informix_connect(int argc, VALUE *argv, VALUE self)
 
 /* class Database --------------------------------------------------------- */
 
+/*
+ * call-seq:
+ * Database.new(database, user = nil, password = nil)  => Database
+ *
+ * Returns a <code>Database</code> object connected to <i>database</i> as
+ * <i>user</i> with <i>password</i>. If these are not given, connects to
+ * <i>database</i> as the current user.
+ */
 static VALUE
-database_open(int argc, VALUE *argv, VALUE self)
+database_initialize(int argc, VALUE *argv, VALUE self)
 {
 	VALUE str, arg[3];
 
@@ -613,6 +640,12 @@ database_open(int argc, VALUE *argv, VALUE self)
 	return self;
 }
 
+/*
+ * call-seq:
+ * db.close  => Database
+ *
+ * Disconnects <i>db</i> and returns __self__
+ */
 static VALUE
 database_close(VALUE self)
 {
@@ -629,6 +662,15 @@ database_close(VALUE self)
 
 	return self;
 }
+
+/*
+ * call-seq:
+ * db.immediate(query)  => fixnum
+ *
+ * Executes <i>query</i> and returns the number of rows affected.
+ * <i>query</i> must not return rows. Executes efficiently any
+ * non-parameterized or DQL statement.
+ */
 
 static VALUE
 database_immediate(VALUE self, VALUE arg)
@@ -648,12 +690,12 @@ database_immediate(VALUE self, VALUE arg)
 	return INT2FIX(sqlca.sqlerrd[2]);
 }
 
-static VALUE
-database_initialize(int argc, VALUE *argv, VALUE self)
-{
-	return database_open(argc, argv, self);
-}
-
+/*
+ * call-seq:
+ * db.rollback  => Database
+ *
+ * Rolls back a transaction. Returns __self__.
+ */
 static VALUE
 database_rollback(VALUE self)
 {
@@ -661,6 +703,12 @@ database_rollback(VALUE self)
 	return self;
 }
 
+/*
+ * call-seq:
+ * db.commit  => Database
+ *
+ * Commits a transaction. Returns __self__.
+ */
 static VALUE
 database_commit(VALUE self)
 {
@@ -675,6 +723,14 @@ database_transfail(VALUE self)
 	return Qundef;
 }
 
+/*
+ * call-seq:
+ * db.transaction {|db| block }  => Database
+ *
+ * Opens a transaction and executes <i>block</i>, passing __self__ as parameter.
+ * If an exception is raised, the transaction is rolled back. It is commited
+ * otherwise. Returns __self__.
+ */
 static VALUE
 database_transaction(VALUE self)
 {
@@ -688,9 +744,18 @@ database_transaction(VALUE self)
 		rb_raise(rb_eRuntimeError, "Transaction rolled back");
 	}
 	EXEC SQL commit;
-	return ret;
+	return self;
 }
 
+/*
+ * call-seq:
+ * db.prepare(query)  => Statement
+ *
+ * Returns a <code>Statement</code> object based on <i>query</i>.
+ * <i>query</i> may contain '?' placeholders for input parameters;
+ * it must not be a query returning more than one row
+ * (use <code>Database#cursor</code> instead.)
+ */
 static VALUE
 database_prepare(VALUE self, VALUE query)
 {
@@ -698,6 +763,15 @@ database_prepare(VALUE self, VALUE query)
 	return rb_class_new_instance(2, argv, rb_cStatement);
 }
 
+/*
+ * call-seq:
+ * db.cursor(query, [:scroll => true or false, :hold => true or false]) => Cursor
+ *
+ * Returns a <code>Cursor</code> object based on <i>query</i>.
+ * <i>query</i> may contain '?' placeholders for input parameters.
+ * <i>:scroll</i> and <i>:hold</i> creates an scrollable cursor and/or with
+ * hold.
+ */
 static VALUE
 database_cursor(int argc, VALUE *argv, VALUE self)
 {
@@ -709,8 +783,10 @@ database_cursor(int argc, VALUE *argv, VALUE self)
 }
 
 /*
- * Obtains information for every column for the table given.
- * IBM Informix Guide to SQL: Reference (syscolumns)
+ * call-seq:
+ * db.columns(table)  => array
+ *
+ * Returns an array with information for every column of the given table.
  */
 static VALUE
 database_columns(VALUE self, VALUE table)
@@ -895,6 +971,13 @@ statement_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, 0, statement_free, c);
 }
 
+/*
+ * call-seq:
+ * Statement.new(database, query) => Statement
+ *
+ * Prepares <i>query</i> in the context of <i>database</i> and returns
+ * a <code>Statement</code> object.
+ */
 static VALUE
 statement_initialize(VALUE self, VALUE db, VALUE query)
 {
@@ -940,8 +1023,12 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 
 
 /*
- * Executes the previously prepared statement in statement_initialize, 
- * binding the input parameters and cleaning them afterwards, if needed.
+ * call-seq:
+ * stmt[*params]  => fixnum or hash
+ *
+ * Executes the previously prepared statement, binding <i>params</i> as
+ * input parameters.
+ *
  * Returns the record retrieved, in the case of a singleton select, or the
  * number of rows affected, in the case of any other statement.
  */
@@ -961,7 +1048,6 @@ statement_call(int argc, VALUE *argv, VALUE self)
 		rb_raise(rb_eRuntimeError, "Wrong number of parameters (%d for %d)",
 			argc, input->sqld);
 	}
-
 
 	if (c->is_select) {
 		if (argc) {
@@ -993,6 +1079,12 @@ statement_call(int argc, VALUE *argv, VALUE self)
 	return INT2FIX(sqlca.sqlerrd[2]);
 }
 
+/*
+ * call-seq:
+ * stmt.drop
+ *
+ * Frees the statement and the memory associated with it.
+ */
 static VALUE
 statement_drop(VALUE self)
 {
@@ -1031,18 +1123,39 @@ fetch(VALUE self, VALUE type)
 	return sqlca.sqlcode == 100 ? Qnil: make_result(self, type);
 }
 
+/*
+ * call-seq:
+ * fetch  => array
+ *
+ * Fetches the next record and returns it as an array, or nil if there are no
+ * records left.
+ */
 static VALUE
 seqcur_fetch(VALUE self)
 {
 	return fetch(self, T_ARRAY);
 }
 
+/*
+ * call-seq:
+ * fetch  => hash
+ *
+ * Fetches the next record and returns it as a hash, or nil if there are no
+ * records left.
+ */
 static VALUE
 seqcur_fetch_hash(VALUE self)
 {
 	return fetch(self, T_HASH);
 }
 
+/*
+ * call-seq:
+ * fetch_many(n)  => array
+ *
+ * Returns at most <i>n</i> records as an array, or nil if there are no
+ * records left.
+ */
 static VALUE
 seqcur_fetch_many(VALUE self, VALUE n)
 {
@@ -1064,6 +1177,13 @@ seqcur_fetch_many(VALUE self, VALUE n)
 	return i == 0? Qnil: rows;
 }
 
+/*
+ * call-seq:
+ * fetch_all  => array
+ *
+ * Returns all the records left as an array, or nil if there are no
+ * records left.
+ */
 static VALUE
 seqcur_fetch_all(VALUE self)
 {
@@ -1072,6 +1192,15 @@ seqcur_fetch_all(VALUE self)
 
 /* module InsertCursor --------------------------------------------------- */
 
+/*
+ * call-seq:
+ * put(*params)
+ *
+ * Binds <i>params</i> as input parameters and executes the insert statement.
+ * The records are no written immediatly to disk, unless the insert buffer
+ * is empty, the <code>flush</code> method is called, the cursor is closed or
+ * the transaction is commited.
+ */
 static VALUE
 inscur_put(int argc, VALUE *argv, VALUE self)
 {
@@ -1098,6 +1227,12 @@ inscur_put(int argc, VALUE *argv, VALUE self)
 	return INT2FIX(sqlca.sqlerrd[2]);
 }
 
+/*
+ * call-seq:
+ * flush
+ *
+ * Flushes the insert buffer, writing data to disk.
+ */
 static VALUE
 inscur_flush(VALUE self)
 {
@@ -1144,6 +1279,16 @@ cursor_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, 0, cursor_free, c);
 }
 
+/*
+ * call-seq:
+ * Cursor.new(database, query, options) => Statement
+ *
+ * Prepares <i>query</i> in the context of <i>database</i> with <i>options</i>
+ * and returns a <code>Cursor</code> object.
+ *
+ * <i>options</i> is a hash of boolean values with two possible keys:
+ * :scroll and :hold.
+ */
 static VALUE
 cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 {
@@ -1217,6 +1362,13 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 	return self;
 }
 
+/*
+ * call-seq:
+ * c.open(*params)  => Cursor
+ *
+ * Executes the previously prepared select statement, binding <i>params</i> as
+ * input parameters. Returns __self__.
+ */
 static VALUE
 cursor_open(int argc, VALUE *argv, VALUE self)
 {
@@ -1251,6 +1403,12 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 	return self;
 }
 
+/*
+ * call-seq:
+ * c.close  => Cursor
+ *
+ * Closes the cursor and returns __self__.
+ */
 static VALUE
 cursor_close(VALUE self)
 {
@@ -1267,6 +1425,13 @@ cursor_close(VALUE self)
 	return self;
 }
 
+/*
+ * call-seq:
+ * c.drop
+ *
+ * Closes the cursor and frees the memory associated with it. The cursor
+ * cannot be opened again.
+ */
 static VALUE
 cursor_drop(VALUE self)
 {
@@ -1299,7 +1464,7 @@ void Init_informix(void)
 	/* class Database ----------------------------------------------------- */
 	rb_cDatabase = rb_define_class_under(rb_mInformix, "Database", rb_cObject);
 	rb_define_method(rb_cDatabase, "initialize", database_initialize, -1);
-	rb_define_method(rb_cDatabase, "open", database_open, -1);
+	rb_define_alias(rb_cDatabase, "open", "initialize");
 	rb_define_method(rb_cDatabase, "close", database_close, 0);
 	rb_define_method(rb_cDatabase, "immediate", database_immediate, 1);
 	rb_define_alias(rb_cDatabase, "do", "immediate");
