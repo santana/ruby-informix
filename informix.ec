@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.21 2006/03/28 07:41:59 santana Exp $ */
+/* $Id: informix.ec,v 1.22 2006/04/02 15:11:15 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -146,7 +146,7 @@ alloc_output_slots(cursor_t *c)
 		if ((var->sqltype&0xFF) == SQLBYTES || (var->sqltype&0xFF) == SQLTEXT) {
 			loc_t *p;
 			p = (loc_t *)buffer;
-			byfill(p, sizeof(loc_t), 0);
+			byfill((char *)p, sizeof(loc_t), 0);
 			p->loc_loctype = LOCMEMORY;
 			p->loc_bufsize = -1;
 		}
@@ -345,7 +345,7 @@ bind_input_params(cursor_t *c, VALUE *argv)
 
 				loc = (loc_t *)ALLOC(loc_t);
 				assert(loc != NULL);
-				byfill(loc, sizeof(loc_t), 0);
+				byfill((char *)loc, sizeof(loc_t), 0);
 				loc->loc_loctype = LOCMEMORY;
 				loc->loc_buffer = (char *)ALLOC_N(char, len);
 				assert(loc->loc_buffer != NULL);
