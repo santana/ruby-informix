@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.22 2006/04/02 15:11:15 santana Exp $ */
+/* $Id: informix.ec,v 1.23 2006/04/05 05:51:21 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -73,7 +73,7 @@ static int count_markers(const char *query)
 	register char c, quote = 0;
 	register int count = 0;
 
-	while(c = *query++) {
+	while((c = *query++)) {
 		if (quote && c != quote)
 			;
 		else if (quote == c) {
@@ -464,7 +464,8 @@ make_result(VALUE self, VALUE type)
 			for (; qual <= TU_END(dt->dt_qual); qual++) {
 				switch(qual) {
 				case TU_YEAR:
-					year = 100**dgts++ + *dgts++;
+					year = 100**dgts++;
+					year += *dgts++;
 					break;
 				case TU_MONTH:
 					month = *dgts++;
@@ -613,7 +614,7 @@ database_initialize(int argc, VALUE *argv, VALUE self)
 	db = RSTRING(str)->ptr;
 	rb_iv_set(self, "@name", arg[0]);
 
-	snprintf(conn, sizeof(conn), "CONN%p", self);
+	snprintf(conn, sizeof(conn), "CONN%lx", self);
 	rb_iv_set(self, "@connection", rb_str_new2(conn));
 
 	if (!NIL_P(arg[1])) {
@@ -990,7 +991,7 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 	Data_Get_Struct(self, cursor_t, c);
 	output = c->daOutput;
 
-	snprintf(c->nmStmt, sizeof(c->nmStmt), "STMT%p", self);
+	snprintf(c->nmStmt, sizeof(c->nmStmt), "STMT%lx", self);
 
 	rb_iv_set(self, "@db", db);
 	query = StringValue(query);
@@ -1303,8 +1304,8 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 	Data_Get_Struct(self, cursor_t, c);
 	scroll = hold = Qfalse;
 
-	snprintf(c->nmCursor, sizeof(c->nmCursor), "CUR%p", self);
-	snprintf(c->nmStmt, sizeof(c->nmStmt), "STMT%p", self);
+	snprintf(c->nmCursor, sizeof(c->nmCursor), "CUR%lx", self);
+	snprintf(c->nmStmt, sizeof(c->nmStmt), "STMT%lx", self);
 
 	rb_iv_set(self, "@db", db);
 	rb_iv_set(self, "@query", query);
