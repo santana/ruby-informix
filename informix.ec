@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.24 2006/04/07 03:17:46 santana Exp $ */
+/* $Id: informix.ec,v 1.25 2006/04/07 08:17:46 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -514,7 +514,7 @@ make_result(VALUE self, VALUE type)
 			break;
 		}
 		case SQLBOOL:
-			item = var->sqldata[0] == 't'? Qtrue: Qfalse;
+			item = var->sqldata[0]? Qtrue: Qfalse;
 			break;
 		case SQLBYTES:
 		case SQLTEXT: {
