@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.25 2006/04/07 08:17:46 santana Exp $ */
+/* $Id: informix.ec,v 1.26 2006/04/08 07:14:30 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -421,16 +421,20 @@ make_result(VALUE self, VALUE type)
 			item = rb_str_new2(var->sqldata);
 			break;
 		case SQLSMINT:
-			item = INT2FIX(*(short *)var->sqldata);
+			item = INT2FIX(*(int2 *)var->sqldata);
 			break;
 		case SQLINT:
 		case SQLSERIAL:
-			item = INT2FIX(*(int *)var->sqldata);
+			item = INT2NUM(*(int4 *)var->sqldata);
 			break;
 		case SQLINT8:
-		case SQLSERIAL8:
-			item = LONG2FIX(*(long *)var->sqldata);
+		case SQLSERIAL8: {
+			char str[21];
+			ifx_int8toasc((ifx_int8_t *)var->sqldata, str, sizeof(str) - 1);
+			str[sizeof(str) - 1] = 0;
+			item = rb_cstr2inum(str, 10);
 			break;
+		}
 		case SQLSMFLOAT:
 			item = rb_float_new(*(float *)var->sqldata);
 			break;
