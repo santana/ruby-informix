@@ -13,6 +13,7 @@ Features:
 	* NULL, DATE and DATETIME mapped to nil, Date and Time objects and
 	  viceversa
 	* #drop method for freeing Informix resources immediatly
+	* source code documented with RDoc
 
 Caveats:
 	* INTERVAL not supported
