@@ -1,0 +1,20 @@
+0.1.0  04/10/2006
+-------------------
+Features:
+	* Support for all built-in data types, except INTERVAL
+	* immediate statements
+	* prepared statements
+	* select cursors and bulk inserts (insert cursors)
+	* transactions
+	* #columns method for retrieving column information
+	* rows retrieved as arrays or hashes
+	* IO-based and IO-like (StringIO) objects for storing a BYTE/TEXT
+	  column, and retrieved as a String object
+	* NULL, DATE and DATETIME mapped to nil, Date and Time objects and
+	  viceversa
+	* #drop method for freeing Informix resources immediatly
+
+Caveats:
+	* INTERVAL not supported
+	* cursors must be closed before reopening them
+	* only one open connection at a time is supported
