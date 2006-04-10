@@ -1,0 +1,58 @@
+Ruby/Informix
+---------------
+Ruby extension for connecting to IBM Informix Dynamic Server, written in ESQL/C.
+
+For installation instructions please read INSTALL. The documentation is
+located under the doc/ directory. Current information can be found at
+http://ruby-informix.rubyforge.org
+
+1. Supported platforms
+2. Data types
+3. Recommendations
+4. Caveats
+
+
+1. Supported platforms
+
+Ruby/Informix has been tested succesfully on the following platforms:
+
+Operating System    Architecture       Informix	      CSDK
+-------------------------------------------------------------
+Solaris 9              SPARC           9.40FC6       2.90UC3
+Linux Fedora Core 4     i386          10.00.UC3R1    2.90UC4
+Linux Fedora Core 5     i386          10.00.UC3R1    2.90UC4
+Windows XP Pro SP       i386           9.40TC3       2.90TC1
+Windows XP              i386           9.30TC1       2.90TC4
+
+Send me an e-mail if you have [un]succesfully tested Ruby/Informix on another
+platform.
+
+
+2. Data types
+
+All built-in data types are supported, except interval. As you would expect,
+numeric, string and boolean data types are mapped to their respective objects
+in Ruby; DATE, DATETIME and NULL are mapped to Date, Time and nil respectively.
+
+The notable exception is TEXT/BYTE columns, where Ruby/Informix expects an
+IO-based (File) or IO-like (StringIO) object as input, and returns an String
+object as output.
+
+
+3. Recommendations
+
+* use #drop for prepared statements and cursors to release Informix resources
+* you can optimize cursor execution by changing the fetch and insert buffers,
+  setting the environment variable FET_BUF_SIZE to up to 32767 for Informix 9.x,
+  or BIG_FET_BUF_SIZE for Informix 10.x
+
+
+4. Caveats
+
+* INTERVAL not implemented yet
+* Cursors must be closed before reopening them
+* Only one connection at a time is supported
+
+-----------------------------------------
+Gerardo Santana <gerardo.santana gmail>
+http://santanatechnotes.blogspot.com

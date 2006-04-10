@@ -1,0 +1,23 @@
+Ruby/Informix installation
+----------------------------
+
+1. Building Requirements
+	* Informix CSDK 2.90
+
+2. Building instructions
+
+   Unix
+
+$ esql -e informix.ec
+$ ruby extconf.rb --with-informix-include=$INFORMIXDIR/incl/esql \
+     --with-informix-lib=$INFORMIXDIR/lib:$INFORMIXDIR/lib/esql
+$ make
+# make install
+
+
+   Windows
+
+$ esql -e informix.ec
+$ ruby extconf.rb --with-informix-include=%INFORMIXDIR%\incl\esql --with-informix-lib=%INFORMIXDIR%\lib
+$ nmake
+$ nmake install
