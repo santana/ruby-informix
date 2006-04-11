@@ -17,4 +17,5 @@ else
   }
 end
 
+`esql -e informix.ec`
 create_makefile("informix")
