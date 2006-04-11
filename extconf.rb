@@ -6,7 +6,7 @@ env = nil
 if RUBY_PLATFORM =~ /mswin/
   $libs += " isqlt09a.lib"
 else
-  env = "env"
+  env = "/usr/bin/env"
   %w(ifsql ifasf ifgen ifos ifgls).each do |lib|
     $libs += " " + format(LIBARG, lib)
   end
