@@ -8,7 +8,6 @@ Ruby/Informix installation
 
    Unix
 
-$ esql -e informix.ec
 $ ruby extconf.rb --with-informix-include=$INFORMIXDIR/incl/esql \
      --with-informix-lib=$INFORMIXDIR/lib:$INFORMIXDIR/lib/esql
 $ make
@@ -17,7 +16,6 @@ $ make
 
    Windows
 
-$ esql -e informix.ec
 $ ruby extconf.rb --with-informix-include=%INFORMIXDIR%\incl\esql --with-informix-lib=%INFORMIXDIR%\lib
 $ nmake
 $ nmake install
