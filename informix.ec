@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.26 2006/04/08 07:14:30 santana Exp $ */
+/* $Id: informix.ec,v 1.27 2006/04/13 06:58:08 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -30,8 +30,6 @@
 
 #include "ruby.h"
 
-#define NDEBUG
-#include <assert.h> /* XXX */
 #include <sqlstype.h>
 #include <sqltypes.h>
 
@@ -102,9 +100,7 @@ alloc_input_slots(cursor_t *c, const char *query)
 	c->daInput.sqld = n;
 	if (n) {
 		c->daInput.sqlvar = ALLOC_N(struct sqlvar_struct, n);
-		assert(c->daInput.sqlvar != NULL);
 		c->indInput = ALLOC_N(short, n);
-		assert(c->indInput != NULL);
 		while(n--)
 			c->daInput.sqlvar[n].sqlind = &c->indInput[n];
 	}
@@ -127,7 +123,6 @@ alloc_output_slots(cursor_t *c)
 	register char *buffer;
 
 	ind = c->indOutput = ALLOC_N(short, c->daOutput->sqld);
-	assert(c->indOutput != NULL);
 
 	var = c->daOutput->sqlvar;
 	for (i = count = 0; i < c->daOutput->sqld; i++, ind++, var++) {
@@ -138,7 +133,6 @@ alloc_output_slots(cursor_t *c)
 
 	buffer = c->bfOutput = ALLOC_N(char, count);
 	memset(buffer, 0, count);
-	assert(buffer != NULL);
 
 	var = c->daOutput->sqlvar;
 	for (i = 0; i < c->daOutput->sqld; i++, var++) {
@@ -263,7 +257,6 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			break;
 		case T_FIXNUM:
 			var->sqldata = (char *)ALLOC(long);
-			assert(var->sqldata != NULL);
 			*((long *)var->sqldata) = FIX2LONG(data);
 			var->sqltype = CLONGTYPE;
 			var->sqllen = sizeof(long);
@@ -271,7 +264,6 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			break;
 		case T_FLOAT:
 			var->sqldata = (char *)ALLOC(double);
-			assert(var->sqldata != NULL);
 			*((double *)var->sqldata) = NUM2DBL(data);
 			var->sqltype = CDOUBLETYPE;
 			var->sqllen = sizeof(double);
@@ -280,7 +272,6 @@ bind_input_params(cursor_t *c, VALUE *argv)
 		case T_TRUE:
 		case T_FALSE:
 			var->sqldata = ALLOC(char);
-			assert(var->sqldata != NULL);
 			*var->sqldata = TYPE(data) == T_TRUE? 't': 'f';
 			var->sqltype = CCHARTYPE;
 			var->sqllen = sizeof(char);
@@ -298,7 +289,6 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				rmdyjul(mdy, &date);
 
 				var->sqldata = (char *)ALLOC(int4);
-				assert(var->sqldata != NULL);
 				*((int4 *)var->sqldata) = date;
 				var->sqltype = CDATETYPE;
 				var->sqllen = sizeof(int4);
@@ -320,7 +310,6 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				usec = FIX2INT(rb_funcall(data, s_usec, 0));
 
 				dt = ALLOC(dtime_t);
-				assert(dt != NULL);
 
 				dt->dt_qual = TU_DTENCODE(TU_YEAR, TU_F5);
 				snprintf(buffer, sizeof(buffer), "%d-%d-%d %d:%d:%d.%d",
@@ -344,11 +333,9 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				len = RSTRING(data)->len;
 
 				loc = (loc_t *)ALLOC(loc_t);
-				assert(loc != NULL);
 				byfill((char *)loc, sizeof(loc_t), 0);
 				loc->loc_loctype = LOCMEMORY;
 				loc->loc_buffer = (char *)ALLOC_N(char, len);
-				assert(loc->loc_buffer != NULL);
 				memcpy(loc->loc_buffer, str, len);
 				loc->loc_bufsize = loc->loc_size = len;
 
@@ -375,7 +362,6 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			str = RSTRING(data)->ptr;
 			len = RSTRING(data)->len;
 			var->sqldata = ALLOC_N(char, len + 1);
-			assert(var->sqldata != NULL);
 			memcpy(var->sqldata, str, len);
 			var->sqldata[len] = 0;
 			var->sqltype = CSTRINGTYPE;
@@ -967,7 +953,6 @@ statement_alloc(VALUE klass)
 	cursor_t *c;
 
 	c = ALLOC(cursor_t);
-	assert(c != NULL);
 	c->daInput.sqlvar = NULL;
 	c->daOutput = NULL;
 	c->indInput = NULL;
@@ -1315,7 +1300,6 @@ cursor_alloc(VALUE klass)
 	cursor_t *c;
 
 	c = ALLOC(cursor_t);
-	assert(c != NULL);
 	c->daInput.sqlvar = NULL;
 	c->daOutput = NULL;
 	c->indInput = NULL;
