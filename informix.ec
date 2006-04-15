@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.27 2006/04/13 06:58:08 santana Exp $ */
+/* $Id: informix.ec,v 1.28 2006/04/15 21:00:53 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -100,6 +100,7 @@ alloc_input_slots(cursor_t *c, const char *query)
 	c->daInput.sqld = n;
 	if (n) {
 		c->daInput.sqlvar = ALLOC_N(struct sqlvar_struct, n);
+		memset(c->daInput.sqlvar, 0, n*sizeof(struct sqlvar_struct));
 		c->indInput = ALLOC_N(short, n);
 		while(n--)
 			c->daInput.sqlvar[n].sqlind = &c->indInput[n];
