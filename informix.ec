@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.28 2006/04/15 21:00:53 santana Exp $ */
+/* $Id: informix.ec,v 1.29 2006/04/18 16:20:08 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -1140,15 +1140,8 @@ seqcur_fetch_hash(VALUE self)
 	return fetch(self, T_HASH);
 }
 
-/*
- * call-seq:
- * fetch_many(n)  => array
- *
- * Returns at most <i>n</i> records as an array, or nil if there are no
- * records left.
- */
 static VALUE
-seqcur_fetch_many(VALUE self, VALUE n)
+fetch_many(VALUE self, VALUE n, VALUE type)
 {
 	VALUE row, rows;
 	int i, max, all = n == Qnil;
@@ -1159,7 +1152,7 @@ seqcur_fetch_many(VALUE self, VALUE n)
 
 	rows = rb_ary_new();
 	for(i = 0; all || i < max; i++) {
-		row = fetch(self, T_ARRAY);
+		row = fetch(self, type);
 		if (row == Qnil) {
 			break;
 		}
@@ -1170,15 +1163,54 @@ seqcur_fetch_many(VALUE self, VALUE n)
 
 /*
  * call-seq:
+ * fetch_many(n)  => array
+ *
+ * Returns at most <i>n</i> records as an array of arrays, or nil if there are
+ * no records left.
+ */
+static VALUE
+seqcur_fetch_many(VALUE self, VALUE n)
+{
+	return fetch_many(self, n, T_ARRAY);
+}
+
+/*
+ * call-seq:
+ * fetch_hash_many(n)  => array
+ *
+ * Returns at most <i>n</i> records as an array of hashes, or nil if there are
+ * no records left.
+ */
+static VALUE
+seqcur_fetch_hash_many(VALUE self, VALUE n)
+{
+	return fetch_many(self, n, T_HASH);
+}
+
+/*
+ * call-seq:
  * fetch_all  => array
  *
- * Returns all the records left as an array, or nil if there are no
+ * Returns all the records left as an array of arrays, or nil if there are no
  * records left.
  */
 static VALUE
 seqcur_fetch_all(VALUE self)
 {
 	return seqcur_fetch_many(self, Qnil);
+}
+
+/*
+ * call-seq:
+ * fetch_hash_all  => array
+ *
+ * Returns all the records left as an array of hashes, or nil if there are no
+ * records left.
+ */
+static VALUE
+seqcur_fetch_hash_all(VALUE self)
+{
+	return seqcur_fetch_hash_many(self, Qnil);
 }
 
 /*
@@ -1519,7 +1551,9 @@ void Init_informix(void)
 	rb_define_method(rb_mSequentialCursor, "fetch", seqcur_fetch, 0);
 	rb_define_method(rb_mSequentialCursor, "fetch_hash", seqcur_fetch_hash, 0);
 	rb_define_method(rb_mSequentialCursor, "fetch_many", seqcur_fetch_many, 1);
+	rb_define_method(rb_mSequentialCursor, "fetch_hash_many", seqcur_fetch_hash_many, 1);
 	rb_define_method(rb_mSequentialCursor, "fetch_all", seqcur_fetch_all, 0);
+	rb_define_method(rb_mSequentialCursor, "fetch_hash_all", seqcur_fetch_hash_all, 0);
 	rb_define_method(rb_mSequentialCursor, "each", seqcur_each, 0);
 	rb_define_method(rb_mSequentialCursor, "each_hash", seqcur_each_hash, 0);
 
