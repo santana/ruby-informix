@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.29 2006/04/18 16:20:08 santana Exp $ */
+/* $Id: informix.ec,v 1.30 2006/04/19 05:26:18 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -1213,6 +1213,32 @@ seqcur_fetch_hash_all(VALUE self)
 	return seqcur_fetch_hash_many(self, Qnil);
 }
 
+static VALUE
+each(VALUE self, VALUE type)
+{
+	VALUE row;
+
+	for(;;) {
+		row = fetch(self, type);
+		if (row == Qnil)
+			return self;
+		rb_yield(row);
+	}
+}
+
+static VALUE
+each_by(VALUE self, VALUE n, VALUE type)
+{
+	VALUE row;
+
+	for(;;) {
+		row = fetch_many(self, n, type);
+		if (row == Qnil)
+			return self;
+		rb_yield(row);
+	}
+}
+
 /*
  * call-seq:
  * each {|row| block } => Cursor
@@ -1223,14 +1249,7 @@ seqcur_fetch_hash_all(VALUE self)
 static VALUE
 seqcur_each(VALUE self)
 {
-	VALUE row;
-
-	for(;;) {
-		row = seqcur_fetch(self);
-		if (row == Qnil)
-			return self;
-		rb_yield(row);
-	}
+	return each(self, T_ARRAY);
 }
 
 /*
@@ -1243,14 +1262,33 @@ seqcur_each(VALUE self)
 static VALUE
 seqcur_each_hash(VALUE self)
 {
-	VALUE row;
+	return each(self, T_HASH);
+}
 
-	for(;;) {
-		row = seqcur_fetch_hash(self);
-		if (row == Qnil)
-			return self;
-		rb_yield(row);
-	}
+/*
+ * call-seq:
+ * each_by(n) {|rows| block } => Cursor
+ *
+ * Iterates over the remaining rows, passing at most <i>n</i> <i>rows</i> to
+ * the block as arrays. Returns __self__.
+ */
+static VALUE
+seqcur_each_by(VALUE self, VALUE n)
+{
+	return each_by(self, n, T_ARRAY);
+}
+
+/*
+ * call-seq:
+ * each_hash_by(n) {|rows| block } => Cursor
+ *
+ * Iterates over the remaining rows, passing at most <i>n</i> <i>rows</i> to
+ * the block as hashes. Returns __self__.
+ */
+static VALUE
+seqcur_each_hash_by(VALUE self, VALUE n)
+{
+	return each_by(self, n, T_HASH);
 }
 
 /* module InsertCursor --------------------------------------------------- */
@@ -1556,6 +1594,8 @@ void Init_informix(void)
 	rb_define_method(rb_mSequentialCursor, "fetch_hash_all", seqcur_fetch_hash_all, 0);
 	rb_define_method(rb_mSequentialCursor, "each", seqcur_each, 0);
 	rb_define_method(rb_mSequentialCursor, "each_hash", seqcur_each_hash, 0);
+	rb_define_method(rb_mSequentialCursor, "each_by", seqcur_each_by, 1);
+	rb_define_method(rb_mSequentialCursor, "each_hash_by", seqcur_each_hash_by, 1);
 
 	/* InsertCursor ------------------------------------------------------- */
 	rb_define_method(rb_mInsertCursor, "put", inscur_put, -1);
