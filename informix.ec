@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.30 2006/04/19 05:26:18 santana Exp $ */
+/* $Id: informix.ec,v 1.31 2006/04/22 22:00:26 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -58,6 +58,7 @@ typedef struct {
 	char *bfOutput;
 	char nmCursor[30];
 	char nmStmt[30];
+	VALUE array, hash, field_names;
 } cursor_t;
 EXEC SQL end   declare section;
 
@@ -123,6 +124,8 @@ alloc_output_slots(cursor_t *c)
 	struct sqlvar_struct *var;
 	register char *buffer;
 
+	c->field_names = rb_ary_new2(c->daOutput->sqld);
+
 	ind = c->indOutput = ALLOC_N(short, c->daOutput->sqld);
 
 	var = c->daOutput->sqlvar;
@@ -130,6 +133,7 @@ alloc_output_slots(cursor_t *c)
 		var->sqlind = ind;
 		var->sqllen = rtypmsize(var->sqltype, var->sqllen);
 		count = rtypalign(count, var->sqltype) + var->sqllen;
+		rb_ary_store(c->field_names, i, rb_str_new2(var->sqlname));
 	}
 
 	buffer = c->bfOutput = ALLOC_N(char, count);
@@ -378,22 +382,11 @@ bind_input_params(cursor_t *c, VALUE *argv)
  * Returns an array or a hash  of Ruby objects containing the record fetched.
  */
 static VALUE
-make_result(VALUE self, VALUE type)
+make_result(cursor_t *c, VALUE record)
 {
-	VALUE item, record, field_names;
-	cursor_t *c;
+	VALUE item;
 	register int i;
 	register struct sqlvar_struct *var;
-
-	Data_Get_Struct(self, cursor_t, c);
-
-	if(type == T_ARRAY)
-		record = rb_ary_new2(c->daOutput->sqld);
-	else {
-		/* XXX use a C array instead */
-		field_names = rb_iv_get(self, "@field_names");
-		record = rb_hash_new();
-	}
 
 	var = c->daOutput->sqlvar;
 	for (i = 0; i < c->daOutput->sqld; i++, var++) {
@@ -533,31 +526,15 @@ make_result(VALUE self, VALUE type)
 			break;
 		}
 		}
-		if (type == T_ARRAY) {
+		if (BUILTIN_TYPE(record) == T_ARRAY) {
 			rb_ary_store(record, i, item);
-		} else {
-			/* XXX use a C array instead */
-			rb_hash_aset(record, rb_ary_entry(field_names, i), item);
+		}
+        else {
+			rb_hash_aset(record, RARRAY(c->field_names)->ptr[i], item);
 		}
 	}
 	return record;
 }
-
-static void
-get_column_info(VALUE self, struct sqlda *d)
-{
-	register int i, count;
-	VALUE ary;
-
-	count = d->sqld;
-	/* XXX use a C array instead, in a C struct */
-	ary = rb_ary_new2(count);
-	rb_iv_set(self, "@field_names", ary);
-	for(i = 0; i < count; i++) {
-		rb_ary_store(ary, i, rb_str_new2(d->sqlvar[i].sqlname));
-	}
-}
-
 
 /* module Informix -------------------------------------------------------- */
 
@@ -625,8 +602,8 @@ database_initialize(int argc, VALUE *argv, VALUE self)
 	else {
 		EXEC SQL connect to :db as :conn with concurrent transaction;
 	}
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 
 	return self;
@@ -675,8 +652,8 @@ database_immediate(VALUE self, VALUE arg)
 	query = RSTRING(arg)->ptr;
 
 	EXEC SQL execute immediate :query;
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 
 	return INT2FIX(sqlca.sqlerrd[2]);
@@ -811,7 +788,7 @@ database_columns(VALUE self, VALUE table)
 
 	EXEC SQL select tabid into :tabid from systables where tabname = :tabname;
 
-	if (sqlca.sqlcode == 100) {
+	if (SQLCODE == SQLNOTFOUND) {
 		rb_raise(rb_eRuntimeError, "Table '%s' doesn't exist", tabname);
 	}
 
@@ -823,21 +800,21 @@ database_columns(VALUE self, VALUE table)
 		where c.tabid = :tabid and c.tabid = d.tabid and c.colno = d.colno
 		order by c.colno;
 
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 	EXEC SQL open cur;
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 
 	for(;;) {
 		EXEC SQL fetch cur into :colname, :coltype, :collength,
 			:deftype, :defvalue;
-		if (sqlca.sqlcode < 0) {
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+		if (SQLCODE < 0) {
+			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 		}
-		if (sqlca.sqlcode == 100) {
+		if (SQLCODE == SQLNOTFOUND) {
 			break;
 		}
 		column = rb_hash_new();
@@ -935,6 +912,17 @@ database_columns(VALUE self, VALUE table)
 /* class Statement ------------------------------------------------------- */
 
 static void
+statement_mark(cursor_t *c)
+{
+	if (c->array)
+		rb_gc_mark(c->array);
+	if (c->hash)
+		rb_gc_mark(c->hash);
+	if (c->field_names)
+		rb_gc_mark(c->field_names);
+}
+
+static void
 statement_free(void *p)
 {
 	EXEC SQL begin declare section;
@@ -954,12 +942,8 @@ statement_alloc(VALUE klass)
 	cursor_t *c;
 
 	c = ALLOC(cursor_t);
-	c->daInput.sqlvar = NULL;
-	c->daOutput = NULL;
-	c->indInput = NULL;
-	c->indOutput = NULL;
-	c->bfOutput = NULL;
-	return Data_Wrap_Struct(klass, 0, statement_free, c);
+	memset(c, 0, sizeof(cursor_t));
+	return Data_Wrap_Struct(klass, statement_mark, statement_free, c);
 }
 
 /*
@@ -990,24 +974,23 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 	alloc_input_slots(c, c_query);
 
 	EXEC SQL prepare :c->nmStmt from :c_query;
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 	EXEC SQL describe :c->nmStmt into output;
 	c->daOutput = output;
 
-	c->is_select = (sqlca.sqlcode == 0 || sqlca.sqlcode == SQ_EXECPROC);
+	c->is_select = (SQLCODE == 0 || SQLCODE == SQ_EXECPROC);
 
 	if (c->is_select) {
 		alloc_output_slots(c);
-		get_column_info(self, output);
 	}
 	else {
 		free(c->daOutput);
 		c->daOutput = NULL;
 	}
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 	return self;
 }
@@ -1050,10 +1033,12 @@ statement_call(int argc, VALUE *argv, VALUE self)
 		else {
 			EXEC SQL execute :c->nmStmt into descriptor output;
 		}
-		if (sqlca.sqlcode < 0) {
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+		if (SQLCODE < 0) {
+			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 		}
-		return sqlca.sqlcode == 100 ? Qnil: make_result(self, T_HASH);
+		if (SQLCODE == SQLNOTFOUND)
+			return Qnil;
+		return make_result(c, rb_hash_new());
 	}
 	else {
 		if (argc)  {
@@ -1064,8 +1049,8 @@ statement_call(int argc, VALUE *argv, VALUE self)
 		else
 			EXEC SQL execute :c->nmStmt;
 	}
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 	return INT2FIX(sqlca.sqlerrd[2]);
 }
@@ -1087,8 +1072,8 @@ statement_drop(VALUE self)
 	free_input_slots(c);
 	free_output_slots(c);
 	EXEC SQL free :c->nmStmt;
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 	return Qnil;
 }
@@ -1096,22 +1081,54 @@ statement_drop(VALUE self)
 
 /* module SequentialCursor ----------------------------------------------- */
 
+/* Decides whether to use an Array or a Hash, and instantiate a new
+ * object or reuse an existing one.
+ */
+#define RECORD(c, type, bang, record) do {\
+	if (type == T_ARRAY) {\
+		if (bang) {\
+			if (!c->array)\
+				c->array = rb_ary_new2(c->daOutput->sqld);\
+			record = c->array;\
+		}\
+		else\
+			record = rb_ary_new2(c->daOutput->sqld);\
+	}\
+	else {\
+		if (bang) {\
+			if (!c->hash)\
+				c->hash = rb_hash_new();\
+			record = c->hash;\
+		}\
+		else\
+			record = rb_hash_new();\
+	}\
+}while(0)
+
+/*
+ * Base function for fetch* methods, except *_many
+ */
 static VALUE
-fetch(VALUE self, VALUE type)
+fetch(VALUE self, VALUE type, int bang)
 {
-	struct sqlda *output;
 	EXEC SQL begin declare section;
 		cursor_t *c;
 	EXEC SQL end   declare section;
+	struct sqlda *output;
+	VALUE record;
 
 	Data_Get_Struct(self, cursor_t, c);
 	output = c->daOutput;
 
 	EXEC SQL fetch :c->nmCursor using descriptor output;
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
-	return sqlca.sqlcode == 100 ? Qnil: make_result(self, type);
+	if (SQLCODE == SQLNOTFOUND)
+		return Qnil;
+
+	RECORD(c, type, bang, record);
+	return make_result(c, record);
 }
 
 /*
@@ -1124,7 +1141,21 @@ fetch(VALUE self, VALUE type)
 static VALUE
 seqcur_fetch(VALUE self)
 {
-	return fetch(self, T_ARRAY);
+	return fetch(self, T_ARRAY, 0);
+}
+
+/*
+ * call-seq:
+ * fetch!  => array
+ *
+ * Fetches the next record and returns it as an array, or nil if there are no
+ * records left. No new Array objects are created for each record. The same
+ * Array object is reused in each call.
+ */
+static VALUE
+seqcur_fetch_bang(VALUE self)
+{
+	return fetch(self, T_ARRAY, 1);
 }
 
 /*
@@ -1137,35 +1168,72 @@ seqcur_fetch(VALUE self)
 static VALUE
 seqcur_fetch_hash(VALUE self)
 {
-	return fetch(self, T_HASH);
+	return fetch(self, T_HASH, 0);
 }
 
+/*
+ * call-seq:
+ * fetch_hash!  => hash
+ *
+ * Fetches the next record and returns it as a hash, or nil if there are no
+ * records left. No new Hash objects are created for each record. The same
+ * Hash object is reused in each call.
+ */
+static VALUE
+seqcur_fetch_hash_bang(VALUE self)
+{
+	return fetch(self, T_HASH, 1);
+}
+
+/*
+ * Base function for fetch*_many, fetch*_all and each_by methods
+ */
 static VALUE
 fetch_many(VALUE self, VALUE n, VALUE type)
 {
-	VALUE row, rows;
-	int i, max, all = n == Qnil;
+	EXEC SQL begin declare section;
+		cursor_t *c;
+	EXEC SQL end   declare section;
+	struct sqlda *output;
+
+	VALUE record, records;
+	register long i, max;
+	register int all = n == Qnil;
+
+	Data_Get_Struct(self, cursor_t, c);
+	output = c->daOutput;
 
 	if (!all) {
-		max = FIX2INT(n);
+		max = FIX2LONG(n);
+		records = rb_ary_new2(max);
+	}
+	else {
+		records = rb_ary_new();
 	}
 
-	rows = rb_ary_new();
 	for(i = 0; all || i < max; i++) {
-		row = fetch(self, type);
-		if (row == Qnil) {
-			break;
+		EXEC SQL fetch :c->nmCursor using descriptor output;
+		if (SQLCODE < 0) {
+			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 		}
-		rb_ary_push(rows, row);
+		if (SQLCODE == SQLNOTFOUND)
+			break;
+
+		if (type == T_ARRAY)
+			record = rb_ary_new2(c->daOutput->sqld);
+		else
+			record = rb_hash_new();
+		rb_ary_store(records, i, make_result(c, record));
 	}
-	return i == 0? Qnil: rows;
+
+	return records;
 }
 
 /*
  * call-seq:
  * fetch_many(n)  => array
  *
- * Returns at most <i>n</i> records as an array of arrays, or nil if there are
+ * Returns at most <i>n</i> records as an array of arrays, or [] if there are
  * no records left.
  */
 static VALUE
@@ -1178,7 +1246,7 @@ seqcur_fetch_many(VALUE self, VALUE n)
  * call-seq:
  * fetch_hash_many(n)  => array
  *
- * Returns at most <i>n</i> records as an array of hashes, or nil if there are
+ * Returns at most <i>n</i> records as an array of hashes, or [] if there are
  * no records left.
  */
 static VALUE
@@ -1191,86 +1259,131 @@ seqcur_fetch_hash_many(VALUE self, VALUE n)
  * call-seq:
  * fetch_all  => array
  *
- * Returns all the records left as an array of arrays, or nil if there are no
+ * Returns all the records left as an array of arrays, or [] if there are no
  * records left.
  */
 static VALUE
 seqcur_fetch_all(VALUE self)
 {
-	return seqcur_fetch_many(self, Qnil);
+	return fetch_many(self, Qnil, T_ARRAY);
 }
 
 /*
  * call-seq:
  * fetch_hash_all  => array
  *
- * Returns all the records left as an array of hashes, or nil if there are no
+ * Returns all the records left as an array of hashes, or [] if there are no
  * records left.
  */
 static VALUE
 seqcur_fetch_hash_all(VALUE self)
 {
-	return seqcur_fetch_hash_many(self, Qnil);
+	return fetch_many(self, Qnil, T_HASH);
 }
 
+/*
+ * Base function for each* methods, except each*_by
+ */
 static VALUE
-each(VALUE self, VALUE type)
+each(VALUE self, VALUE type, int bang)
 {
-	VALUE row;
+	EXEC SQL begin declare section;
+		cursor_t *c;
+	EXEC SQL end   declare section;
+	struct sqlda *output;
+	VALUE record;
+
+	Data_Get_Struct(self, cursor_t, c);
+	output = c->daOutput;
 
 	for(;;) {
-		row = fetch(self, type);
-		if (row == Qnil)
+		EXEC SQL fetch :c->nmCursor using descriptor output;
+		if (SQLCODE < 0) {
+			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		}
+		if (SQLCODE == SQLNOTFOUND)
 			return self;
-		rb_yield(row);
+		RECORD(c, type, bang, record);
+		rb_yield(make_result(c, record));
 	}
 }
 
+/*
+ * Base function for each*_by methods
+ */
 static VALUE
 each_by(VALUE self, VALUE n, VALUE type)
 {
-	VALUE row;
+	VALUE records;
 
 	for(;;) {
-		row = fetch_many(self, n, type);
-		if (row == Qnil)
+		records = fetch_many(self, n, type);
+		if (RARRAY(records)->len == 0)
 			return self;
-		rb_yield(row);
+		rb_yield(records);
 	}
 }
 
 /*
  * call-seq:
- * each {|row| block } => Cursor
+ * each {|record| block } => Cursor
  *
- * Iterates over the remaining rows, passing each <i>row</i> to the block
+ * Iterates over the remaining records, passing each <i>record</i> to the block
  * as an array. Returns __self__.
  */
 static VALUE
 seqcur_each(VALUE self)
 {
-	return each(self, T_ARRAY);
+	return each(self, T_ARRAY, 0);
 }
 
 /*
  * call-seq:
- * each_hash {|row| block } => Cursor
+ * each! {|record| block } => Cursor
  *
- * Iterates over the remaining rows, passing each <i>row</i> to the block
+ * Iterates over the remaining records, passing each <i>record</i> to the block
+ * as an array. No new Array objects are created for each record. The same
+ * Array object is reused in each call. Returns __self__.
+ */
+static VALUE
+seqcur_each_bang(VALUE self)
+{
+	return each(self, T_ARRAY, 1);
+}
+
+/*
+ * call-seq:
+ * each_hash {|record| block } => Cursor
+ *
+ * Iterates over the remaining records, passing each <i>record</i> to the block
  * as a hash. Returns __self__.
  */
 static VALUE
 seqcur_each_hash(VALUE self)
 {
-	return each(self, T_HASH);
+	return each(self, T_HASH, 0);
 }
 
 /*
  * call-seq:
- * each_by(n) {|rows| block } => Cursor
+ * each_hash! {|record| block } => Cursor
  *
- * Iterates over the remaining rows, passing at most <i>n</i> <i>rows</i> to
- * the block as arrays. Returns __self__.
+ * Iterates over the remaining records, passing each <i>record</i> to the block
+ * as a hash. No new Hash objects are created for each record. The same
+ * Hash object is reused in each call. Returns __self__.
+ */
+static VALUE
+seqcur_each_hash_bang(VALUE self)
+{
+	return each(self, T_HASH, 1);
+}
+
+/*
+ * call-seq:
+ * each_by(n) {|records| block } => Cursor
+ *
+ * Iterates over the remaining records, passing at most <i>n</i> <i>records</i>
+ * to the block as arrays. Returns __self__.
  */
 static VALUE
 seqcur_each_by(VALUE self, VALUE n)
@@ -1280,10 +1393,10 @@ seqcur_each_by(VALUE self, VALUE n)
 
 /*
  * call-seq:
- * each_hash_by(n) {|rows| block } => Cursor
+ * each_hash_by(n) {|records| block } => Cursor
  *
- * Iterates over the remaining rows, passing at most <i>n</i> <i>rows</i> to
- * the block as hashes. Returns __self__.
+ * Iterates over the remaining records, passing at most <i>n</i> <i>records</i>
+ * to the block as hashes. Returns __self__.
  */
 static VALUE
 seqcur_each_hash_by(VALUE self, VALUE n)
@@ -1320,9 +1433,8 @@ inscur_put(int argc, VALUE *argv, VALUE self)
 	}
 	EXEC SQL put :c->nmCursor using descriptor input;
 	clean_input_slots(c);
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "%d:Informix Error: %d",
-			__LINE__, sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 	/* XXX 2-448, Guide to SQL: Sytax*/
 	return INT2FIX(sqlca.sqlerrd[2]);
@@ -1350,6 +1462,17 @@ inscur_flush(VALUE self)
 /* class Cursor ---------------------------------------------------------- */
 
 static void
+cursor_mark(cursor_t *c)
+{
+	if (c->array)
+		rb_gc_mark(c->array);
+	if (c->hash)
+		rb_gc_mark(c->hash);
+	if (c->field_names)
+		rb_gc_mark(c->field_names);
+}
+
+static void
 cursor_free(void *p)
 {
 	EXEC SQL begin declare section;
@@ -1371,12 +1494,8 @@ cursor_alloc(VALUE klass)
 	cursor_t *c;
 
 	c = ALLOC(cursor_t);
-	c->daInput.sqlvar = NULL;
-	c->daOutput = NULL;
-	c->indInput = NULL;
-	c->indOutput = NULL;
-	c->bfOutput = NULL;
-	return Data_Wrap_Struct(klass, 0, cursor_free, c);
+	memset(c, 0, sizeof(cursor_t));
+	return Data_Wrap_Struct(klass, cursor_mark, cursor_free, c);
 }
 
 /*
@@ -1420,8 +1539,8 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 	alloc_input_slots(c, c_query);
 
 	EXEC SQL prepare :c->nmStmt from :c_query;
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 
 	if (RTEST(scroll) && RTEST(hold)) {
@@ -1436,19 +1555,18 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 	else {
 		EXEC SQL declare :c->nmCursor cursor for :c->nmStmt;
 	}
-	if (sqlca.sqlcode < 0) {
-		rb_warn("Informix Error: %d\n", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_warn("Informix Error: %d\n", SQLCODE);
 		return Qnil;
 	}
 
 	EXEC SQL describe :c->nmStmt into output;
 	c->daOutput = output;
 
-	c->is_select = (sqlca.sqlcode == 0 || sqlca.sqlcode == SQ_EXECPROC);
+	c->is_select = (SQLCODE == 0 || SQLCODE == SQ_EXECPROC);
 
 	if (c->is_select) {
 		alloc_output_slots(c);
-		get_column_info(self, c->daOutput);
 		rb_extend_object(self, rb_mSequentialCursor);
 		if (scroll) {
 				rb_extend_object(self, rb_mScrollCursor);
@@ -1497,8 +1615,8 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 	else {
 		EXEC SQL open :c->nmCursor;
 	}
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 	return self;
 }
@@ -1519,8 +1637,8 @@ cursor_close(VALUE self)
 	Data_Get_Struct(self, cursor_t, c);
 	clean_input_slots(c);
 	EXEC SQL close :c->nmCursor;
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 	return self;
 }
@@ -1545,8 +1663,8 @@ cursor_drop(VALUE self)
 	free_output_slots(c);
 	EXEC SQL free :c->nmCursor;
 	EXEC SQL free :c->nmStmt;
-	if (sqlca.sqlcode < 0) {
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", sqlca.sqlcode);
+	if (SQLCODE < 0) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 	return Qnil;
 }
@@ -1587,13 +1705,17 @@ void Init_informix(void)
 	/* module SequentialCursor -------------------------------------------- */
 	rb_mSequentialCursor = rb_define_module_under(rb_mInformix, "SequentialCursor");
 	rb_define_method(rb_mSequentialCursor, "fetch", seqcur_fetch, 0);
+	rb_define_method(rb_mSequentialCursor, "fetch!", seqcur_fetch_bang, 0);
 	rb_define_method(rb_mSequentialCursor, "fetch_hash", seqcur_fetch_hash, 0);
+	rb_define_method(rb_mSequentialCursor, "fetch_hash!", seqcur_fetch_hash_bang, 0);
 	rb_define_method(rb_mSequentialCursor, "fetch_many", seqcur_fetch_many, 1);
 	rb_define_method(rb_mSequentialCursor, "fetch_hash_many", seqcur_fetch_hash_many, 1);
 	rb_define_method(rb_mSequentialCursor, "fetch_all", seqcur_fetch_all, 0);
 	rb_define_method(rb_mSequentialCursor, "fetch_hash_all", seqcur_fetch_hash_all, 0);
 	rb_define_method(rb_mSequentialCursor, "each", seqcur_each, 0);
+	rb_define_method(rb_mSequentialCursor, "each!", seqcur_each_bang, 0);
 	rb_define_method(rb_mSequentialCursor, "each_hash", seqcur_each_hash, 0);
+	rb_define_method(rb_mSequentialCursor, "each_hash!", seqcur_each_hash_bang, 0);
 	rb_define_method(rb_mSequentialCursor, "each_by", seqcur_each_by, 1);
 	rb_define_method(rb_mSequentialCursor, "each_hash_by", seqcur_each_hash_by, 1);
 
