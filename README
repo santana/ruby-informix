@@ -21,6 +21,7 @@ Operating System    Architecture       Informix	      CSDK
 Solaris 9              SPARC           9.40FC6       2.90UC3
 Linux Fedora Core 4     i386          10.00.UC3R1    2.90UC4
 Linux Fedora Core 5     i386          10.00.UC3R1    2.90UC4
+SuSE Linux 9.3          i386           9.30TC1       2.90UC4
 Windows XP Pro SP       i386           9.40TC3       2.90TC1
 Windows XP              i386           9.30TC1       2.90TC4
 
