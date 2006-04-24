@@ -1,3 +1,24 @@
+0.2.0  04/24/2006
+------------------
+New features:
+	* Methods added to SequentialCursor:
+
+		- fetch_hash_many(n), fetch_hash_all
+		- each_by(n), each_hash_by(n)
+		- fetch!, fetch_hash!, each!, each_hash!
+
+	  where !-methods reduce object creation by reusing the same result
+	  object in each call
+
+Remarks:
+	* fetch*many and fetch*all methods now return [] instead of nil when
+	  no records are found
+
+Bugs fixed:
+	* When freeing a cursor that was opened but never used, a segmentation
+	  fault occurred
+
+
 0.1.0  04/10/2006
 -------------------
 Features:
