@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.31 2006/04/22 22:00:26 santana Exp $ */
+/* $Id: informix.ec,v 1.32 2006/08/22 01:18:38 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -176,10 +176,10 @@ clean_input_slots(cursor_t *c)
 			if (var->sqltype == CLOCATORTYPE) {
 				loc_t *p = (loc_t *)var->sqldata;
 				if (p->loc_buffer != NULL) {
-					free(p->loc_buffer);
+					xfree(p->loc_buffer);
 				}
 			}
-			free(var->sqldata);
+			xfree(var->sqldata);
 			var->sqldata = NULL;
 			var++;
 		}
@@ -195,12 +195,12 @@ free_input_slots(cursor_t *c)
 {
 	clean_input_slots(c);
 	if (c->daInput.sqlvar) {
-		free(c->daInput.sqlvar);
+		xfree(c->daInput.sqlvar);
 		c->daInput.sqlvar = NULL;
 		c->daInput.sqld = 0;
 	}
 	if (c->indInput) {
-		free(c->indInput);
+		xfree(c->indInput);
 		c->indInput = NULL;
 	}
 }
@@ -221,19 +221,19 @@ free_output_slots(cursor_t *c)
 					(var->sqltype&0xFF) == SQLTEXT) {
 					loc_t *p = (loc_t *) var->sqldata;
 					if(p -> loc_buffer)
-						free(p->loc_buffer);
+						xfree(p->loc_buffer);
 				}
 			}
 		}
-		free(c->daOutput);
+		xfree(c->daOutput);
 		c->daOutput = NULL;
 	}
 	if (c->indOutput != NULL) {
-		free(c->indOutput);
+		xfree(c->indOutput);
 		c->indOutput = NULL;
 	}
 	if (c->bfOutput != NULL) {
-		free(c->bfOutput);
+		xfree(c->bfOutput);
 		c->bfOutput = NULL;
 	}
 }
@@ -933,7 +933,7 @@ statement_free(void *p)
 	free_input_slots(c);
 	free_output_slots(c);
 	EXEC SQL free :c->nmStmt;
-	free(c);
+	xfree(c);
 }
 
 static VALUE
@@ -986,7 +986,7 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 		alloc_output_slots(c);
 	}
 	else {
-		free(c->daOutput);
+		xfree(c->daOutput);
 		c->daOutput = NULL;
 	}
 	if (SQLCODE < 0) {
@@ -1485,7 +1485,7 @@ cursor_free(void *p)
 	EXEC SQL close :c->nmCursor;
 	EXEC SQL free :c->nmCursor;
 	EXEC SQL free :c->nmStmt;
-	free(c);
+	xfree(c);
 }
 
 static VALUE
@@ -1573,7 +1573,7 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 		}
 	}
 	else {
-		free(c->daOutput);
+		xfree(c->daOutput);
 		c->daOutput = NULL;
 		rb_extend_object(self, rb_mInsertCursor);
 	}
