@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.34 2006/11/16 05:10:29 santana Exp $ */
+/* $Id: informix.ec,v 1.35 2006/11/16 06:22:12 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -405,9 +405,13 @@ alloc_output_slots(cursor_t *c)
 	var = c->daOutput->sqlvar;
 	for (i = count = 0; i < c->daOutput->sqld; i++, ind++, var++) {
 		var->sqlind = ind;
+		rb_ary_store(c->field_names, i, rb_str_new2(var->sqlname));
+		if (ISSMARTBLOB(var->sqltype, var->sqlxid)) {
+			var->sqldata = (char *)ALLOC(ifx_lo_t);
+			continue;
+		}
 		var->sqllen = rtypmsize(var->sqltype, var->sqllen);
 		count = rtypalign(count, var->sqltype) + var->sqllen;
-		rb_ary_store(c->field_names, i, rb_str_new2(var->sqlname));
 	}
 
 	buffer = c->bfOutput = ALLOC_N(char, count);
@@ -415,6 +419,8 @@ alloc_output_slots(cursor_t *c)
 
 	var = c->daOutput->sqlvar;
 	for (i = count = 0; i < c->daOutput->sqld; i++, var++) {
+		if (var->sqldata)
+			continue;
 		count = rtypalign(count, var->sqltype);
 		var->sqldata = buffer + count;
 		count += var->sqllen;
@@ -491,12 +497,13 @@ free_output_slots(cursor_t *c)
 		if (var) {
 			int i;
 			for (i = 0; i < c->daOutput->sqld; i++, var++) {
-				if ((var->sqltype&0xFF) == SQLBYTES ||
-					(var->sqltype&0xFF) == SQLTEXT) {
+				if (ISBLOBTYPE(var->sqltype)) {
 					loc_t *p = (loc_t *) var->sqldata;
 					if(p -> loc_buffer)
 						xfree(p->loc_buffer);
 				}
+				if (ISSMARTBLOB(var->sqltype, var->sqlxid))
+					xfree(var->sqldata);
 			}
 		}
 		xfree(c->daOutput);
