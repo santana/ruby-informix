@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.33 2006/11/16 04:32:49 santana Exp $ */
+/* $Id: informix.ec,v 1.34 2006/11/16 05:10:29 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -137,7 +137,7 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 		slob->type = t;
 	}
 
-	sbspace = estbytes = extsz = createflags = openflags = maxbytes = Qnil;
+	col_info = sbspace = estbytes = extsz = createflags = openflags = maxbytes = Qnil;
 
 	if (RTEST(options)) {
 		col_info = rb_hash_aref(options, sym_col_info);
@@ -598,6 +598,19 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				var->sqldata = (char *)dt;
 				var->sqltype = CDTIMETYPE;
 				var->sqllen = sizeof(dtime_t);
+				*var->sqlind = 0;
+				break;
+			}
+			if (klass == rb_cSlob) {
+				slob_t *slob;
+
+				Data_Get_Struct(data, slob_t, slob);
+
+				var->sqldata = (char *)ALLOC(ifx_lo_t);
+				memcpy(var->sqldata, &slob->lo, sizeof(slob->lo));
+				var->sqltype = SQLUDTFIXED;
+				var->sqlxid = slob->type;
+				var->sqllen = sizeof(ifx_lo_t);
 				*var->sqlind = 0;
 				break;
 			}
