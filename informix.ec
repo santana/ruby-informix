@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.32 2006/08/22 01:18:38 santana Exp $ */
+/* $Id: informix.ec,v 1.33 2006/11/16 04:32:49 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -40,6 +40,7 @@ static VALUE rb_mSequentialCursor;
 static VALUE rb_mScrollCursor;
 static VALUE rb_mInsertCursor;
 
+static VALUE rb_cSlob;
 static VALUE rb_cDatabase;
 static VALUE rb_cStatement;
 static VALUE rb_cCursor;
@@ -49,6 +50,8 @@ static ID s_hour, s_min, s_sec, s_usec;
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
 static VALUE sym_precision, sym_scale, sym_default;
 static VALUE sym_scroll, sym_hold;
+static VALUE sym_col_info, sym_sbspace, sym_estbytes, sym_extsz;
+static VALUE sym_createflags, sym_openflags;
 
 EXEC SQL begin declare section;
 typedef struct {
@@ -61,6 +64,277 @@ typedef struct {
 	VALUE array, hash, field_names;
 } cursor_t;
 EXEC SQL end   declare section;
+
+typedef struct {
+	mint fd;
+	ifx_lo_t lo;
+	ifx_lo_create_spec_t *spec;
+	short type; /* XID_CLOB/XID_BLOB */
+} slob_t;
+
+
+/* class Slob ------------------------------------------------------------ */
+static void
+slob_free(slob_t *slob)
+{
+	if (slob->fd != -1)
+		ifx_lo_close(slob->fd);
+	if (slob->spec)
+		ifx_lo_spec_free(slob->spec);
+
+	xfree(slob);
+}
+
+static VALUE
+slob_alloc(VALUE klass)
+{
+	slob_t *slob;
+
+	slob = ALLOC(slob_t);
+	slob->spec = NULL;
+	slob->fd = -1;
+	slob->type = XID_CLOB;
+
+	return Data_Wrap_Struct(klass, 0, slob_free, slob);
+}
+
+/*
+ * call-seq:
+ * Slob.new(database, type = Slob::CLOB, options = nil)  => Slob
+ *
+ * Creates a Smart Large Object of type <i>type</i> in <i>database</i>.
+ * Returns a <code>Slob</code> object pointing to it.
+ *
+ * <i>type</i> can be Slob::BLOB or Slob::CLOB
+ *
+ * <i>options</i> must be a hash with the following possible keys:
+ *
+ *   :sbspace => Sbspace name
+ *   :estbytes => Estimated size, in bytes
+ *   :extsz => Allocation extent size
+ *   :createflags => Create-time flags
+ *   :openflags => Access mode
+ *   :maxbytes => Maximum size
+ *   :col_info => Get the previous values from the column-level storage
+ *                characteristics for the specified database column
+ */
+static VALUE
+slob_initialize(int argc, VALUE *argv, VALUE self)
+{
+	mint ret, error;
+	slob_t *slob;
+	VALUE db, type, options;
+	VALUE col_info, sbspace, estbytes, extsz, createflags, openflags, maxbytes;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	rb_scan_args(argc, argv, "12", &db, &type, &options);
+
+	if (RTEST(type)) {
+		int t = FIX2INT(type);
+		if (t != XID_CLOB && t!= XID_BLOB)
+			rb_raise(rb_eRuntimeError, "Invalid type %d for an SLOB", t);
+		slob->type = t;
+	}
+
+	sbspace = estbytes = extsz = createflags = openflags = maxbytes = Qnil;
+
+	if (RTEST(options)) {
+		col_info = rb_hash_aref(options, sym_col_info);
+		sbspace = rb_hash_aref(options, sym_sbspace);
+		estbytes = rb_hash_aref(options, sym_estbytes);
+		extsz = rb_hash_aref(options, sym_extsz);
+		createflags = rb_hash_aref(options, sym_createflags);
+		openflags = rb_hash_aref(options, sym_openflags);
+	}
+
+	ret = ifx_lo_def_create_spec(&slob->spec);
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+
+	if (RTEST(col_info)) {
+		ret = ifx_lo_col_info(StringValueCStr(col_info), slob->spec);
+
+		if (ret < 0)
+			rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+	}
+	if (RTEST(sbspace)) {
+		char *c_sbspace = StringValueCStr(sbspace);
+		ret = ifx_lo_specset_sbspace(slob->spec, c_sbspace);
+		if (ret == -1)
+			rb_raise(rb_eRuntimeError, "Could not set sbspace name to %s", c_sbspace);
+	}
+	if (RTEST(estbytes)) {
+		long c_estbytes;
+		ifx_int8_t estbytes8;
+
+		c_estbytes = FIX2LONG(estbytes);
+		ret = ifx_int8cvlong(c_estbytes, &estbytes8);
+		if (ret < 0)
+			rb_raise(rb_eRuntimeError, "Could not convert %d to int8", c_estbytes);
+		ret = ifx_lo_specset_estbytes(slob->spec, &estbytes8);
+		if (ret == -1)
+			rb_raise(rb_eRuntimeError, "Could not set estbytes to %d", c_estbytes);
+	}
+	if (RTEST(extsz)) {
+		ret = ifx_lo_specset_extsz(slob->spec, FIX2LONG(extsz));
+		if (ret == -1)
+			rb_raise(rb_eRuntimeError, "Could not set extsz to %d", FIX2LONG(extsz));
+	}
+	if (RTEST(createflags)) {
+		ret = ifx_lo_specset_flags(slob->spec, FIX2LONG(createflags));
+		if (ret == -1)
+			rb_raise(rb_eRuntimeError, "Could not set crate-time flags to 0x%X", FIX2LONG(createflags));
+	}
+	if (RTEST(maxbytes)) {
+		long c_maxbytes;
+		ifx_int8_t maxbytes8;
+
+		c_maxbytes = FIX2LONG(maxbytes);
+		ret = ifx_int8cvlong(c_maxbytes, &maxbytes8);
+		if (ret < 0)
+			rb_raise(rb_eRuntimeError, "Could not convert %d to int8", c_maxbytes);
+		ret = ifx_lo_specset_maxbytes(slob->spec, &maxbytes8);
+		if (ret == -1)
+			rb_raise(rb_eRuntimeError, "Could not set maxbytes to %d", c_maxbytes);
+	}
+	slob->fd = ifx_lo_create(slob->spec, RTEST(openflags)? FIX2LONG(openflags): LO_RDWR, &slob->lo, &error);
+	if (slob->fd == -1) {
+		rb_raise(rb_eRuntimeError, "Informix Error: %d\n", error);
+	}
+	return self;
+}
+
+/*
+ * call-seq:
+ * slob.open(access = Slob::RDONLY)  => Slob
+ *
+ * Opens the Smart Large Object in <i>access</i> mode.
+ *
+ * access modes:
+ * 
+ * Slob::RDONLY			Read only
+ * Slob::DIRTY_READ		Read uncommitted data
+ * Slob::WRONLY			Write only
+ * Slob::APPEND			Append data to the end, if combined with RDRW or WRONLY;
+ *                      read only otherwise
+ * Slob::RDRW			Read/Write
+ * Slob::BUFFER			Use standard database server buffer pool
+ * Slob::NOBUFFER		Use private buffer from the session pool of the database server
+ * Slob::LOCKALL		Lock the entire Smart Large Object
+ * Slob::LOCKRANGE		Lock a range of bytes
+ *
+ * Returns __self__.
+ */
+static VALUE
+slob_open(int argc, VALUE *argv, VALUE self)
+{
+	VALUE access;
+	slob_t *slob;
+	mint error;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd != -1) /* Already open */
+		return self;
+
+	rb_scan_args(argc, argv, "01", &access);
+
+	slob->fd = ifx_lo_open(&slob->lo, NIL_P(access)? LO_RDONLY: FIX2INT(access), &error);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", error);
+
+	return self;
+}
+
+/*
+ * call-seq:
+ * slob.close  => Slob
+ * 
+ * Closes the Smart Large Object and returns __self__.
+ */
+static VALUE
+slob_close(VALUE self)
+{
+	slob_t *slob;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd != -1) {
+		ifx_lo_close(slob->fd);
+		slob->fd = -1;
+	}
+
+	return self;
+}
+
+/*
+ * call-seq:
+ * slob.read(nbytes)  => String
+ * 
+ * Reads <i>nbytes</i> bytes from the Smart Large Object.
+ * Returns the bytes read in a String object.
+ */
+static VALUE
+slob_read(VALUE self, VALUE nbytes)
+{
+	slob_t *slob;
+	mint error, ret;
+	char *buffer;
+	long c_nbytes;
+	VALUE str;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError, "Open the Slob object before reading");
+
+	c_nbytes = FIX2LONG(nbytes);
+	buffer = ALLOC_N(char, c_nbytes);
+	ret = ifx_lo_read(slob->fd, buffer, c_nbytes, &error);
+
+	if (ret == -1)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d\n", error);
+
+	str = rb_str_new(buffer, ret);
+	xfree(buffer);
+
+	return str;
+}
+
+/*
+ * call-seq:
+ * slob.write(data)  => Fixnum or Bignum
+ * 
+ * Writes <i>data</i> into the Smart Large Object.
+ * Returns the number of bytes written.
+ */
+static VALUE
+slob_write(VALUE self, VALUE data)
+{
+	slob_t *slob;
+	mint error, ret;
+	char *buffer;
+	long nbytes;
+	VALUE str;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError, "Open the Slob object before writing");
+
+	str = StringValue(data);
+	buffer = RSTRING(str)->ptr;
+	nbytes = RSTRING(str)->len;
+
+	ret = ifx_lo_write(slob->fd, buffer, nbytes, &error);
+
+	if (ret == -1)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", error);
+
+	return LONG2NUM(ret);
+}
 
 /* Helper functions ------------------------------------------------------- */
 
@@ -140,17 +414,17 @@ alloc_output_slots(cursor_t *c)
 	memset(buffer, 0, count);
 
 	var = c->daOutput->sqlvar;
-	for (i = 0; i < c->daOutput->sqld; i++, var++) {
-		buffer = (char *)rtypalign((mint)buffer, var->sqltype);
-		if ((var->sqltype&0xFF) == SQLBYTES || (var->sqltype&0xFF) == SQLTEXT) {
+	for (i = count = 0; i < c->daOutput->sqld; i++, var++) {
+		count = rtypalign(count, var->sqltype);
+		var->sqldata = buffer + count;
+		count += var->sqllen;
+		if (ISBYTESTYPE(var->sqltype) || ISTEXTTYPE(var->sqltype)) {
 			loc_t *p;
-			p = (loc_t *)buffer;
+			p = (loc_t *)var->sqldata;
 			byfill((char *)p, sizeof(loc_t), 0);
 			p->loc_loctype = LOCMEMORY;
 			p->loc_bufsize = -1;
 		}
-		var->sqldata = buffer;
-		buffer += var->sqllen;
 		if (var->sqltype == SQLDTIME) {
 			var->sqllen = 0;
 		}
@@ -507,6 +781,16 @@ make_result(cursor_t *c, VALUE record)
 			item = rb_str_new(loc->loc_buffer, loc->loc_size);
 			break;
 		}
+		case SQLUDTFIXED:
+			if (ISSMARTBLOB(var->sqltype, var->sqlxid)) {
+				slob_t *slob;
+
+				item = slob_alloc(rb_cSlob);
+				Data_Get_Struct(item, slob_t, slob);
+				memcpy(&slob->lo, var->sqldata, sizeof(ifx_lo_t));
+				slob->type = var->sqlxid;
+				break;
+			}
 		case SQLSET:
 		case SQLMULTISET:
 		case SQLLIST:
@@ -514,7 +798,6 @@ make_result(cursor_t *c, VALUE record)
 		case SQLCOLLECTION:
 		case SQLROWREF:
 		case SQLUDTVAR:
-		case SQLUDTFIXED:
 		case SQLREFSER8:
 		case SQLLVARCHAR:
 		case SQLSENDRECV:
@@ -1500,7 +1783,7 @@ cursor_alloc(VALUE klass)
 
 /*
  * call-seq:
- * Cursor.new(database, query, options) => Statement
+ * Cursor.new(database, query, options) => Cursor
  *
  * Prepares <i>query</i> in the context of <i>database</i> with <i>options</i>
  * and returns a <code>Cursor</code> object.
@@ -1679,6 +1962,30 @@ void Init_informix(void)
 	rb_mInsertCursor = rb_define_module_under(rb_mInformix, "InsertCursor");
 	rb_define_module_function(rb_mInformix, "connect", informix_connect, -1);
 
+	/* class Slob --------------------------------------------------------- */
+	rb_cSlob = rb_define_class_under(rb_mInformix, "Slob", rb_cObject);
+	rb_define_alloc_func(rb_cSlob, slob_alloc);
+	rb_define_method(rb_cSlob, "initialize", slob_initialize, -1);
+	rb_define_method(rb_cSlob, "open", slob_open, -1);
+	rb_define_method(rb_cSlob, "close", slob_close, 0);
+	rb_define_method(rb_cSlob, "read", slob_read, 1);
+	rb_define_method(rb_cSlob, "write", slob_write, 1);
+
+	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
+	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
+
+	#define DEF_SLOB_CONST(k) rb_define_const(rb_cSlob, #k, INT2FIX(LO_##k))
+
+	DEF_SLOB_CONST(RDONLY);
+	DEF_SLOB_CONST(DIRTY_READ);
+	DEF_SLOB_CONST(WRONLY);
+	DEF_SLOB_CONST(APPEND);
+	DEF_SLOB_CONST(RDWR);
+	DEF_SLOB_CONST(BUFFER);
+	DEF_SLOB_CONST(NOBUFFER);
+	DEF_SLOB_CONST(LOCKALL);
+	DEF_SLOB_CONST(LOCKRANGE);
+
 	/* class Database ----------------------------------------------------- */
 	rb_cDatabase = rb_define_class_under(rb_mInformix, "Database", rb_cObject);
 	rb_define_method(rb_cDatabase, "initialize", database_initialize, -1);
@@ -1756,4 +2063,10 @@ void Init_informix(void)
 	sym_default = ID2SYM(rb_intern("default"));
 	sym_scroll = ID2SYM(rb_intern("scroll"));
 	sym_hold = ID2SYM(rb_intern("hold"));
+	sym_col_info = ID2SYM(rb_intern("col_info"));
+	sym_sbspace = ID2SYM(rb_intern("sbspace"));
+	sym_estbytes = ID2SYM(rb_intern("estbytes"));
+	sym_extsz = ID2SYM(rb_intern("extsz"));
+	sym_createflags = ID2SYM(rb_intern("createflags"));
+	sym_openflags = ID2SYM(rb_intern("openflags"));
 }
