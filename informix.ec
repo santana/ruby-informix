@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.37 2006/11/17 05:07:32 santana Exp $ */
+/* $Id: informix.ec,v 1.38 2006/11/17 06:46:51 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -100,7 +100,7 @@ slob_alloc(VALUE klass)
 
 /*
  * call-seq:
- * Slob.new(database, type = Slob::CLOB, options = nil)  => Slob
+ * Slob.new(database, type = Slob::CLOB, options = nil)  => slob
  *
  * Creates a Smart Large Object of type <i>type</i> in <i>database</i>.
  * Returns a <code>Slob</code> object pointing to it.
@@ -207,7 +207,7 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
- * slob.open(access = Slob::RDONLY)  => Slob
+ * slob.open(access = Slob::RDONLY)  => slob
  *
  * Opens the Smart Large Object in <i>access</i> mode.
  *
@@ -220,7 +220,8 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
  *                      read only otherwise
  * Slob::RDRW			Read/Write
  * Slob::BUFFER			Use standard database server buffer pool
- * Slob::NOBUFFER		Use private buffer from the session pool of the database server
+ * Slob::NOBUFFER		Use private buffer from the session pool of the
+ *						database server
  * Slob::LOCKALL		Lock the entire Smart Large Object
  * Slob::LOCKRANGE		Lock a range of bytes
  *
@@ -250,7 +251,7 @@ slob_open(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
- * slob.close  => Slob
+ * slob.close  => slob
  * 
  * Closes the Smart Large Object and returns __self__.
  */
@@ -271,10 +272,11 @@ slob_close(VALUE self)
 
 /*
  * call-seq:
- * slob.read(nbytes)  => String
+ * slob.read(nbytes)  => string
  * 
- * Reads <i>nbytes</i> bytes from the Smart Large Object.
- * Returns the bytes read in a String object.
+ * Reads at most <i>nbytes</i> bytes from the Smart Large Object.
+ *
+ * Returns the bytes read as a String object.
  */
 static VALUE
 slob_read(VALUE self, VALUE nbytes)
@@ -305,9 +307,10 @@ slob_read(VALUE self, VALUE nbytes)
 
 /*
  * call-seq:
- * slob.write(data)  => Fixnum or Bignum
+ * slob.write(data)  => fixnum or bignum
  * 
- * Writes <i>data</i> into the Smart Large Object.
+ * Writes <i>data</i> to the Smart Large Object.
+ *
  * Returns the number of bytes written.
  */
 static VALUE
@@ -338,7 +341,7 @@ slob_write(VALUE self, VALUE data)
 
 /*
  * call-seq:
- * slob.seek(offset, whence)  => Fixnum or Bignum
+ * slob.seek(offset, whence)  => fixnum or bignum
  * 
  * Sets the file position for the next read or write
  * operation on the open Smart Large Object.
@@ -388,7 +391,7 @@ slob_seek(VALUE self, VALUE offset, VALUE whence)
 
 /*
  * call-seq:
- * slob.tell  => Fixnum or Bignum
+ * slob.tell  => fixnum or bignum
  * 
  * Returns the current file or seek position for an
  * open Smart Large Object
@@ -417,6 +420,40 @@ slob_tell(VALUE self)
 		rb_raise(rb_eRuntimeError, "Error converting int8 to long");
 
 	return LONG2NUM(c_seek_pos);
+}
+
+/*
+ * call-seq:
+ * slob.truncate(offset)  => slob
+ * 
+ * Truncates a Smart Large Object at a specified byte position.
+ *
+ * Returns __self__.
+ */
+static VALUE
+slob_truncate(VALUE self, VALUE offset)
+{
+	slob_t *slob;
+	mint ret;
+	int4 c_offset;
+	ifx_int8_t offset8;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+
+	c_offset = FIX2LONG(offset);
+	ret = ifx_int8cvlong(c_offset, &offset8);
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Could not convert %ld to int8", c_offset);
+
+	ret = ifx_lo_truncate(slob->fd, &offset8);
+
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+
+	return self;
 }
 
 /* Helper functions ------------------------------------------------------- */
@@ -926,11 +963,11 @@ make_result(cursor_t *c, VALUE record)
 
 /*
  * call-seq:
- * Informix.connect(database, user = nil, password = nil)  => Database
+ * Informix.connect(dbname, user = nil, password = nil)  => database
  *
- * Returns a <code>Database</code> object connected to <i>database</i> as
+ * Returns a <code>Database</code> object connected to <i>dbname</i> as
  * <i>user</i> with <i>password</i>. If these are not given, connects to
- * <i>database</i> as the current user.
+ * <i>dbname</i> as the current user.
  */
 static VALUE
 informix_connect(int argc, VALUE *argv, VALUE self)
@@ -943,11 +980,11 @@ informix_connect(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
- * Database.new(database, user = nil, password = nil)  => Database
+ * Database.new(dbname, user = nil, password = nil)  => database
  *
- * Returns a <code>Database</code> object connected to <i>database</i> as
+ * Returns a <code>Database</code> object connected to <i>dbname</i> as
  * <i>user</i> with <i>password</i>. If these are not given, connects to
- * <i>database</i> as the current user.
+ * <i>dbname</i> as the current user.
  */
 static VALUE
 database_initialize(int argc, VALUE *argv, VALUE self)
@@ -961,7 +998,7 @@ database_initialize(int argc, VALUE *argv, VALUE self)
 	rb_scan_args(argc, argv, "12", &arg[0], &arg[1], &arg[2]);
 
 	if (NIL_P(arg[0])) {
-		rb_raise(rb_eRuntimeError, "Database name must be specified");
+		rb_raise(rb_eRuntimeError, "A database name must be specified");
 	}
 
 	str  = StringValue(arg[0]);
@@ -997,7 +1034,7 @@ database_initialize(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
- * db.close  => Database
+ * db.close  => db
  *
  * Disconnects <i>db</i> and returns __self__
  */
@@ -1047,9 +1084,9 @@ database_immediate(VALUE self, VALUE arg)
 
 /*
  * call-seq:
- * db.rollback  => Database
+ * db.rollback  => db
  *
- * Rolls back a transaction. Returns __self__.
+ * Rolls back a transaction and returns __self__.
  */
 static VALUE
 database_rollback(VALUE self)
@@ -1060,9 +1097,9 @@ database_rollback(VALUE self)
 
 /*
  * call-seq:
- * db.commit  => Database
+ * db.commit  => db
  *
- * Commits a transaction. Returns __self__.
+ * Commits a transaction and returns __self__.
  */
 static VALUE
 database_commit(VALUE self)
@@ -1080,11 +1117,13 @@ database_transfail(VALUE self)
 
 /*
  * call-seq:
- * db.transaction {|db| block }  => Database
+ * db.transaction {|db| block }  => db
  *
  * Opens a transaction and executes <i>block</i>, passing __self__ as parameter.
  * If an exception is raised, the transaction is rolled back. It is commited
- * otherwise. Returns __self__.
+ * otherwise.
+ *
+ * Returns __self__.
  */
 static VALUE
 database_transaction(VALUE self)
@@ -1104,7 +1143,7 @@ database_transaction(VALUE self)
 
 /*
  * call-seq:
- * db.prepare(query)  => Statement
+ * db.prepare(query)  => statement
  *
  * Returns a <code>Statement</code> object based on <i>query</i>.
  * <i>query</i> may contain '?' placeholders for input parameters;
@@ -1120,12 +1159,16 @@ database_prepare(VALUE self, VALUE query)
 
 /*
  * call-seq:
- * db.cursor(query, [:scroll => true or false, :hold => true or false]) => Cursor
+ * db.cursor(query, options = nil) => cursor
  *
  * Returns a <code>Cursor</code> object based on <i>query</i>.
  * <i>query</i> may contain '?' placeholders for input parameters.
- * <i>:scroll</i> and <i>:hold</i> creates an scrollable cursor and/or with
- * hold.
+ *
+ * <i>options</i> must be a hash with the following possible keys:
+ *
+ *   :scroll => true or false
+ *   :hold => true or false
+ *
  */
 static VALUE
 database_cursor(int argc, VALUE *argv, VALUE self)
@@ -1334,7 +1377,7 @@ statement_alloc(VALUE klass)
 
 /*
  * call-seq:
- * Statement.new(database, query) => Statement
+ * Statement.new(database, query) => statement
  *
  * Prepares <i>query</i> in the context of <i>database</i> and returns
  * a <code>Statement</code> object.
@@ -1519,9 +1562,11 @@ fetch(VALUE self, VALUE type, int bang)
 
 /*
  * call-seq:
- * fetch  => array
+ * cursor.fetch  => array or nil
  *
- * Fetches the next record and returns it as an array, or nil if there are no
+ * Fetches the next record.
+ *
+ * Returns the record fetched as an array, or nil if there are no
  * records left.
  */
 static VALUE
@@ -1532,11 +1577,13 @@ seqcur_fetch(VALUE self)
 
 /*
  * call-seq:
- * fetch!  => array
+ * cursor.fetch!  => array or nil
  *
- * Fetches the next record and returns it as an array, or nil if there are no
- * records left. No new Array objects are created for each record. The same
- * Array object is reused in each call.
+ * Fetches the next record, storing it in the same Array object every time
+ * it is called.
+ * 
+ * Returns the record fetched as an array, or nil if there are no
+ * records left.
  */
 static VALUE
 seqcur_fetch_bang(VALUE self)
@@ -1546,9 +1593,11 @@ seqcur_fetch_bang(VALUE self)
 
 /*
  * call-seq:
- * fetch_hash  => hash
+ * cursor.fetch_hash  => hash or nil
  *
- * Fetches the next record and returns it as a hash, or nil if there are no
+ * Fetches the next record.
+ *
+ * Returns the record fetched as a hash, or nil if there are no
  * records left.
  */
 static VALUE
@@ -1559,11 +1608,13 @@ seqcur_fetch_hash(VALUE self)
 
 /*
  * call-seq:
- * fetch_hash!  => hash
+ * cursor.fetch_hash!  => hash or nil
  *
- * Fetches the next record and returns it as a hash, or nil if there are no
- * records left. No new Hash objects are created for each record. The same
- * Hash object is reused in each call.
+ * Fetches the next record, storing it in the same Hash object every time
+ * it is called.
+ * 
+ * Returns the record fetched as a hash, or nil if there are no
+ * records left.
  */
 static VALUE
 seqcur_fetch_hash_bang(VALUE self)
@@ -1617,10 +1668,11 @@ fetch_many(VALUE self, VALUE n, VALUE type)
 
 /*
  * call-seq:
- * fetch_many(n)  => array
+ * cursor.fetch_many(n)  => array
  *
- * Returns at most <i>n</i> records as an array of arrays, or [] if there are
- * no records left.
+ * Reads at most <i>n</i> records.
+ *
+ * Returns the records read as an array of arrays
  */
 static VALUE
 seqcur_fetch_many(VALUE self, VALUE n)
@@ -1630,10 +1682,10 @@ seqcur_fetch_many(VALUE self, VALUE n)
 
 /*
  * call-seq:
- * fetch_hash_many(n)  => array
+ * cursor.fetch_hash_many(n)  => array
  *
- * Returns at most <i>n</i> records as an array of hashes, or [] if there are
- * no records left.
+ * Reads at most <i>n</i> records.
+ * Returns the records read as an array of hashes.
  */
 static VALUE
 seqcur_fetch_hash_many(VALUE self, VALUE n)
@@ -1643,10 +1695,9 @@ seqcur_fetch_hash_many(VALUE self, VALUE n)
 
 /*
  * call-seq:
- * fetch_all  => array
+ * cursor.fetch_all  => array
  *
- * Returns all the records left as an array of arrays, or [] if there are no
- * records left.
+ * Returns all the records left as an array of arrays
  */
 static VALUE
 seqcur_fetch_all(VALUE self)
@@ -1656,10 +1707,9 @@ seqcur_fetch_all(VALUE self)
 
 /*
  * call-seq:
- * fetch_hash_all  => array
+ * cursor.fetch_hash_all  => array
  *
- * Returns all the records left as an array of hashes, or [] if there are no
- * records left.
+ * Returns all the records left as an array of hashes
  */
 static VALUE
 seqcur_fetch_hash_all(VALUE self)
@@ -1712,10 +1762,12 @@ each_by(VALUE self, VALUE n, VALUE type)
 
 /*
  * call-seq:
- * each {|record| block } => Cursor
+ * cursor.each {|record| block } => cursor
  *
- * Iterates over the remaining records, passing each <i>record</i> to the block
- * as an array. Returns __self__.
+ * Iterates over the remaining records, passing each <i>record</i> to the
+ * <i>block</i> as an array.
+ *
+ * Returns __self__.
  */
 static VALUE
 seqcur_each(VALUE self)
@@ -1725,11 +1777,13 @@ seqcur_each(VALUE self)
 
 /*
  * call-seq:
- * each! {|record| block } => Cursor
+ * cursor.each! {|record| block } => cursor
  *
- * Iterates over the remaining records, passing each <i>record</i> to the block
- * as an array. No new Array objects are created for each record. The same
- * Array object is reused in each call. Returns __self__.
+ * Iterates over the remaining records, passing each <i>record</i> to the
+ * <i>block</i> as an array. No new Array objects are created for each record.
+ * The same Array object is reused in each call.
+ *
+ * Returns __self__.
  */
 static VALUE
 seqcur_each_bang(VALUE self)
@@ -1739,10 +1793,12 @@ seqcur_each_bang(VALUE self)
 
 /*
  * call-seq:
- * each_hash {|record| block } => Cursor
+ * cursor.each_hash {|record| block } => cursor
  *
- * Iterates over the remaining records, passing each <i>record</i> to the block
- * as a hash. Returns __self__.
+ * Iterates over the remaining records, passing each <i>record</i> to the
+ * <i>block</i> as a hash.
+ *
+ * Returns __self__.
  */
 static VALUE
 seqcur_each_hash(VALUE self)
@@ -1752,11 +1808,13 @@ seqcur_each_hash(VALUE self)
 
 /*
  * call-seq:
- * each_hash! {|record| block } => Cursor
+ * cursor.each_hash! {|record| block } => cursor
  *
- * Iterates over the remaining records, passing each <i>record</i> to the block
- * as a hash. No new Hash objects are created for each record. The same
- * Hash object is reused in each call. Returns __self__.
+ * Iterates over the remaining records, passing each <i>record</i> to the
+ * <i>block</i> as a hash. No new Hash objects are created for each record.
+ * The same Hash object is reused in each call.
+ *
+ * Returns __self__.
  */
 static VALUE
 seqcur_each_hash_bang(VALUE self)
@@ -1766,10 +1824,12 @@ seqcur_each_hash_bang(VALUE self)
 
 /*
  * call-seq:
- * each_by(n) {|records| block } => Cursor
+ * cursor.each_by(n) {|records| block } => cursor
  *
  * Iterates over the remaining records, passing at most <i>n</i> <i>records</i>
- * to the block as arrays. Returns __self__.
+ * to the <i>block</i> as arrays.
+ *
+ * Returns __self__.
  */
 static VALUE
 seqcur_each_by(VALUE self, VALUE n)
@@ -1779,10 +1839,12 @@ seqcur_each_by(VALUE self, VALUE n)
 
 /*
  * call-seq:
- * each_hash_by(n) {|records| block } => Cursor
+ * cursor.each_hash_by(n) {|records| block } => cursor
  *
  * Iterates over the remaining records, passing at most <i>n</i> <i>records</i>
- * to the block as hashes. Returns __self__.
+ * to the <i>block</i> as hashes.
+ *
+ * Returns __self__.
  */
 static VALUE
 seqcur_each_hash_by(VALUE self, VALUE n)
@@ -1794,11 +1856,11 @@ seqcur_each_hash_by(VALUE self, VALUE n)
 
 /*
  * call-seq:
- * put(*params)
+ * cursor.put(*params)
  *
  * Binds <i>params</i> as input parameters and executes the insert statement.
- * The records are no written immediatly to disk, unless the insert buffer
- * is empty, the <code>flush</code> method is called, the cursor is closed or
+ * The records are not written immediatly to disk, unless the insert buffer
+ * is full, the <code>flush</code> method is called, the cursor is closed or
  * the transaction is commited.
  */
 static VALUE
@@ -1828,9 +1890,11 @@ inscur_put(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
- * flush
+ * cursor.flush => cursor
  *
  * Flushes the insert buffer, writing data to disk.
+ *
+ * Returns __self__.
  */
 static VALUE
 inscur_flush(VALUE self)
@@ -1886,13 +1950,15 @@ cursor_alloc(VALUE klass)
 
 /*
  * call-seq:
- * Cursor.new(database, query, options) => Cursor
+ * Cursor.new(database, query, options) => cursor
  *
  * Prepares <i>query</i> in the context of <i>database</i> with <i>options</i>
  * and returns a <code>Cursor</code> object.
  *
- * <i>options</i> is a hash of boolean values with two possible keys:
- * :scroll and :hold.
+ * <i>options</i> can be nil or a hash with the following possible keys:
+ *
+ *   :scroll => true or false
+ *   :hold => true or false
  */
 static VALUE
 cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
@@ -1968,10 +2034,12 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 
 /*
  * call-seq:
- * c.open(*params)  => Cursor
+ * cursor.open(*params)  => cursor
  *
  * Executes the previously prepared select statement, binding <i>params</i> as
- * input parameters. Returns __self__.
+ * input parameters.
+ *
+ * Returns __self__.
  */
 static VALUE
 cursor_open(int argc, VALUE *argv, VALUE self)
@@ -2009,7 +2077,7 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
- * c.close  => Cursor
+ * cursor.close  => cursor
  *
  * Closes the cursor and returns __self__.
  */
@@ -2031,7 +2099,7 @@ cursor_close(VALUE self)
 
 /*
  * call-seq:
- * c.drop
+ * cursor.drop => nil
  *
  * Closes the cursor and frees the memory associated with it. The cursor
  * cannot be opened again.
@@ -2075,6 +2143,7 @@ void Init_informix(void)
 	rb_define_method(rb_cSlob, "write", slob_write, 1);
 	rb_define_method(rb_cSlob, "seek", slob_seek, 2);
 	rb_define_method(rb_cSlob, "tell", slob_tell, 0);
+	rb_define_method(rb_cSlob, "truncate", slob_truncate, 1);
 
 	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
 	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
