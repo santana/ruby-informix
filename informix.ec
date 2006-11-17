@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.36 2006/11/17 04:38:07 santana Exp $ */
+/* $Id: informix.ec,v 1.37 2006/11/17 05:07:32 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -362,7 +362,6 @@ slob_seek(VALUE self, VALUE offset, VALUE whence)
 	mint ret, c_whence;
 	int4 c_offset, c_seek_pos;
 	ifx_int8_t offset8, seek_pos8;
-	VALUE seek_pos;
 
 	Data_Get_Struct(self, slob_t, slob);
 
@@ -384,9 +383,40 @@ slob_seek(VALUE self, VALUE offset, VALUE whence)
 	if (ret)
 		rb_raise(rb_eRuntimeError, "Error converting int8 to long");
 
-	seek_pos = LONG2NUM(c_seek_pos);
+	return LONG2NUM(c_seek_pos);
+}
 
-	return seek_pos;
+/*
+ * call-seq:
+ * slob.tell  => Fixnum or Bignum
+ * 
+ * Returns the current file or seek position for an
+ * open Smart Large Object
+ */
+static VALUE
+slob_tell(VALUE self)
+{
+	slob_t *slob;
+	mint ret;
+	int4 c_seek_pos;
+	ifx_int8_t seek_pos8;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+
+	ret = ifx_lo_tell(slob->fd, &seek_pos8);
+
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+
+	ret = ifx_int8tolong(&seek_pos8, &c_seek_pos);
+
+	if (ret)
+		rb_raise(rb_eRuntimeError, "Error converting int8 to long");
+
+	return LONG2NUM(c_seek_pos);
 }
 
 /* Helper functions ------------------------------------------------------- */
@@ -2044,6 +2074,7 @@ void Init_informix(void)
 	rb_define_method(rb_cSlob, "read", slob_read, 1);
 	rb_define_method(rb_cSlob, "write", slob_write, 1);
 	rb_define_method(rb_cSlob, "seek", slob_seek, 2);
+	rb_define_method(rb_cSlob, "tell", slob_tell, 0);
 
 	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
 	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
