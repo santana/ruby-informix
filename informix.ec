@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.35 2006/11/16 06:22:12 santana Exp $ */
+/* $Id: informix.ec,v 1.36 2006/11/17 04:38:07 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -165,13 +165,13 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 			rb_raise(rb_eRuntimeError, "Could not set sbspace name to %s", c_sbspace);
 	}
 	if (RTEST(estbytes)) {
-		long c_estbytes;
+		int4 c_estbytes;
 		ifx_int8_t estbytes8;
 
 		c_estbytes = FIX2LONG(estbytes);
 		ret = ifx_int8cvlong(c_estbytes, &estbytes8);
 		if (ret < 0)
-			rb_raise(rb_eRuntimeError, "Could not convert %d to int8", c_estbytes);
+			rb_raise(rb_eRuntimeError, "Could not convert %ld to int8", c_estbytes);
 		ret = ifx_lo_specset_estbytes(slob->spec, &estbytes8);
 		if (ret == -1)
 			rb_raise(rb_eRuntimeError, "Could not set estbytes to %d", c_estbytes);
@@ -187,13 +187,13 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 			rb_raise(rb_eRuntimeError, "Could not set crate-time flags to 0x%X", FIX2LONG(createflags));
 	}
 	if (RTEST(maxbytes)) {
-		long c_maxbytes;
+		int4 c_maxbytes;
 		ifx_int8_t maxbytes8;
 
 		c_maxbytes = FIX2LONG(maxbytes);
 		ret = ifx_int8cvlong(c_maxbytes, &maxbytes8);
 		if (ret < 0)
-			rb_raise(rb_eRuntimeError, "Could not convert %d to int8", c_maxbytes);
+			rb_raise(rb_eRuntimeError, "Could not convert %ld to int8", c_maxbytes);
 		ret = ifx_lo_specset_maxbytes(slob->spec, &maxbytes8);
 		if (ret == -1)
 			rb_raise(rb_eRuntimeError, "Could not set maxbytes to %d", c_maxbytes);
@@ -334,6 +334,59 @@ slob_write(VALUE self, VALUE data)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", error);
 
 	return LONG2NUM(ret);
+}
+
+/*
+ * call-seq:
+ * slob.seek(offset, whence)  => Fixnum or Bignum
+ * 
+ * Sets the file position for the next read or write
+ * operation on the open Smart Large Object.
+ *
+ *
+ * <i>offset</i>	offset from the starting seek position
+ * <i>whence</i>	identifies the starting seek position
+ * 
+ * Values for <i>whence</i>:
+ *
+ * Slob::SEEK_SET	The start of the Smart Large Object
+ * Slob::SEEK_CUR	The current seek position in the Smart Large Object
+ * Slob::SEEK_END	The end of the Smart Large Object
+ *
+ * Returns the new position.
+ */
+static VALUE
+slob_seek(VALUE self, VALUE offset, VALUE whence)
+{
+	slob_t *slob;
+	mint ret, c_whence;
+	int4 c_offset, c_seek_pos;
+	ifx_int8_t offset8, seek_pos8;
+	VALUE seek_pos;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+
+	c_offset = FIX2LONG(offset);
+	ret = ifx_int8cvlong(c_offset, &offset8);
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Could not convert %ld to int8", c_offset);
+
+	ret = ifx_lo_seek(slob->fd, &offset8, FIX2INT(whence), &seek_pos8);
+
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+
+	ret = ifx_int8tolong(&seek_pos8, &c_seek_pos);
+
+	if (ret)
+		rb_raise(rb_eRuntimeError, "Error converting int8 to long");
+
+	seek_pos = LONG2NUM(c_seek_pos);
+
+	return seek_pos;
 }
 
 /* Helper functions ------------------------------------------------------- */
@@ -495,7 +548,7 @@ free_output_slots(cursor_t *c)
 	if (c->daOutput != NULL) {
 		struct sqlvar_struct *var = c->daOutput->sqlvar;
 		if (var) {
-			int i;
+			register int i;
 			for (i = 0; i < c->daOutput->sqld; i++, var++) {
 				if (ISBLOBTYPE(var->sqltype)) {
 					loc_t *p = (loc_t *) var->sqldata;
@@ -1990,6 +2043,7 @@ void Init_informix(void)
 	rb_define_method(rb_cSlob, "close", slob_close, 0);
 	rb_define_method(rb_cSlob, "read", slob_read, 1);
 	rb_define_method(rb_cSlob, "write", slob_write, 1);
+	rb_define_method(rb_cSlob, "seek", slob_seek, 2);
 
 	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
 	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
@@ -2005,6 +2059,9 @@ void Init_informix(void)
 	DEF_SLOB_CONST(NOBUFFER);
 	DEF_SLOB_CONST(LOCKALL);
 	DEF_SLOB_CONST(LOCKRANGE);
+	DEF_SLOB_CONST(SEEK_SET);
+	DEF_SLOB_CONST(SEEK_CUR);
+	DEF_SLOB_CONST(SEEK_END);
 
 	/* class Database ----------------------------------------------------- */
 	rb_cDatabase = rb_define_class_under(rb_mInformix, "Database", rb_cObject);
