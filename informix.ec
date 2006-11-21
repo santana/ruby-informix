@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.38 2006/11/17 06:46:51 santana Exp $ */
+/* $Id: informix.ec,v 1.39 2006/11/21 00:16:23 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -48,7 +48,7 @@ static VALUE rb_cCursor;
 static ID s_read, s_new, s_utc, s_day, s_month, s_year;
 static ID s_hour, s_min, s_sec, s_usec;
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
-static VALUE sym_precision, sym_scale, sym_default;
+static VALUE sym_precision, sym_scale, sym_default, sym_xid;
 static VALUE sym_scroll, sym_hold;
 static VALUE sym_col_info, sym_sbspace, sym_estbytes, sym_extsz;
 static VALUE sym_createflags, sym_openflags;
@@ -1205,7 +1205,7 @@ database_columns(VALUE self, VALUE table)
 
 	EXEC SQL begin declare section;
 		char *tabname;
-		int tabid;
+		int tabid, xid;
 		varchar colname[129];
 		short coltype, collength;
 		char deftype[2];
@@ -1224,7 +1224,7 @@ database_columns(VALUE self, VALUE table)
 	result = rb_ary_new();
 
 	EXEC SQL declare cur cursor for
-		select colname, coltype, collength, type, default, c.colno
+		select colname, coltype, collength, extended_id, type, default, c.colno
 		from syscolumns c, outer sysdefaults d
 		where c.tabid = :tabid and c.tabid = d.tabid and c.colno = d.colno
 		order by c.colno;
@@ -1238,7 +1238,7 @@ database_columns(VALUE self, VALUE table)
 	}
 
 	for(;;) {
-		EXEC SQL fetch cur into :colname, :coltype, :collength,
+		EXEC SQL fetch cur into :colname, :coltype, :collength, :xid,
 			:deftype, :defvalue;
 		if (SQLCODE < 0) {
 			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
@@ -1250,6 +1250,7 @@ database_columns(VALUE self, VALUE table)
 		rb_hash_aset(column, sym_name, rb_str_new2(colname));
 		rb_hash_aset(column, sym_type, INT2FIX(coltype));
 		rb_hash_aset(column, sym_nullable, coltype&0x100? Qfalse: Qtrue);
+		rb_hash_aset(column, sym_xid, INT2FIX(xid));
 
 		if ((coltype&0xFF) < 23) {
 			stype = coltype == 4118? stypes[23]: stypes[coltype&0xFF];
@@ -2230,6 +2231,7 @@ void Init_informix(void)
 	s_min = rb_intern("min");
 	s_sec = rb_intern("sec");
 	s_usec = rb_intern("usec");
+
 	sym_name = ID2SYM(rb_intern("name"));
 	sym_type = ID2SYM(rb_intern("type"));
 	sym_nullable = ID2SYM(rb_intern("nullable"));
@@ -2238,8 +2240,11 @@ void Init_informix(void)
 	sym_precision = ID2SYM(rb_intern("precision"));
 	sym_scale = ID2SYM(rb_intern("scale"));
 	sym_default = ID2SYM(rb_intern("default"));
+	sym_xid = ID2SYM(rb_intern("xid"));
+
 	sym_scroll = ID2SYM(rb_intern("scroll"));
 	sym_hold = ID2SYM(rb_intern("hold"));
+
 	sym_col_info = ID2SYM(rb_intern("col_info"));
 	sym_sbspace = ID2SYM(rb_intern("sbspace"));
 	sym_estbytes = ID2SYM(rb_intern("estbytes"));
