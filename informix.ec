@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.39 2006/11/21 00:16:23 santana Exp $ */
+/* $Id: informix.ec,v 1.40 2006/11/25 22:41:30 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -46,7 +46,7 @@ static VALUE rb_cStatement;
 static VALUE rb_cCursor;
 
 static ID s_read, s_new, s_utc, s_day, s_month, s_year;
-static ID s_hour, s_min, s_sec, s_usec;
+static ID s_hour, s_min, s_sec, s_usec, s_to_s, s_to_i;
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
 static VALUE sym_precision, sym_scale, sym_default, sym_xid;
 static VALUE sym_scroll, sym_hold;
@@ -72,6 +72,20 @@ typedef struct {
 	short type; /* XID_CLOB/XID_BLOB */
 } slob_t;
 
+#define NUM2INT8(num, int8addr) do { \
+	VALUE str = rb_funcall(num, s_to_s, 0); \
+	char *c_str = StringValueCStr(str); \
+	mint ret = ifx_int8cvasc(c_str, strlen(c_str), (int8addr)); \
+	if (ret < 0) \
+		rb_raise(rb_eRuntimeError, "Could not convert %s to int8", c_str); \
+}while(0)
+
+#define INT82NUM(int8addr, num) do { \
+	char str[21]; \
+	mint ret = ifx_int8toasc((int8addr), str, sizeof(str) - 1); \
+	str[sizeof(str) - 1] = 0; \
+	num = rb_cstr2inum(str, 10); \
+}while(0)
 
 /* class Slob ------------------------------------------------------------ */
 static void
@@ -165,16 +179,12 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 			rb_raise(rb_eRuntimeError, "Could not set sbspace name to %s", c_sbspace);
 	}
 	if (RTEST(estbytes)) {
-		int4 c_estbytes;
 		ifx_int8_t estbytes8;
 
-		c_estbytes = FIX2LONG(estbytes);
-		ret = ifx_int8cvlong(c_estbytes, &estbytes8);
-		if (ret < 0)
-			rb_raise(rb_eRuntimeError, "Could not convert %ld to int8", c_estbytes);
+		NUM2INT8(estbytes, &estbytes8);
 		ret = ifx_lo_specset_estbytes(slob->spec, &estbytes8);
 		if (ret == -1)
-			rb_raise(rb_eRuntimeError, "Could not set estbytes to %d", c_estbytes);
+			rb_raise(rb_eRuntimeError, "Could not set estbytes");
 	}
 	if (RTEST(extsz)) {
 		ret = ifx_lo_specset_extsz(slob->spec, FIX2LONG(extsz));
@@ -187,16 +197,12 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 			rb_raise(rb_eRuntimeError, "Could not set crate-time flags to 0x%X", FIX2LONG(createflags));
 	}
 	if (RTEST(maxbytes)) {
-		int4 c_maxbytes;
 		ifx_int8_t maxbytes8;
 
-		c_maxbytes = FIX2LONG(maxbytes);
-		ret = ifx_int8cvlong(c_maxbytes, &maxbytes8);
-		if (ret < 0)
-			rb_raise(rb_eRuntimeError, "Could not convert %ld to int8", c_maxbytes);
+		NUM2INT8(maxbytes, (&maxbytes8));
 		ret = ifx_lo_specset_maxbytes(slob->spec, &maxbytes8);
 		if (ret == -1)
-			rb_raise(rb_eRuntimeError, "Could not set maxbytes to %d", c_maxbytes);
+			rb_raise(rb_eRuntimeError, "Could not set maxbytes");
 	}
 	slob->fd = ifx_lo_create(slob->spec, RTEST(openflags)? FIX2LONG(openflags): LO_RDWR, &slob->lo, &error);
 	if (slob->fd == -1) {
@@ -362,8 +368,8 @@ static VALUE
 slob_seek(VALUE self, VALUE offset, VALUE whence)
 {
 	slob_t *slob;
-	mint ret, c_whence;
-	int4 c_offset, c_seek_pos;
+	mint ret;
+	VALUE seek_pos;
 	ifx_int8_t offset8, seek_pos8;
 
 	Data_Get_Struct(self, slob_t, slob);
@@ -371,22 +377,14 @@ slob_seek(VALUE self, VALUE offset, VALUE whence)
 	if (slob->fd == -1)
 		rb_raise(rb_eRuntimeError, "Open the Slob object first");
 
-	c_offset = FIX2LONG(offset);
-	ret = ifx_int8cvlong(c_offset, &offset8);
-	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Could not convert %ld to int8", c_offset);
-
+	NUM2INT8(offset, &offset8);
 	ret = ifx_lo_seek(slob->fd, &offset8, FIX2INT(whence), &seek_pos8);
-
 	if (ret < 0)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
 
-	ret = ifx_int8tolong(&seek_pos8, &c_seek_pos);
+	INT82NUM(&seek_pos8, seek_pos);
 
-	if (ret)
-		rb_raise(rb_eRuntimeError, "Error converting int8 to long");
-
-	return LONG2NUM(c_seek_pos);
+	return seek_pos;
 }
 
 /*
@@ -401,7 +399,7 @@ slob_tell(VALUE self)
 {
 	slob_t *slob;
 	mint ret;
-	int4 c_seek_pos;
+	VALUE seek_pos;
 	ifx_int8_t seek_pos8;
 
 	Data_Get_Struct(self, slob_t, slob);
@@ -410,16 +408,12 @@ slob_tell(VALUE self)
 		rb_raise(rb_eRuntimeError, "Open the Slob object first");
 
 	ret = ifx_lo_tell(slob->fd, &seek_pos8);
-
 	if (ret < 0)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
 
-	ret = ifx_int8tolong(&seek_pos8, &c_seek_pos);
+	INT82NUM(&seek_pos8, seek_pos);
 
-	if (ret)
-		rb_raise(rb_eRuntimeError, "Error converting int8 to long");
-
-	return LONG2NUM(c_seek_pos);
+	return seek_pos;
 }
 
 /*
@@ -435,7 +429,6 @@ slob_truncate(VALUE self, VALUE offset)
 {
 	slob_t *slob;
 	mint ret;
-	int4 c_offset;
 	ifx_int8_t offset8;
 
 	Data_Get_Struct(self, slob_t, slob);
@@ -443,13 +436,8 @@ slob_truncate(VALUE self, VALUE offset)
 	if (slob->fd == -1)
 		rb_raise(rb_eRuntimeError, "Open the Slob object first");
 
-	c_offset = FIX2LONG(offset);
-	ret = ifx_int8cvlong(c_offset, &offset8);
-	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Could not convert %ld to int8", c_offset);
-
+	NUM2INT8(offset, &offset8);
 	ret = ifx_lo_truncate(slob->fd, &offset8);
-
 	if (ret < 0)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
 
@@ -822,13 +810,9 @@ make_result(cursor_t *c, VALUE record)
 			item = INT2NUM(*(int4 *)var->sqldata);
 			break;
 		case SQLINT8:
-		case SQLSERIAL8: {
-			char str[21];
-			ifx_int8toasc((ifx_int8_t *)var->sqldata, str, sizeof(str) - 1);
-			str[sizeof(str) - 1] = 0;
-			item = rb_cstr2inum(str, 10);
+		case SQLSERIAL8:
+			INT82NUM((ifx_int8_t *)var->sqldata, item);
 			break;
-		}
 		case SQLSMFLOAT:
 			item = rb_float_new(*(float *)var->sqldata);
 			break;
@@ -2231,6 +2215,8 @@ void Init_informix(void)
 	s_min = rb_intern("min");
 	s_sec = rb_intern("sec");
 	s_usec = rb_intern("usec");
+	s_to_s = rb_intern("to_s");
+	s_to_i = rb_intern("to_i");
 
 	sym_name = ID2SYM(rb_intern("name"));
 	sym_type = ID2SYM(rb_intern("type"));
