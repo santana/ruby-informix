@@ -39,6 +39,9 @@ The notable exception is TEXT/BYTE columns, where Ruby/Informix expects an
 IO-based (File) or IO-like (StringIO) object as input, and returns an String
 object as output.
 
+A new Slob class exists in the Informix module for working with Smart Large
+Objects.
+
 
 3. Recommendations
 
