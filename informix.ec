@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.41 2006/11/26 21:49:17 santana Exp $ */
+/* $Id: informix.ec,v 1.42 2006/11/26 22:00:03 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -123,14 +123,14 @@ slob_alloc(VALUE klass)
  *
  * <i>options</i> must be a hash with the following possible keys:
  *
- *   :sbspace => Sbspace name
- *   :estbytes => Estimated size, in bytes
- *   :extsz => Allocation extent size
+ *   :sbspace     => Sbspace name
+ *   :estbytes    => Estimated size, in bytes
+ *   :extsz       => Allocation extent size
  *   :createflags => Create-time flags
- *   :openflags => Access mode
- *   :maxbytes => Maximum size
- *   :col_info => Get the previous values from the column-level storage
- *                characteristics for the specified database column
+ *   :openflags   => Access mode
+ *   :maxbytes    => Maximum size
+ *   :col_info    => Get the previous values from the column-level storage
+ *                   characteristics for the specified database column
  */
 static VALUE
 slob_initialize(int argc, VALUE *argv, VALUE self)
@@ -1149,7 +1149,7 @@ database_prepare(VALUE self, VALUE query)
  * <i>options</i> must be a hash with the following possible keys:
  *
  *   :scroll => true or false
- *   :hold => true or false
+ *   :hold   => true or false
  *
  */
 static VALUE
