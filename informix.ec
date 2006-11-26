@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.40 2006/11/25 22:41:30 santana Exp $ */
+/* $Id: informix.ec,v 1.41 2006/11/26 21:49:17 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -219,17 +219,15 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
  *
  * access modes:
  * 
- * Slob::RDONLY			Read only
- * Slob::DIRTY_READ		Read uncommitted data
- * Slob::WRONLY			Write only
- * Slob::APPEND			Append data to the end, if combined with RDRW or WRONLY;
- *                      read only otherwise
- * Slob::RDRW			Read/Write
- * Slob::BUFFER			Use standard database server buffer pool
- * Slob::NOBUFFER		Use private buffer from the session pool of the
- *						database server
- * Slob::LOCKALL		Lock the entire Smart Large Object
- * Slob::LOCKRANGE		Lock a range of bytes
+ * Slob::RDONLY::		Read only
+ * Slob::DIRTY_READ::	Read uncommitted data
+ * Slob::WRONLY::	Write only
+ * Slob::APPEND::	Append data to the end, if combined with RDRW or WRONLY; read only otherwise
+ * Slob::RDRW::		Read/Write
+ * Slob::BUFFER::	Use standard database server buffer pool
+ * Slob::NOBUFFER::	Use private buffer from the session pool of the database server
+ * Slob::LOCKALL::		Lock the entire Smart Large Object
+ * Slob::LOCKRANGE::	Lock a range of bytes
  *
  * Returns __self__.
  */
@@ -358,9 +356,9 @@ slob_write(VALUE self, VALUE data)
  * 
  * Values for <i>whence</i>:
  *
- * Slob::SEEK_SET	The start of the Smart Large Object
- * Slob::SEEK_CUR	The current seek position in the Smart Large Object
- * Slob::SEEK_END	The end of the Smart Large Object
+ * Slob::SEEK_SET::	The start of the Smart Large Object
+ * Slob::SEEK_CUR::	The current seek position in the Smart Large Object
+ * Slob::SEEK_END::	The end of the Smart Large Object
  *
  * Returns the new position.
  */
