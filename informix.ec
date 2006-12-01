@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.43 2006/11/30 07:47:26 santana Exp $ */
+/* $Id: informix.ec,v 1.44 2006/12/01 03:52:23 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -55,7 +55,6 @@ static VALUE sym_createflags, sym_openflags;
 
 #define IDSIZE 30
 
-EXEC SQL begin declare section;
 typedef struct {
 	short is_select;
 	struct sqlda daInput, *daOutput;
@@ -64,8 +63,8 @@ typedef struct {
 	char cursor_id[IDSIZE];
 	char stmt_id[IDSIZE];
 	VALUE db, array, hash, field_names;
+	char database_id[IDSIZE];
 } cursor_t;
-EXEC SQL end   declare section;
 
 typedef struct {
 	mint fd;
@@ -73,6 +72,7 @@ typedef struct {
 	ifx_lo_create_spec_t *spec;
 	short type; /* XID_CLOB/XID_BLOB */
 	VALUE db;
+	char database_id[IDSIZE];
 } slob_t;
 
 #define NUM2INT8(num, int8addr) do { \
@@ -974,10 +974,6 @@ informix_connect(int argc, VALUE *argv, VALUE self)
 static void
 database_free(void *p)
 {
-	EXEC SQL begin declare section;
-		char *id;
-	EXEC SQL end   declare section;
-
 	xfree(p);
 }
 
@@ -1358,14 +1354,14 @@ static void
 statement_free(void *p)
 {
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *sid;
 	EXEC SQL end   declare section;
 
-	c = p;
-	free_input_slots(c);
-	free_output_slots(c);
-	EXEC SQL free :c->stmt_id;
-	xfree(c);
+	free_input_slots(p);
+	free_output_slots(p);
+	sid = ((cursor_t *)p)->stmt_id;
+	EXEC SQL free :sid;
+	xfree(p);
 }
 
 static VALUE
@@ -1389,9 +1385,9 @@ static VALUE
 statement_initialize(VALUE self, VALUE db, VALUE query)
 {
 	struct sqlda *output;
+	cursor_t *c;
 	EXEC SQL begin declare section;
-		char *c_query;
-		cursor_t *c;
+		char *c_query, *sid;
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
@@ -1400,15 +1396,17 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 	snprintf(c->stmt_id, sizeof(c->stmt_id), "STMT%lx", self);
 
 	c->db = db;
+	Data_Get_Struct(db, char, c->database_id);
+	sid = c->stmt_id;
 	c_query = StringValueCStr(query);
 
 	alloc_input_slots(c, c_query);
 
-	EXEC SQL prepare :c->stmt_id from :c_query;
+	EXEC SQL prepare :sid from :c_query;
 	if (SQLCODE < 0) {
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
-	EXEC SQL describe :c->stmt_id into output;
+	EXEC SQL describe :sid into output;
 	c->daOutput = output;
 
 	c->is_select = (SQLCODE == 0 || SQLCODE == SQ_EXECPROC);
@@ -1441,13 +1439,15 @@ static VALUE
 statement_call(int argc, VALUE *argv, VALUE self)
 {
 	struct sqlda *input, *output;
+	cursor_t *c;
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *sid;
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
 	output = c->daOutput;
 	input = &c->daInput;
+	sid = c->stmt_id;
 
 	if (argc != input->sqld) {
 		rb_raise(rb_eRuntimeError, "Wrong number of parameters (%d for %d)",
@@ -1457,12 +1457,12 @@ statement_call(int argc, VALUE *argv, VALUE self)
 	if (c->is_select) {
 		if (argc) {
 			bind_input_params(c, argv);
-			EXEC SQL execute :c->stmt_id into descriptor output
+			EXEC SQL execute :sid into descriptor output
 				using descriptor input;
 			clean_input_slots(c);
 		}
 		else {
-			EXEC SQL execute :c->stmt_id into descriptor output;
+			EXEC SQL execute :sid into descriptor output;
 		}
 		if (SQLCODE < 0) {
 			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
@@ -1474,11 +1474,11 @@ statement_call(int argc, VALUE *argv, VALUE self)
 	else {
 		if (argc)  {
 			bind_input_params(c, argv);
-			EXEC SQL execute :c->stmt_id using descriptor input;
+			EXEC SQL execute :sid using descriptor input;
 			clean_input_slots(c);
 		}
 		else
-			EXEC SQL execute :c->stmt_id;
+			EXEC SQL execute :sid;
 	}
 	if (SQLCODE < 0) {
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
@@ -1495,14 +1495,16 @@ statement_call(int argc, VALUE *argv, VALUE self)
 static VALUE
 statement_drop(VALUE self)
 {
+	cursor_t *c;
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *sid;
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
 	free_input_slots(c);
 	free_output_slots(c);
-	EXEC SQL free :c->stmt_id;
+	sid = c->stmt_id;
+	EXEC SQL free :sid;
 	if (SQLCODE < 0) {
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
@@ -1543,15 +1545,17 @@ static VALUE
 fetch(VALUE self, VALUE type, int bang)
 {
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *cid;
 	EXEC SQL end   declare section;
+	cursor_t *c;
 	struct sqlda *output;
 	VALUE record;
 
 	Data_Get_Struct(self, cursor_t, c);
 	output = c->daOutput;
+	cid = c->cursor_id;
 
-	EXEC SQL fetch :c->cursor_id using descriptor output;
+	EXEC SQL fetch :cid using descriptor output;
 	if (SQLCODE < 0) {
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
@@ -1631,8 +1635,9 @@ static VALUE
 fetch_many(VALUE self, VALUE n, VALUE type)
 {
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *cid;
 	EXEC SQL end   declare section;
+	cursor_t *c;
 	struct sqlda *output;
 
 	VALUE record, records;
@@ -1641,6 +1646,7 @@ fetch_many(VALUE self, VALUE n, VALUE type)
 
 	Data_Get_Struct(self, cursor_t, c);
 	output = c->daOutput;
+	cid = c->cursor_id;
 
 	if (!all) {
 		max = FIX2LONG(n);
@@ -1651,7 +1657,7 @@ fetch_many(VALUE self, VALUE n, VALUE type)
 	}
 
 	for(i = 0; all || i < max; i++) {
-		EXEC SQL fetch :c->cursor_id using descriptor output;
+		EXEC SQL fetch :cid using descriptor output;
 		if (SQLCODE < 0) {
 			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 		}
@@ -1725,17 +1731,19 @@ seqcur_fetch_hash_all(VALUE self)
 static VALUE
 each(VALUE self, VALUE type, int bang)
 {
+	cursor_t *c;
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *cid;
 	EXEC SQL end   declare section;
 	struct sqlda *output;
 	VALUE record;
 
 	Data_Get_Struct(self, cursor_t, c);
 	output = c->daOutput;
+	cid = c->cursor_id;
 
 	for(;;) {
-		EXEC SQL fetch :c->cursor_id using descriptor output;
+		EXEC SQL fetch :cid using descriptor output;
 		if (SQLCODE < 0) {
 			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 		}
@@ -1869,19 +1877,21 @@ static VALUE
 inscur_put(int argc, VALUE *argv, VALUE self)
 {
 	struct sqlda *input;
+	cursor_t *c;
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *cid;
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
 	input = &c->daInput;
+	cid = c->cursor_id;
 
 	bind_input_params(c, argv);
 	if (argc != input->sqld) {
 		rb_raise(rb_eRuntimeError, "Wrong number of parameters (%d for %d)",
 			argc, input->sqld);
 	}
-	EXEC SQL put :c->cursor_id using descriptor input;
+	EXEC SQL put :cid using descriptor input;
 	clean_input_slots(c);
 	if (SQLCODE < 0) {
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
@@ -1901,12 +1911,14 @@ inscur_put(int argc, VALUE *argv, VALUE self)
 static VALUE
 inscur_flush(VALUE self)
 {
+	cursor_t *c;
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *cid;
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
-	EXEC SQL flush :c->cursor_id;
+	cid = c->cursor_id;
+	EXEC SQL flush :cid;
 	return self;
 }
 
@@ -1928,16 +1940,18 @@ cursor_mark(cursor_t *c)
 static void
 cursor_free(void *p)
 {
+	cursor_t *c;
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *cid, *sid;
 	EXEC SQL end   declare section;
 
 	c = p;
 	free_input_slots(c);
 	free_output_slots(c);
-	EXEC SQL close :c->cursor_id;
-	EXEC SQL free :c->cursor_id;
-	EXEC SQL free :c->stmt_id;
+	cid = c->cursor_id; sid = c->stmt_id;
+	EXEC SQL close :cid;
+	EXEC SQL free :cid;
+	EXEC SQL free :sid;
 	xfree(c);
 }
 
@@ -1968,19 +1982,21 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 {
 	VALUE scroll, hold;
 	struct sqlda *output;
+	cursor_t *c;
 
 	EXEC SQL begin declare section;
 		char *c_query;
-		cursor_t *c;
+		char *cid, *sid;
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
 	scroll = hold = Qfalse;
-
 	snprintf(c->cursor_id, sizeof(c->cursor_id), "CUR%lx", self);
 	snprintf(c->stmt_id, sizeof(c->stmt_id), "STMT%lx", self);
 
 	c->db = db;
+	Data_Get_Struct(db, char, c->database_id);
+	cid = c->cursor_id; sid = c->stmt_id;
 	c_query = StringValueCStr(query);
 
 	if (RTEST(options)) {
@@ -1990,29 +2006,29 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 
 	alloc_input_slots(c, c_query);
 
-	EXEC SQL prepare :c->stmt_id from :c_query;
+	EXEC SQL prepare :sid from :c_query;
 	if (SQLCODE < 0) {
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
 
 	if (RTEST(scroll) && RTEST(hold)) {
-		EXEC SQL declare :c->cursor_id scroll cursor with hold for :c->stmt_id;
+		EXEC SQL declare :cid scroll cursor with hold for :sid;
 	}
 	else if (RTEST(hold)) {
-		EXEC SQL declare :c->cursor_id cursor with hold for :c->stmt_id;
+		EXEC SQL declare :cid cursor with hold for :sid;
 	}
 	else if (RTEST(scroll)) {
-		EXEC SQL declare :c->cursor_id scroll cursor for :c->stmt_id;
+		EXEC SQL declare :cid scroll cursor for :sid;
 	}
 	else {
-		EXEC SQL declare :c->cursor_id cursor for :c->stmt_id;
+		EXEC SQL declare :cid cursor for :sid;
 	}
 	if (SQLCODE < 0) {
 		rb_warn("Informix Error: %d\n", SQLCODE);
 		return Qnil;
 	}
 
-	EXEC SQL describe :c->stmt_id into output;
+	EXEC SQL describe :sid into output;
 	c->daOutput = output;
 
 	c->is_select = (SQLCODE == 0 || SQLCODE == SQ_EXECPROC);
@@ -2060,12 +2076,14 @@ static VALUE
 cursor_open(int argc, VALUE *argv, VALUE self)
 {
 	struct sqlda *input;
+	cursor_t *c;
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *cid;
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
 	input = &c->daInput;
+	cid = c->cursor_id;
 
 	if (c->is_select) {
 		if (argc != input->sqld) {
@@ -2074,15 +2092,15 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 		}
 		if (argc) {
 			bind_input_params(c, argv);
-			EXEC SQL open :c->cursor_id using descriptor input
+			EXEC SQL open :cid using descriptor input
 				with reoptimization;
 			clean_input_slots(c);
 		}
 		else
-			EXEC SQL open :c->cursor_id with reoptimization;
+			EXEC SQL open :cid with reoptimization;
 	}
 	else {
-		EXEC SQL open :c->cursor_id;
+		EXEC SQL open :cid;
 	}
 	if (SQLCODE < 0) {
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
@@ -2099,13 +2117,15 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 static VALUE
 cursor_close(VALUE self)
 {
+	cursor_t *c;
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *cid;
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
 	clean_input_slots(c);
-	EXEC SQL close :c->cursor_id;
+	cid = c->cursor_id;
+	EXEC SQL close :cid;
 	if (SQLCODE < 0) {
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
@@ -2122,16 +2142,18 @@ cursor_close(VALUE self)
 static VALUE
 cursor_drop(VALUE self)
 {
+	cursor_t *c;
 	EXEC SQL begin declare section;
-		cursor_t *c;
+		char *cid, *sid;
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
 	cursor_close(self);
 	free_input_slots(c);
 	free_output_slots(c);
-	EXEC SQL free :c->cursor_id;
-	EXEC SQL free :c->stmt_id;
+	cid = c->cursor_id; sid = c->stmt_id;
+	EXEC SQL free :cid;
+	EXEC SQL free :sid;
 	if (SQLCODE < 0) {
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 	}
