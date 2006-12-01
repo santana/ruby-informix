@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.44 2006/12/01 03:52:23 santana Exp $ */
+/* $Id: informix.ec,v 1.45 2006/12/01 04:17:38 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -63,7 +63,7 @@ typedef struct {
 	char cursor_id[IDSIZE];
 	char stmt_id[IDSIZE];
 	VALUE db, array, hash, field_names;
-	char database_id[IDSIZE];
+	char *database_id;
 } cursor_t;
 
 typedef struct {
@@ -72,7 +72,7 @@ typedef struct {
 	ifx_lo_create_spec_t *spec;
 	short type; /* XID_CLOB/XID_BLOB */
 	VALUE db;
-	char database_id[IDSIZE];
+	char *database_id;
 } slob_t;
 
 #define NUM2INT8(num, int8addr) do { \
