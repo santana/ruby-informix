@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.45 2006/12/01 04:17:38 santana Exp $ */
+/* $Id: informix.ec,v 1.46 2006/12/07 03:13:06 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -1151,7 +1151,9 @@ database_transaction(VALUE self)
 static VALUE
 database_prepare(VALUE self, VALUE query)
 {
-	VALUE argv[] = { self, query };
+	VALUE argv[2];
+
+	argv[0] = self; argv[1] = query;
 	return rb_class_new_instance(2, argv, rb_cStatement);
 }
 
