@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.47 2006/12/10 04:15:07 santana Exp $ */
+/* $Id: informix.ec,v 1.48 2006/12/10 06:29:00 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -1596,15 +1596,12 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 
 	c->is_select = (SQLCODE == 0 || SQLCODE == SQ_EXECPROC);
 
-	if (c->is_select) {
+	if (c->is_select)
 		alloc_output_slots(c);
-	}
 	else {
 		xfree(c->daOutput);
 		c->daOutput = NULL;
 	}
-	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	return self;
 }
