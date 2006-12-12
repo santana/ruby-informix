@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.50 2006/12/12 10:14:30 santana Exp $ */
+/* $Id: informix.ec,v 1.51 2006/12/12 10:34:30 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -2233,39 +2233,70 @@ scrollcur_subseq(VALUE self, VALUE start, VALUE length, VALUE type)
 	return records;
 }
 
+static VALUE
+slice(int argc, VALUE *argv, VALUE self, VALUE type)
+{
+	if (argc == 2) {
+		if (NUM2LONG(argv[1]) <= 0)
+			rb_raise(rb_eArgError, "length must be positive");
+		return scrollcur_subseq(self, argv[0], argv[1], type);
+	}
+	if (argc != 1)
+		rb_scan_args(argc, argv, "11", 0, 0);
+
+	return scrollcur_entry(self, argv[0], type, 0);
+}
+
 /*
  * call-seq:
  *
  * cursor[index]  => array or nil
  * cursor[start, length]  => array or nil
- * cursor.abs(index)  => array or nil
- * cursor.abs(start, length)  => array or nil
+ * cursor.slice(index)  => array or nil
+ * cursor.slice(start, length)  => array or nil
  *
  *
  */
 static VALUE
-scrollcur_absolute(int argc, VALUE *argv, VALUE self)
+scrollcur_slice(int argc, VALUE *argv, VALUE self)
 {
-	if (argc == 2) {
-		if (NUM2LONG(argv[1]) <= 0)
-			rb_raise(rb_eArgError, "length must be positive");
-		return scrollcur_subseq(self, argv[0], argv[1], T_ARRAY);
-	}
-	if (argc != 1)
-		rb_scan_args(argc, argv, "11", 0, 0);
-
-	return scrollcur_entry(self, argv[0], T_ARRAY, 0);
+	return slice(argc, argv, self, T_ARRAY);
 }
 
 /*
  * call-seq:
- * cursor.abs!(index)  => array or nil
+ * cursor.slice!(index)  => array or nil
  *
  */
 static VALUE
-scrollcur_absolute_bang(VALUE self, VALUE index)
+scrollcur_slice_bang(VALUE self, VALUE index)
 {
 	return scrollcur_entry(self, index, T_ARRAY, 1);
+}
+
+/*
+ * call-seq:
+ *
+ * cursor.slice_hash(index)  => hash or nil
+ * cursor.slice_hash(start, length)  => hash or nil
+ *
+ *
+ */
+static VALUE
+scrollcur_slice_hash(int argc, VALUE *argv, VALUE self)
+{
+	return slice(argc, argv, self, T_HASH);
+}
+
+/*
+ * call-seq:
+ * cursor.slice_hash!(index)  => hash or nil
+ *
+ */
+static VALUE
+scrollcur_slice_hash_bang(VALUE self, VALUE index)
+{
+	return scrollcur_entry(self, index, T_HASH, 1);
 }
 
 static VALUE
@@ -2768,9 +2799,11 @@ void Init_informix(void)
 	rb_define_method(rb_mInsertCursor, "flush", inscur_flush, 0);
 
 	/* ScrollCursor ------------------------------------------------------- */
-	rb_define_method(rb_mScrollCursor, "[]", scrollcur_absolute, -1);
-	rb_define_alias(rb_mScrollCursor, "abs", "[]");
-	rb_define_method(rb_mScrollCursor, "abs!", scrollcur_absolute_bang, 1);
+	rb_define_method(rb_mScrollCursor, "[]", scrollcur_slice, -1);
+	rb_define_alias(rb_mScrollCursor, "slice", "[]");
+	rb_define_method(rb_mScrollCursor, "slice!", scrollcur_slice_bang, 1);
+	rb_define_method(rb_mScrollCursor, "slice_hash", scrollcur_slice_hash, -1);
+	rb_define_method(rb_mScrollCursor, "slice_hash!", scrollcur_slice_hash_bang, 1);
 	rb_define_method(rb_mScrollCursor, "prev", scrollcur_prev, -1);
 	rb_define_method(rb_mScrollCursor, "prev!", scrollcur_prev_bang, -1);
 	rb_define_method(rb_mScrollCursor, "next", scrollcur_next, -1);
