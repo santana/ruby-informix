@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.49 2006/12/12 09:35:06 santana Exp $ */
+/* $Id: informix.ec,v 1.50 2006/12/12 10:14:30 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -2268,17 +2268,83 @@ scrollcur_absolute_bang(VALUE self, VALUE index)
 	return scrollcur_entry(self, index, T_ARRAY, 1);
 }
 
-/*
+static VALUE
+scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
+{
+	cursor_t *c;
+	struct sqlda *output;
+	VALUE offset, record;
+	EXEC SQL begin declare section;
+		char *cid, *did;
+		long pos;
+	EXEC SQL end   declare section;
+
+	Data_Get_Struct(self, cursor_t, c);
+
+	did = c->database_id;
+	if (currentdid != did) {
+		EXEC SQL set connection :did;
+		if (SQLCODE < 0)
+			return Qnil;
+		currentdid = did;
+	}
+
+	rb_scan_args(argc, argv, "01", &offset);
+	pos = dir*(NIL_P(offset)? 1: NUM2LONG(offset));
+
+	output = c->daOutput;
+	cid = c->cursor_id;
+	EXEC SQL fetch relative :pos :cid using descriptor output;
+
+	if (SQLCODE == SQLNOTFOUND)
+		return Qnil;
+
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+
+	RECORD(c, type, bang, record);
+	return make_result(c, record);
+}
+
+/* call-seq:
+ * cursor.prev(offset = 1)  => array or nil
+ *
+ */
 static VALUE
 scrollcur_prev(int argc, VALUE *argv, VALUE self)
 {
+	return scrollcur_rel(argc, argv, self, -1, T_ARRAY, 0);
 }
 
+/* call-seq:
+ * cursor.prev!(offset = 1)  => array or nil
+ *
+ */
+static VALUE
+scrollcur_prev_bang(int argc, VALUE *argv, VALUE self)
+{
+	return scrollcur_rel(argc, argv, self, -1, T_ARRAY, 1);
+}
+
+/* call-seq:
+ * cursor.next(offset = 1)  => array or nil
+ *
+ */
 static VALUE
 scrollcur_next(int argc, VALUE *argv, VALUE self)
 {
+	return scrollcur_rel(argc, argv, self, 1, T_ARRAY, 0);
 }
-*/
+
+/* call-seq:
+ * cursor.next!(offset = 1)  => array or nil
+ *
+ */
+static VALUE
+scrollcur_next_bang(int argc, VALUE *argv, VALUE self)
+{
+	return scrollcur_rel(argc, argv, self, 1, T_ARRAY, 1);
+}
 
 /*
  * call-seq:
@@ -2705,10 +2771,10 @@ void Init_informix(void)
 	rb_define_method(rb_mScrollCursor, "[]", scrollcur_absolute, -1);
 	rb_define_alias(rb_mScrollCursor, "abs", "[]");
 	rb_define_method(rb_mScrollCursor, "abs!", scrollcur_absolute_bang, 1);
-/*
 	rb_define_method(rb_mScrollCursor, "prev", scrollcur_prev, -1);
+	rb_define_method(rb_mScrollCursor, "prev!", scrollcur_prev_bang, -1);
 	rb_define_method(rb_mScrollCursor, "next", scrollcur_next, -1);
-*/
+	rb_define_method(rb_mScrollCursor, "next!", scrollcur_next_bang, -1);
 	rb_define_method(rb_mScrollCursor, "first", scrollcur_first, 0);
 	rb_define_method(rb_mScrollCursor, "first!", scrollcur_first_bang, 0);
 	rb_define_method(rb_mScrollCursor, "last", scrollcur_last, 0);
