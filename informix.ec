@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.51 2006/12/12 10:34:30 santana Exp $ */
+/* $Id: informix.ec,v 1.52 2006/12/12 20:39:10 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -2221,10 +2221,12 @@ scrollcur_subseq(VALUE self, VALUE start, VALUE length, VALUE type)
 	if (NIL_P(first))
 		return Qnil;
 
-	Data_Get_Struct(self, cursor_t, c);
+	pos = NUM2LONG(length) - 1;
 
-	if (NUM2LONG(length) > 1)
+	if (pos > 0) {
+		length = LONG2NUM(pos);
 		records = fetch_many(self, length, type);
+	}
 	else
 		records = rb_ary_new();
 
