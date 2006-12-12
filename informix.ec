@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.48 2006/12/10 06:29:00 santana Exp $ */
+/* $Id: informix.ec,v 1.49 2006/12/12 09:35:06 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -1641,7 +1641,7 @@ statement_call(int argc, VALUE *argv, VALUE self)
 	sid = c->stmt_id;
 
 	if (argc != input->sqld)
-		rb_raise(rb_eRuntimeError, "Wrong number of parameters (%d for %d)",
+		rb_raise(rb_eArgError, "wrong number of arguments (%d for %d)",
 			argc, input->sqld);
 
 	if (c->is_select) {
@@ -2119,7 +2119,7 @@ inscur_put(int argc, VALUE *argv, VALUE self)
 
 	bind_input_params(c, argv);
 	if (argc != input->sqld)
-		rb_raise(rb_eRuntimeError, "Wrong number of parameters (%d for %d)",
+		rb_raise(rb_eArgError, "wrong number of arguments (%d for %d)",
 			argc, input->sqld);
 
 	EXEC SQL put :cid using descriptor input;
@@ -2162,6 +2162,189 @@ inscur_flush(VALUE self)
 	return self;
 }
 
+/* module ScrollCursor --------------------------------------------------- */
+static VALUE
+scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
+{
+	cursor_t *c;
+	struct sqlda *output;
+	VALUE record;
+	EXEC SQL begin declare section;
+		char *cid, *did;
+		long pos;
+	EXEC SQL end   declare section;
+
+	Data_Get_Struct(self, cursor_t, c);
+
+	did = c->database_id;
+	if (currentdid != did) {
+		EXEC SQL set connection :did;
+		if (SQLCODE < 0)
+			return Qnil;
+		currentdid = did;
+	}
+
+	output = c->daOutput;
+	cid = c->cursor_id;
+
+	if (NIL_P(index))
+		EXEC SQL fetch current :cid using descriptor output;
+	else if ((pos = NUM2LONG(index) + 1) > 0)
+		EXEC SQL fetch absolute :pos :cid using descriptor output;
+	else {
+		EXEC SQL fetch last :cid;
+		EXEC SQL fetch relative :pos :cid using descriptor output;
+	}
+
+	if (SQLCODE == SQLNOTFOUND)
+		return Qnil;
+
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+
+	RECORD(c, type, bang, record);
+	return make_result(c, record);
+}
+
+static VALUE
+scrollcur_subseq(VALUE self, VALUE start, VALUE length, VALUE type)
+{
+	cursor_t *c;
+	struct sqlda *output;
+	VALUE first, records;
+	EXEC SQL begin declare section;
+		char *cid, *did;
+		long pos;
+	EXEC SQL end   declare section;
+
+	first = scrollcur_entry(self, start, type, 0);
+	if (NIL_P(first))
+		return Qnil;
+
+	Data_Get_Struct(self, cursor_t, c);
+
+	if (NUM2LONG(length) > 1)
+		records = fetch_many(self, length, type);
+	else
+		records = rb_ary_new();
+
+	rb_ary_unshift(records, first);
+
+	return records;
+}
+
+/*
+ * call-seq:
+ *
+ * cursor[index]  => array or nil
+ * cursor[start, length]  => array or nil
+ * cursor.abs(index)  => array or nil
+ * cursor.abs(start, length)  => array or nil
+ *
+ *
+ */
+static VALUE
+scrollcur_absolute(int argc, VALUE *argv, VALUE self)
+{
+	if (argc == 2) {
+		if (NUM2LONG(argv[1]) <= 0)
+			rb_raise(rb_eArgError, "length must be positive");
+		return scrollcur_subseq(self, argv[0], argv[1], T_ARRAY);
+	}
+	if (argc != 1)
+		rb_scan_args(argc, argv, "11", 0, 0);
+
+	return scrollcur_entry(self, argv[0], T_ARRAY, 0);
+}
+
+/*
+ * call-seq:
+ * cursor.abs!(index)  => array or nil
+ *
+ */
+static VALUE
+scrollcur_absolute_bang(VALUE self, VALUE index)
+{
+	return scrollcur_entry(self, index, T_ARRAY, 1);
+}
+
+/*
+static VALUE
+scrollcur_prev(int argc, VALUE *argv, VALUE self)
+{
+}
+
+static VALUE
+scrollcur_next(int argc, VALUE *argv, VALUE self)
+{
+}
+*/
+
+/*
+ * call-seq:
+ * cursor.first  => array or nil
+ *
+ */
+static VALUE
+scrollcur_first(VALUE self)
+{
+	return scrollcur_entry(self, INT2FIX(0), T_ARRAY, 0);
+}
+
+/*
+ * call-seq:
+ * cursor.first!  => array or nil
+ *
+ */
+static VALUE
+scrollcur_first_bang(VALUE self)
+{
+	return scrollcur_entry(self, INT2FIX(0), T_ARRAY, 1);
+}
+
+/*
+ * call-seq:
+ * cursor.last  => array or nil
+ *
+ */
+static VALUE
+scrollcur_last(VALUE self)
+{
+	return scrollcur_entry(self, INT2FIX(-1), T_ARRAY, 0);
+}
+
+/*
+ * call-seq:
+ * cursor.last!  => array or nil
+ *
+ */
+static VALUE
+scrollcur_last_bang(VALUE self)
+{
+	return scrollcur_entry(self, INT2FIX(-1), T_ARRAY, 1);
+}
+
+/*
+ * call-seq:
+ * cursor.current  => array or nil
+ *
+ */
+static VALUE
+scrollcur_current(VALUE self)
+{
+	return scrollcur_entry(self, Qnil, T_ARRAY, 0);
+}
+
+/*
+ * call-seq:
+ * cursor.current!  => array or nil
+ *
+ */
+static VALUE
+scrollcur_current_bang(VALUE self)
+{
+	return scrollcur_entry(self, Qnil, T_ARRAY, 1);
+}
 
 /* class Cursor ---------------------------------------------------------- */
 
@@ -2347,7 +2530,7 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 
 	if (c->is_select) {
 		if (argc != input->sqld) {
-			rb_raise(rb_eRuntimeError, "Wrong number of parameters (%d for %d)",
+			rb_raise(rb_eArgError, "wrong number of arguments (%d for %d)",
 				argc, input->sqld);
 		}
 		if (argc) {
@@ -2517,6 +2700,21 @@ void Init_informix(void)
 	/* InsertCursor ------------------------------------------------------- */
 	rb_define_method(rb_mInsertCursor, "put", inscur_put, -1);
 	rb_define_method(rb_mInsertCursor, "flush", inscur_flush, 0);
+
+	/* ScrollCursor ------------------------------------------------------- */
+	rb_define_method(rb_mScrollCursor, "[]", scrollcur_absolute, -1);
+	rb_define_alias(rb_mScrollCursor, "abs", "[]");
+	rb_define_method(rb_mScrollCursor, "abs!", scrollcur_absolute_bang, 1);
+/*
+	rb_define_method(rb_mScrollCursor, "prev", scrollcur_prev, -1);
+	rb_define_method(rb_mScrollCursor, "next", scrollcur_next, -1);
+*/
+	rb_define_method(rb_mScrollCursor, "first", scrollcur_first, 0);
+	rb_define_method(rb_mScrollCursor, "first!", scrollcur_first_bang, 0);
+	rb_define_method(rb_mScrollCursor, "last", scrollcur_last, 0);
+	rb_define_method(rb_mScrollCursor, "last!", scrollcur_last_bang, 0);
+	rb_define_method(rb_mScrollCursor, "current", scrollcur_current, 0);
+	rb_define_method(rb_mScrollCursor, "current!", scrollcur_current_bang, 0);
 
 	/* class Cursor ------------------------------------------------------- */
 	rb_cCursor = rb_define_class_under(rb_mInformix, "Cursor", rb_cObject);
