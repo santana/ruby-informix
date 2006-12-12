@@ -5,8 +5,11 @@ New features:
 	* Support for scroll cursors. Methods available:
 		- [], abs (accept negative indexes and [start, length] pairs, similar
 			to Array objects)
-		- first, last, current
-		- abs!, first!, last!, current!
+		- prev, next, first, last, current
+		- prev_hash, next_hash, first_hash, last_hash, current_hash
+		- abs!, prev!, next!, first!, last!, current!
+		- abs_hash!, prev_hash!, next_hash!, first_hash!, last_hash!,
+		  current_hash!
 
 
 0.3.0  11/26/2006
