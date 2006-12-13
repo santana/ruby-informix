@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.55 2006/12/13 08:02:06 santana Exp $ */
+/* $Id: informix.ec,v 1.56 2006/12/13 08:19:52 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -2275,11 +2275,10 @@ slice(int argc, VALUE *argv, VALUE self, VALUE type)
 
 /*
  * call-seq:
- *
- * cursor[index]  => array or nil
- * cursor[start, length]  => array or nil
- * cursor.slice(index)  => array or nil
- * cursor.slice(start, length)  => array or nil
+ *    cursor[index]  => array or nil
+ *    cursor[start, length]  => array or nil
+ *    cursor.slice(index)  => array or nil
+ *    cursor.slice(start, length)  => array or nil
  *
  * Returns the record at _index_, or returns a subarray starting at _start_
  * and continuing for _length_ records. Negative indices count backward from
@@ -2318,9 +2317,8 @@ scrollcur_slice_bang(VALUE self, VALUE index)
 
 /*
  * call-seq:
- *
- * cursor.slice_hash(index)  => hash or nil
- * cursor.slice_hash(start, length)  => array or nil
+ *    cursor.slice_hash(index)  => hash or nil
+ *    cursor.slice_hash(start, length)  => array or nil
  *
  * Returns the record at _index_, or returns a subarray starting at _start_
  * and continuing for _length_ records. Negative indices count backward from
@@ -2403,7 +2401,7 @@ scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
 /* call-seq:
  * cursor.prev(offset = 1)  => array or nil
  *
- * Returns the previous _offset_<sup>th</sup> record. Negative indices count
+ * Returns the previous _offset_ th record. Negative indices count
  * forward from the current position. Returns nil if the _offset_ is out of
  * range.
  */
@@ -2416,7 +2414,7 @@ scrollcur_prev(int argc, VALUE *argv, VALUE self)
 /* call-seq:
  * cursor.prev!(offset = 1)  => array or nil
  *
- * Returns the previous _offset_<sup>th</sup> record. Negative indices count
+ * Returns the previous _offset_ th record. Negative indices count
  * forward from the current position. Returns nil if the _offset_ is out of
  * range.
  *
@@ -2431,7 +2429,7 @@ scrollcur_prev_bang(int argc, VALUE *argv, VALUE self)
 /* call-seq:
  * cursor.prev_hash(offset = 1)  => hash or nil
  *
- * Returns the previous _offset_<sup>th</sup> record. Negative indices count
+ * Returns the previous _offset_ th record. Negative indices count
  * forward from the current position. Returns nil if the _offset_ is out of
  * range.
  */
@@ -2444,7 +2442,7 @@ scrollcur_prev_hash(int argc, VALUE *argv, VALUE self)
 /* call-seq:
  * cursor.prev_hash!(offset = 1)  => hash or nil
  *
- * Returns the previous _offset_<sup>th</sup> record. Negative indices count
+ * Returns the previous _offset_ th record. Negative indices count
  * forward from the current position. Returns nil if the _offset_ is out of
  * range.
  *
@@ -2459,7 +2457,7 @@ scrollcur_prev_hash_bang(int argc, VALUE *argv, VALUE self)
 /* call-seq:
  * cursor.next(offset = 1)  => array or nil
  *
- * Returns the next _offset_<sup>th</sup> record. Negative indices count
+ * Returns the next _offset_ th record. Negative indices count
  * backward from the current position. Returns nil if the _offset_ is out of
  * range.
  */
@@ -2472,7 +2470,7 @@ scrollcur_next(int argc, VALUE *argv, VALUE self)
 /* call-seq:
  * cursor.next!(offset = 1)  => array or nil
  *
- * Returns the next _offset_<sup>th</sup> record. Negative indices count
+ * Returns the next _offset_ th record. Negative indices count
  * backward from the current position. Returns nil if the _offset_ is out of
  * range.
  *
@@ -2487,7 +2485,7 @@ scrollcur_next_bang(int argc, VALUE *argv, VALUE self)
 /* call-seq:
  * cursor.next_hash(offset = 1)  => hash or nil
  *
- * Returns the next _offset_<sup>th</sup> record. Negative indices count
+ * Returns the next _offset_ th record. Negative indices count
  * backward from the current position. Returns nil if the _offset_ is out of
  * range.
  */
@@ -2500,7 +2498,7 @@ scrollcur_next_hash(int argc, VALUE *argv, VALUE self)
 /* call-seq:
  * cursor.next_hash!(offset = 1)  => hash or nil
  *
- * Returns the next _offset_<sup>th</sup> record. Negative indices count
+ * Returns the next _offset_ th record. Negative indices count
  * backward from the current position. Returns nil if the _offset_ is out of
  * range.
  *
