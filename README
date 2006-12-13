@@ -24,6 +24,8 @@ Linux Fedora Core 5     i386          10.00.UC3R1    2.90UC4
 SuSE Linux 9.3          i386           9.30TC1       2.90UC4
 Windows XP Pro SP       i386           9.40TC3       2.90TC1
 Windows XP              i386           9.30TC1       2.90TC4
+HP-UX 11.11				PA-RISC 2.0	  10.00.FC3R1TL	 2.81
+						64-bit
 
 Send me an e-mail if you have [un]succesfully tested Ruby/Informix on another
 platform.
@@ -39,8 +41,8 @@ The notable exception is TEXT/BYTE columns, where Ruby/Informix expects an
 IO-based (File) or IO-like (StringIO) object as input, and returns an String
 object as output.
 
-A new Slob class exists in the Informix module for working with Smart Large
-Objects.
+An Slob class exists in the Informix module for working with Smart Large
+Objects (CLOB/BLOB).
 
 
 3. Recommendations
@@ -54,8 +56,6 @@ Objects.
 4. Caveats
 
 * INTERVAL not implemented yet
-* Cursors must be closed before reopening them
-* Only one connection at a time is supported
 
 -----------------------------------------
 Gerardo Santana <gerardo.santana gmail>
