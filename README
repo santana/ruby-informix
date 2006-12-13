@@ -2,15 +2,14 @@ Ruby/Informix
 ---------------
 Ruby extension for connecting to IBM Informix Dynamic Server, written in ESQL/C.
 
-For installation instructions please read INSTALL. The documentation is
-located under the doc/ directory. Current information can be found at
-http://ruby-informix.rubyforge.org
+For installation instructions please read INSTALL.
 
 1. Supported platforms
 2. Documentation
 3. Data types
 4. Recommendations
 5. Caveats
+6. Support
 
 
 1. Supported platforms
@@ -69,6 +68,11 @@ Objects (CLOB/BLOB).
 5. Caveats
 
 * INTERVAL not implemented yet
+
+6. Support
+
+Feel free to send me bug reports, feature requests, comments, patches or
+questions to my mailbox or Ruby/Informix's forums at Rubyforge.
 
 
 -----------------------------------------
