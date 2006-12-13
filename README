@@ -25,8 +25,8 @@ Linux Fedora Core 5     i386          10.00.UC3R1    2.90UC4
 SuSE Linux 9.3          i386           9.30TC1       2.90UC4
 Windows XP Pro SP       i386           9.40TC3       2.90TC1
 Windows XP              i386           9.30TC1       2.90TC4
-HP-UX 11.11				PA-RISC 2.0	  10.00.FC3R1TL	 2.81
-						64-bit
+HP-UX 11.11            PA-RISC 2.0    10.00.FC3R1TL  2.81
+                       64-bit
 
 Send me an e-mail if you have [un]succesfully tested Ruby/Informix on another
 platform.
