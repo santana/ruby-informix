@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.54 2006/12/13 06:25:19 santana Exp $ */
+/* $Id: informix.ec,v 1.55 2006/12/13 08:02:06 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -2173,6 +2173,11 @@ inscur_flush(VALUE self)
 }
 
 /* module ScrollCursor --------------------------------------------------- */
+
+/*
+ * Provides the Array-like functionality for scroll cursors when using the
+ * cursor[index] syntax
+ */
 static VALUE
 scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
 {
@@ -2218,6 +2223,10 @@ scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
 	return make_result(c, record);
 }
 
+/*
+ * Provides the Array-like functionality for scroll cursors when using the
+ * cursor[start, length] syntax
+ */
 static VALUE
 scrollcur_subseq(VALUE self, VALUE start, VALUE length, VALUE type)
 {
@@ -2247,6 +2256,9 @@ scrollcur_subseq(VALUE self, VALUE start, VALUE length, VALUE type)
 	return records;
 }
 
+/*
+ * Base function for slice and slice_hash methods
+ */
 static VALUE
 slice(int argc, VALUE *argv, VALUE self, VALUE type)
 {
@@ -2269,7 +2281,14 @@ slice(int argc, VALUE *argv, VALUE self, VALUE type)
  * cursor.slice(index)  => array or nil
  * cursor.slice(start, length)  => array or nil
  *
+ * Returns the record at _index_, or returns a subarray starting at _start_
+ * and continuing for _length_ records. Negative indices count backward from
+ * the end of the cursor (-1 is the last element). Returns nil if the
+ * (starting) index is out of range.
  *
+ * <b>Warning</b>: if the (starting) index is negative and out of range, the
+ * position in the cursor is set to the last record. Otherwise the current
+ * position in the cursor is preserved.
  */
 static VALUE
 scrollcur_slice(int argc, VALUE *argv, VALUE self)
@@ -2281,6 +2300,15 @@ scrollcur_slice(int argc, VALUE *argv, VALUE self)
  * call-seq:
  * cursor.slice!(index)  => array or nil
  *
+ * Returns the record at _index_. Negative indices count backward from
+ * the end of the cursor (-1 is the last element). Returns nil if the index
+ * is out of range.
+ *
+ * Stores the record fetched always in the same Array object.
+ *
+ * <b>Warning</b>: if the index is negative and out of range, the
+ * position in the cursor is set to the last record. Otherwise the current
+ * position in the cursor is preserved.
  */
 static VALUE
 scrollcur_slice_bang(VALUE self, VALUE index)
@@ -2292,9 +2320,16 @@ scrollcur_slice_bang(VALUE self, VALUE index)
  * call-seq:
  *
  * cursor.slice_hash(index)  => hash or nil
- * cursor.slice_hash(start, length)  => hash or nil
+ * cursor.slice_hash(start, length)  => array or nil
  *
+ * Returns the record at _index_, or returns a subarray starting at _start_
+ * and continuing for _length_ records. Negative indices count backward from
+ * the end of the cursor (-1 is the last element). Returns nil if the
+ * (starting) index is out of range.
  *
+ * <b>Warning</b>: if the (starting) index is negative and out of range, the
+ * position in the cursor is set to the last record. Otherwise the current
+ * position in the cursor is preserved.
  */
 static VALUE
 scrollcur_slice_hash(int argc, VALUE *argv, VALUE self)
@@ -2306,6 +2341,15 @@ scrollcur_slice_hash(int argc, VALUE *argv, VALUE self)
  * call-seq:
  * cursor.slice_hash!(index)  => hash or nil
  *
+ * Returns the record at _index_. Negative indices count backward from
+ * the end of the cursor (-1 is the last element). Returns nil if the index
+ * is out of range.
+ *
+ * Stores the record fetched always in the same Hash object.
+ *
+ * <b>Warning</b>: if the index is negative and out of range, the
+ * position in the cursor is set to the last record. Otherwise the current
+ * position in the cursor is preserved.
  */
 static VALUE
 scrollcur_slice_hash_bang(VALUE self, VALUE index)
@@ -2313,6 +2357,9 @@ scrollcur_slice_hash_bang(VALUE self, VALUE index)
 	return scrollcur_entry(self, index, T_HASH, 1);
 }
 
+/*
+ * Base function for prev* and next* methods
+ */
 static VALUE
 scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
 {
@@ -2356,6 +2403,9 @@ scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
 /* call-seq:
  * cursor.prev(offset = 1)  => array or nil
  *
+ * Returns the previous _offset_<sup>th</sup> record. Negative indices count
+ * forward from the current position. Returns nil if the _offset_ is out of
+ * range.
  */
 static VALUE
 scrollcur_prev(int argc, VALUE *argv, VALUE self)
@@ -2366,6 +2416,11 @@ scrollcur_prev(int argc, VALUE *argv, VALUE self)
 /* call-seq:
  * cursor.prev!(offset = 1)  => array or nil
  *
+ * Returns the previous _offset_<sup>th</sup> record. Negative indices count
+ * forward from the current position. Returns nil if the _offset_ is out of
+ * range.
+ *
+ * Stores the record fetched always in the same Array object.
  */
 static VALUE
 scrollcur_prev_bang(int argc, VALUE *argv, VALUE self)
@@ -2374,8 +2429,39 @@ scrollcur_prev_bang(int argc, VALUE *argv, VALUE self)
 }
 
 /* call-seq:
+ * cursor.prev_hash(offset = 1)  => hash or nil
+ *
+ * Returns the previous _offset_<sup>th</sup> record. Negative indices count
+ * forward from the current position. Returns nil if the _offset_ is out of
+ * range.
+ */
+static VALUE
+scrollcur_prev_hash(int argc, VALUE *argv, VALUE self)
+{
+	return scrollcur_rel(argc, argv, self, -1, T_HASH, 0);
+}
+
+/* call-seq:
+ * cursor.prev_hash!(offset = 1)  => hash or nil
+ *
+ * Returns the previous _offset_<sup>th</sup> record. Negative indices count
+ * forward from the current position. Returns nil if the _offset_ is out of
+ * range.
+ *
+ * Stores the record fetched always in the same Hash object.
+ */
+static VALUE
+scrollcur_prev_hash_bang(int argc, VALUE *argv, VALUE self)
+{
+	return scrollcur_rel(argc, argv, self, -1, T_HASH, 1);
+}
+
+/* call-seq:
  * cursor.next(offset = 1)  => array or nil
  *
+ * Returns the next _offset_<sup>th</sup> record. Negative indices count
+ * backward from the current position. Returns nil if the _offset_ is out of
+ * range.
  */
 static VALUE
 scrollcur_next(int argc, VALUE *argv, VALUE self)
@@ -2386,6 +2472,11 @@ scrollcur_next(int argc, VALUE *argv, VALUE self)
 /* call-seq:
  * cursor.next!(offset = 1)  => array or nil
  *
+ * Returns the next _offset_<sup>th</sup> record. Negative indices count
+ * backward from the current position. Returns nil if the _offset_ is out of
+ * range.
+ *
+ * Stores the record fetched always in the same Array object.
  */
 static VALUE
 scrollcur_next_bang(int argc, VALUE *argv, VALUE self)
@@ -2393,10 +2484,40 @@ scrollcur_next_bang(int argc, VALUE *argv, VALUE self)
 	return scrollcur_rel(argc, argv, self, 1, T_ARRAY, 1);
 }
 
+/* call-seq:
+ * cursor.next_hash(offset = 1)  => hash or nil
+ *
+ * Returns the next _offset_<sup>th</sup> record. Negative indices count
+ * backward from the current position. Returns nil if the _offset_ is out of
+ * range.
+ */
+static VALUE
+scrollcur_next_hash(int argc, VALUE *argv, VALUE self)
+{
+	return scrollcur_rel(argc, argv, self, 1, T_HASH, 0);
+}
+
+/* call-seq:
+ * cursor.next_hash!(offset = 1)  => hash or nil
+ *
+ * Returns the next _offset_<sup>th</sup> record. Negative indices count
+ * backward from the current position. Returns nil if the _offset_ is out of
+ * range.
+ *
+ * Stores the record fetched always in the same Hash object.
+ */
+static VALUE
+scrollcur_next_hash_bang(int argc, VALUE *argv, VALUE self)
+{
+	return scrollcur_rel(argc, argv, self, 1, T_HASH, 1);
+}
+
 /*
  * call-seq:
  * cursor.first  => array or nil
  *
+ * Returns the first record of the cursor. If the cursor is empty,
+ * returns nil.
  */
 static VALUE
 scrollcur_first(VALUE self)
@@ -2408,6 +2529,10 @@ scrollcur_first(VALUE self)
  * call-seq:
  * cursor.first!  => array or nil
  *
+ * Returns the first record of the cursor. If the cursor is empty,
+ * returns nil.
+ *
+ * Stores the record fetched always in the same Array object.
  */
 static VALUE
 scrollcur_first_bang(VALUE self)
@@ -2417,8 +2542,38 @@ scrollcur_first_bang(VALUE self)
 
 /*
  * call-seq:
+ * cursor.first_hash  => hash or nil
+ *
+ * Returns the first record of the cursor. If the cursor is empty,
+ * returns nil.
+ */
+static VALUE
+scrollcur_first_hash(VALUE self)
+{
+	return scrollcur_entry(self, INT2FIX(0), T_HASH, 0);
+}
+
+/*
+ * call-seq:
+ * cursor.first_hash!  => hash or nil
+ *
+ * Returns the first record of the cursor. If the cursor is empty,
+ * returns nil.
+ *
+ * Stores the record fetched always in the same Hash object.
+ */
+static VALUE
+scrollcur_first_hash_bang(VALUE self)
+{
+	return scrollcur_entry(self, INT2FIX(0), T_HASH, 1);
+}
+
+/*
+ * call-seq:
  * cursor.last  => array or nil
  *
+ * Returns the last record of the cursor. If the cursor is empty,
+ * returns nil.
  */
 static VALUE
 scrollcur_last(VALUE self)
@@ -2430,6 +2585,10 @@ scrollcur_last(VALUE self)
  * call-seq:
  * cursor.last!  => array or nil
  *
+ * Returns the last record of the cursor. If the cursor is empty,
+ * returns nil.
+ *
+ * Stores the record fetched always in the same Array object.
  */
 static VALUE
 scrollcur_last_bang(VALUE self)
@@ -2439,8 +2598,38 @@ scrollcur_last_bang(VALUE self)
 
 /*
  * call-seq:
+ * cursor.last_hash  => hash or nil
+ *
+ * Returns the last record of the cursor. If the cursor is empty,
+ * returns nil.
+ */
+static VALUE
+scrollcur_last_hash(VALUE self)
+{
+	return scrollcur_entry(self, INT2FIX(-1), T_HASH, 0);
+}
+
+/*
+ * call-seq:
+ * cursor.last_hash!  => hash or nil
+ *
+ * Returns the last record of the cursor. If the cursor is empty,
+ * returns nil.
+ *
+ * Stores the record fetched always in the same Hash object.
+ */
+static VALUE
+scrollcur_last_hash_bang(VALUE self)
+{
+	return scrollcur_entry(self, INT2FIX(-1), T_HASH, 1);
+}
+
+/*
+ * call-seq:
  * cursor.current  => array or nil
  *
+ * Returns the current record of the cursor. If the cursor is empty,
+ * returns nil.
  */
 static VALUE
 scrollcur_current(VALUE self)
@@ -2452,11 +2641,43 @@ scrollcur_current(VALUE self)
  * call-seq:
  * cursor.current!  => array or nil
  *
+ * Returns the current record of the cursor. If the cursor is empty,
+ * returns nil.
+ *
+ * Stores the record fetched always in the same Array object.
  */
 static VALUE
 scrollcur_current_bang(VALUE self)
 {
 	return scrollcur_entry(self, Qnil, T_ARRAY, 1);
+}
+
+/*
+ * call-seq:
+ * cursor.current_hash  => hash or nil
+ *
+ * Returns the current record of the cursor. If the cursor is empty,
+ * returns nil.
+ */
+static VALUE
+scrollcur_current_hash(VALUE self)
+{
+	return scrollcur_entry(self, Qnil, T_HASH, 0);
+}
+
+/*
+ * call-seq:
+ * cursor.current_hash!  => hash or nil
+ *
+ * Returns the current record of the cursor. If the cursor is empty,
+ * returns nil.
+ *
+ * Stores the record fetched always in the same Hash object.
+ */
+static VALUE
+scrollcur_current_hash_bang(VALUE self)
+{
+	return scrollcur_entry(self, Qnil, T_HASH, 1);
 }
 
 /* class Cursor ---------------------------------------------------------- */
@@ -2806,14 +3027,24 @@ void Init_informix(void)
 	rb_define_method(rb_mScrollCursor, "slice_hash!", scrollcur_slice_hash_bang, 1);
 	rb_define_method(rb_mScrollCursor, "prev", scrollcur_prev, -1);
 	rb_define_method(rb_mScrollCursor, "prev!", scrollcur_prev_bang, -1);
+	rb_define_method(rb_mScrollCursor, "prev_hash", scrollcur_prev_hash, -1);
+	rb_define_method(rb_mScrollCursor, "prev_hash!", scrollcur_prev_hash_bang, -1);
 	rb_define_method(rb_mScrollCursor, "next", scrollcur_next, -1);
 	rb_define_method(rb_mScrollCursor, "next!", scrollcur_next_bang, -1);
+	rb_define_method(rb_mScrollCursor, "next_hash", scrollcur_next_hash, -1);
+	rb_define_method(rb_mScrollCursor, "next_hash!", scrollcur_next_hash_bang, -1);
 	rb_define_method(rb_mScrollCursor, "first", scrollcur_first, 0);
 	rb_define_method(rb_mScrollCursor, "first!", scrollcur_first_bang, 0);
+	rb_define_method(rb_mScrollCursor, "first_hash", scrollcur_first_hash, 0);
+	rb_define_method(rb_mScrollCursor, "first_hash!", scrollcur_first_hash_bang, 0);
 	rb_define_method(rb_mScrollCursor, "last", scrollcur_last, 0);
 	rb_define_method(rb_mScrollCursor, "last!", scrollcur_last_bang, 0);
+	rb_define_method(rb_mScrollCursor, "last_hash", scrollcur_last_hash, 0);
+	rb_define_method(rb_mScrollCursor, "last_hash!", scrollcur_last_hash_bang, 0);
 	rb_define_method(rb_mScrollCursor, "current", scrollcur_current, 0);
 	rb_define_method(rb_mScrollCursor, "current!", scrollcur_current_bang, 0);
+	rb_define_method(rb_mScrollCursor, "current_hash", scrollcur_current_hash, 0);
+	rb_define_method(rb_mScrollCursor, "current_hash!", scrollcur_current_hash_bang, 0);
 
 	/* class Cursor ------------------------------------------------------- */
 	rb_cCursor = rb_define_class_under(rb_mInformix, "Cursor", rb_cObject);
