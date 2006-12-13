@@ -2,13 +2,13 @@ require 'mkmf'
 
 env = nil
 idefault = File.join(ENV["INFORMIXDIR"], "incl", "esql")
-ldefault = File.join(ENV["INFORMIXDIR"], "lib", "esql")
+ldefault = File.join(ENV["INFORMIXDIR"], "lib")
 
 if RUBY_PLATFORM =~ /mswin/
   $libs += " isqlt09a.lib"
 else
   env = "/usr/bin/env"
-  ldefault += ":" + File.join(ENV["INFORMIXDIR"], "lib")
+  ldefault += ":" + File.join(ENV["INFORMIXDIR"], "lib", "esql")
 
   %w(ifsql ifasf ifgen ifos ifgls).each do |lib|
     $libs += " " + format(LIBARG, lib)
