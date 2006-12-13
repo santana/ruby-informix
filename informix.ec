@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.53 2006/12/13 04:50:31 santana Exp $ */
+/* $Id: informix.ec,v 1.54 2006/12/13 06:25:19 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -58,7 +58,7 @@ static VALUE sym_createflags, sym_openflags;
 static char *currentdid = NULL;
 
 typedef struct {
-	short is_select;
+	short is_select, is_open;
 	struct sqlda daInput, *daOutput;
 	short *indInput, *indOutput;
 	char *bfOutput;
@@ -1748,6 +1748,8 @@ fetch(VALUE self, VALUE type, int bang)
 	VALUE record;
 
 	Data_Get_Struct(self, cursor_t, c);
+	if (!c->is_open)
+		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
 	if (currentdid != did) {
@@ -1849,6 +1851,8 @@ fetch_many(VALUE self, VALUE n, VALUE type)
 	register int all = n == Qnil;
 
 	Data_Get_Struct(self, cursor_t, c);
+	if (!c->is_open)
+		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
 	if (currentdid != did) {
@@ -1952,6 +1956,8 @@ each(VALUE self, VALUE type, int bang)
 	VALUE record;
 
 	Data_Get_Struct(self, cursor_t, c);
+	if (!c->is_open)
+		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
 	if (currentdid != did) {
@@ -2105,6 +2111,8 @@ inscur_put(int argc, VALUE *argv, VALUE self)
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
+	if (!c->is_open)
+		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
 	if (currentdid != did) {
@@ -2148,6 +2156,8 @@ inscur_flush(VALUE self)
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
+	if (!c->is_open)
+		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
 	if (currentdid != did) {
@@ -2175,6 +2185,8 @@ scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
+	if (!c->is_open)
+		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
 	if (currentdid != did) {
@@ -2313,6 +2325,8 @@ scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
+	if (!c->is_open)
+		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
 	if (currentdid != did) {
@@ -2446,6 +2460,40 @@ scrollcur_current_bang(VALUE self)
 }
 
 /* class Cursor ---------------------------------------------------------- */
+static void
+cursor_close_or_free(cursor_t *c, short op)
+{
+	EXEC SQL begin declare section;
+		char *cid, *sid, *did;
+	EXEC SQL end   declare section;
+
+	if (op == 1 && !c->is_open)
+		return;
+
+	c->is_open = 0;
+	if (op == 1)
+		clean_input_slots(c);
+	else {
+		free_input_slots(c);
+		free_output_slots(c);
+	}
+
+	did = c->database_id;
+	if (currentdid != did) {
+		EXEC SQL set connection :did;
+		if (SQLCODE < 0)
+			return;
+		currentdid = did;
+	}
+
+	cid = c->cursor_id;
+	EXEC SQL close :cid;
+
+	if (op == 2) {
+		sid = c->stmt_id;
+		EXEC SQL free :cid; EXEC SQL free :sid;
+	}
+}
 
 static void
 cursor_mark(cursor_t *c)
@@ -2462,29 +2510,8 @@ cursor_mark(cursor_t *c)
 static void
 cursor_free(void *p)
 {
-	cursor_t *c;
-	EXEC SQL begin declare section;
-		char *cid, *sid, *did;
-	EXEC SQL end   declare section;
-
-	c = p;
-	free_input_slots(c);
-	free_output_slots(c);
-
-	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			goto exit;
-		currentdid = did;
-	}
-
-	cid = c->cursor_id; sid = c->stmt_id;
-	EXEC SQL close :cid;
-	EXEC SQL free :cid; EXEC SQL free :sid;
-
-exit:
-	xfree(c);
+	cursor_close_or_free(p, 2);
+	xfree(p);
 }
 
 static VALUE
@@ -2521,6 +2548,7 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(db, char, did);
+
 	if (currentdid != did) {
 		EXEC SQL set connection :did;
 		if (SQLCODE < 0)
@@ -2613,6 +2641,9 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 
 	Data_Get_Struct(self, cursor_t, c);
 
+	if (c->is_open)
+		return self;
+
 	did = c->database_id;
 	if (currentdid != did) {
 		EXEC SQL set connection :did;
@@ -2644,6 +2675,7 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 	if (SQLCODE < 0)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
+	c->is_open = 1;
 	return self;
 }
 
@@ -2657,24 +2689,9 @@ static VALUE
 cursor_close(VALUE self)
 {
 	cursor_t *c;
-	EXEC SQL begin declare section;
-		char *cid, *did;
-	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
-	clean_input_slots(c);
-
-	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			return self;
-		currentdid = did;
-	}
-
-	cid = c->cursor_id;
-	EXEC SQL close :cid;
-
+	cursor_close_or_free(c, 1);
 	return self;
 }
 
@@ -2689,25 +2706,9 @@ static VALUE
 cursor_drop(VALUE self)
 {
 	cursor_t *c;
-	EXEC SQL begin declare section;
-		char *cid, *sid, *did;
-	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
-	cursor_close(self);
-	free_input_slots(c);
-	free_output_slots(c);
-
-	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			return Qnil;
-		currentdid = did;
-	}
-
-	cid = c->cursor_id; sid = c->stmt_id;
-	EXEC SQL free :cid; EXEC SQL free :sid;
+	cursor_close_or_free(c, 2);
 
 	return Qnil;
 }
