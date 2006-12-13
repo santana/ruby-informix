@@ -3,8 +3,7 @@
 New features:
 	* Support for multiple connections to databases
 	* Support for scroll cursors. Methods available:
-		- [], slice (accept negative indexes and [start, length] pairs, similar
-			to Array objects)
+		- [], slice 
 		- prev, next, first, last, current
 		- prev_hash, next_hash, first_hash, last_hash, current_hash
 		- slice!, prev!, next!, first!, last!, current!
