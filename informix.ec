@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.52 2006/12/12 20:39:10 santana Exp $ */
+/* $Id: informix.ec,v 1.53 2006/12/13 04:50:31 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -1585,12 +1585,12 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 	snprintf(c->stmt_id, sizeof(c->stmt_id), "STMT%lX", self);
 	sid = c->stmt_id;
 	c_query = StringValueCStr(query);
-	alloc_input_slots(c, c_query);
 
 	EXEC SQL prepare :sid from :c_query;
 	if (SQLCODE < 0)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
+	alloc_input_slots(c, c_query);
 	EXEC SQL describe :sid into output;
 	c->daOutput = output;
 
@@ -2542,8 +2542,6 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 		hold = rb_hash_aref(options, sym_hold);
 	}
 
-	alloc_input_slots(c, c_query);
-
 	EXEC SQL prepare :sid from :c_query;
 	if (SQLCODE < 0)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
@@ -2557,11 +2555,10 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 	else
 		EXEC SQL declare :cid cursor for :sid;
 
-	if (SQLCODE < 0) {
-		rb_warn("Informix Error: %d\n", SQLCODE);
-		return Qnil;
-	}
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
+	alloc_input_slots(c, c_query);
 	EXEC SQL describe :sid into output;
 	c->daOutput = output;
 
