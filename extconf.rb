@@ -1,14 +1,23 @@
 require 'mkmf'
 
 env = nil
-idefault = File.join(ENV["INFORMIXDIR"], "incl", "esql")
-ldefault = File.join(ENV["INFORMIXDIR"], "lib")
+informixdir = ENV["INFORMIXDIR"]
+
+if informixdir.nil?
+  informixdir = RUBY_PLATFORM =~ /mswin/ ? "C:\\informix" : "/usr/informix"
+end
+
+esql = File.join(informixdir, "bin", "esql")
+idefault = File.join(informixdir, "incl", "esql")
+ldefault = [ File.join(informixdir, "lib") ]
+ldefault << File.join(informixdir, "lib", "esql") if RUBY_PLATFORM !~ /mswin/
+
+dir_config("informix", idefault, ldefault)
 
 if RUBY_PLATFORM =~ /mswin/
   $libs += " isqlt09a.lib"
 else
   env = "/usr/bin/env"
-  ldefault += ":" + File.join(ENV["INFORMIXDIR"], "lib", "esql")
 
   %w(ifsql ifasf ifgen ifos ifgls).each do |lib|
     $libs += " " + format(LIBARG, lib)
@@ -22,7 +31,6 @@ else
   }
 end
 
-dir_config("informix", idefault, ldefault)
 
-`#{env} esql -e informix.ec`
+`#{env} #{esql} -e informix.ec`
 create_makefile("informix")
