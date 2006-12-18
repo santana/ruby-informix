@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.56 2006/12/13 08:19:52 santana Exp $ */
+/* $Id: informix.ec,v 1.57 2006/12/18 20:02:54 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -373,8 +373,10 @@ slob_read(VALUE self, VALUE nbytes)
 	buffer = ALLOC_N(char, c_nbytes);
 	ret = ifx_lo_read(slob->fd, buffer, c_nbytes, &error);
 
-	if (ret == -1)
+	if (ret == -1) {
+		xfree(buffer);
 		rb_raise(rb_eRuntimeError, "Informix Error: %d\n", error);
+	}
 
 	str = rb_str_new(buffer, ret);
 	xfree(buffer);
