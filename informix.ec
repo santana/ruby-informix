@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.58 2006/12/19 00:16:30 santana Exp $ */
+/* $Id: informix.ec,v 1.59 2006/12/19 06:44:20 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -33,7 +33,7 @@
 #include <sqlstype.h>
 #include <sqltypes.h>
 
-static VALUE rb_cDate;
+static VALUE rb_cDate, rb_cBigDecimal;
 
 static VALUE rb_mInformix;
 static VALUE rb_mSequentialCursor;
@@ -47,6 +47,7 @@ static VALUE rb_cCursor;
 
 static ID s_read, s_new, s_utc, s_day, s_month, s_year;
 static ID s_hour, s_min, s_sec, s_usec, s_to_s, s_to_i;
+
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
 static VALUE sym_precision, sym_scale, sym_default, sym_xid;
 static VALUE sym_scroll, sym_hold;
@@ -1007,9 +1008,17 @@ make_result(cursor_t *c, VALUE record)
 		}
 		case SQLDECIMAL:
 		case SQLMONEY: {
-			double dblValue;
-			dectodbl((dec_t *)var->sqldata, &dblValue);
-			item = rb_float_new(dblValue);
+			char buffer[40];
+			mint ret;
+
+			ret = dectoasc((dec_t *)var->sqldata, buffer,
+					sizeof(buffer) - 1, -1);
+			if (ret)
+				rb_raise(rb_eRuntimeError,
+					"Unable to convert DECIMAL to BigDecimal");
+
+			buffer[sizeof(buffer) - 1] = 0;
+			item = rb_funcall(rb_cBigDecimal, s_new, 1, rb_str_new2(buffer));
 			break;
 		}
 		case SQLBOOL:
@@ -3098,6 +3107,8 @@ void Init_informix(void)
 	/* Global constants --------------------------------------------------- */
 	rb_require("date");
 	rb_cDate = rb_const_get(rb_cObject, rb_intern("Date"));
+	rb_require("bigdecimal");
+	rb_cBigDecimal = rb_const_get(rb_cObject, rb_intern("BigDecimal"));
 
 	/* Global symbols ----------------------------------------------------- */
 	s_read = rb_intern("read");
