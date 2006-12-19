@@ -1,3 +1,18 @@
+------------------
+New features:
+	* BigDecimal accepted for input parameters
+	* BigDecimal used for instantiating DECIMAL and MONEY values
+
+Remarks:
+	* DECIMAL and MONEY columns are no longer returned as Float. BigDecimal
+	  is used instead.
+
+Bugs fixed:
+	* If there was an error reading (ifx_lo_read) an SLOB, memory allocated for
+	  the read buffer was not freed. Noticed by
+	  Edwin Fine <emofine at finecomputerconsultants dot com>
+
+
 0.4.0  12/13/2006
 ------------------
 New features:
@@ -37,7 +52,7 @@ New features:
 ------------------
 Bugs fixed:
 	* changing free() for xfree() avoids crashes on Windows XP SP1. Noticed
-	  by Dinko <dsrkoc at helix hr>
+	  by Dinko <dsrkoc at helix dot hr>
 
 
 0.2.0  04/24/2006
