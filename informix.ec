@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.57 2006/12/18 20:02:54 santana Exp $ */
+/* $Id: informix.ec,v 1.58 2006/12/19 00:16:30 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -1302,9 +1302,14 @@ database_transaction(VALUE self)
 
 /*
  * call-seq:
- * db.prepare(query)  => statement
+ * db.prepare(query)                  => statement
+ * db.prepare(query) {|stmt| block }  => nil
  *
- * Returns a <code>Statement</code> object based on <i>query</i>.
+ * Creates a <code>Statement</code> object based on <i>query</i>. If the
+ * optional block is given, it will be passed <i>stmt</i> as an argument, and
+ * the <code>Statement</code> object will be automatically closed when the
+ * block terminates. Otherwise it will return a <code>Statement</code> object.
+ *
  * <i>query</i> may contain '?' placeholders for input parameters;
  * it must not be a query returning more than one row
  * (use <code>Database#cursor</code> instead.)
@@ -1313,9 +1318,10 @@ static VALUE
 database_prepare(VALUE self, VALUE query)
 {
 	VALUE argv[2];
+	VALUE statement_s_new(int, VALUE *, VALUE);
 
 	argv[0] = self; argv[1] = query;
-	return rb_class_new_instance(2, argv, rb_cStatement);
+	return statement_s_new(2, argv, rb_cStatement);
 }
 
 /*
@@ -1558,10 +1564,17 @@ statement_alloc(VALUE klass)
 
 /*
  * call-seq:
- * Statement.new(database, query) => statement
+ * Statement.new(database, query)                 => statement
+ * Statement.new(database, query) {|stmt| block } => nil
  *
- * Prepares <i>query</i> in the context of <i>database</i> and returns
- * a <code>Statement</code> object.
+ * Prepares <i>query</i> in the context of <i>database</i>. If the optional
+ * block is given, it will be passed <i>stmt</i> as an argument, and the
+ * <code>Statement</code> object will be automatically closed when the block
+ * terminates. Otherwise it will return a <code>Statement</code> object.
+ *
+ * <i>query</i> may contain '?' placeholders for input parameters;
+ * it must not be a query returning more than one row
+ * (use <code>Cursor</code> instead.)
  */
 static VALUE
 statement_initialize(VALUE self, VALUE db, VALUE query)
@@ -1608,6 +1621,33 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 	return self;
 }
 
+/*
+ * call-seq:
+ * Statement.new(database, query)                 => statement
+ * Statement.new(database, query) {|stmt| block } => nil
+ *
+ * Prepares <i>query</i> in the context of <i>database</i>. If the optional
+ * block is given, it will be passed <i>stmt</i> as an argument, and the
+ * <code>Statement</code> object will be automatically closed when the block
+ * terminates. Otherwise it will return a <code>Statement</code> object.
+ *
+ * <i>query</i> may contain '?' placeholders for input parameters;
+ * it must not be a query returning more than one row
+ * (use <code>Cursor</code> instead.)
+ */
+static VALUE
+statement_s_new(int argc, VALUE *argv, VALUE klass)
+{
+	VALUE stmt;
+	VALUE statement_drop(VALUE);
+
+	stmt = rb_class_new_instance(argc, argv, klass);
+
+	if (rb_block_given_p())
+		return rb_ensure(rb_yield, stmt, statement_drop, stmt);
+
+	return stmt;
+}
 
 /*
  * call-seq:
@@ -1708,7 +1748,6 @@ statement_drop(VALUE self)
 
 	return Qnil;
 }
-
 
 /* module SequentialCursor ----------------------------------------------- */
 
@@ -2993,6 +3032,7 @@ void Init_informix(void)
 	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement", rb_cObject);
 	rb_define_alloc_func(rb_cStatement, statement_alloc);
 	rb_define_method(rb_cStatement, "initialize", statement_initialize, 2);
+	rb_define_singleton_method(rb_cStatement, "new", statement_s_new, -1);
 	rb_define_method(rb_cStatement, "[]", statement_call, -1);
 	rb_define_alias(rb_cStatement, "call", "[]");
 	rb_define_alias(rb_cStatement, "execute", "[]");
