@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.59 2006/12/19 06:44:20 santana Exp $ */
+/* $Id: informix.ec,v 1.60 2006/12/19 07:05:08 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -844,6 +844,16 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				var->sqltype = SQLUDTFIXED;
 				var->sqlxid = slob->type;
 				var->sqllen = sizeof(ifx_lo_t);
+				*var->sqlind = 0;
+				break;
+			}
+			if (klass == rb_cBigDecimal) {
+				data = rb_funcall(data, s_to_s, 0);
+				var->sqldata = (char *)ALLOC(dec_t);
+				deccvasc(RSTRING(data)->ptr, RSTRING(data)->len,
+					(dec_t *)var->sqldata);
+				var->sqltype = CDECIMALTYPE;
+				var->sqllen = sizeof(dec_t);
 				*var->sqlind = 0;
 				break;
 			}
