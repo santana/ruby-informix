@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.60 2006/12/19 07:05:08 santana Exp $ */
+/* $Id: informix.ec,v 1.61 2006/12/22 11:13:40 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -1333,11 +1333,11 @@ database_transaction(VALUE self)
  * it must not be a query returning more than one row
  * (use <code>Database#cursor</code> instead.)
  */
+static VALUE statement_s_new(int, VALUE *, VALUE);
 static VALUE
 database_prepare(VALUE self, VALUE query)
 {
 	VALUE argv[2];
-	VALUE statement_s_new(int, VALUE *, VALUE);
 
 	argv[0] = self; argv[1] = query;
 	return statement_s_new(2, argv, rb_cStatement);
@@ -1654,11 +1654,11 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
  * it must not be a query returning more than one row
  * (use <code>Cursor</code> instead.)
  */
+static VALUE statement_drop(VALUE);
 static VALUE
 statement_s_new(int argc, VALUE *argv, VALUE klass)
 {
 	VALUE stmt;
-	VALUE statement_drop(VALUE);
 
 	stmt = rb_class_new_instance(argc, argv, klass);
 
