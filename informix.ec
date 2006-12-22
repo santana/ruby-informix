@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.61 2006/12/22 11:13:40 santana Exp $ */
+/* $Id: informix.ec,v 1.62 2006/12/22 11:17:50 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -88,7 +88,7 @@ typedef struct {
 
 #define INT82NUM(int8addr, num) do { \
 	char str[21]; \
-	mint ret = ifx_int8toasc((int8addr), str, sizeof(str) - 1); \
+	ifx_int8toasc((int8addr), str, sizeof(str) - 1); \
 	str[sizeof(str) - 1] = 0; \
 	num = rb_cstr2inum(str, 10); \
 }while(0)
@@ -2290,11 +2290,8 @@ scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
 static VALUE
 scrollcur_subseq(VALUE self, VALUE start, VALUE length, VALUE type)
 {
-	cursor_t *c;
-	struct sqlda *output;
 	VALUE first, records;
 	EXEC SQL begin declare section;
-		char *cid, *did;
 		long pos;
 	EXEC SQL end   declare section;
 
