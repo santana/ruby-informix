@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.62 2006/12/22 11:17:50 santana Exp $ */
+/* $Id: informix.ec,v 1.63 2006/12/23 05:23:43 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -53,6 +53,7 @@ static VALUE sym_precision, sym_scale, sym_default, sym_xid;
 static VALUE sym_scroll, sym_hold;
 static VALUE sym_col_info, sym_sbspace, sym_estbytes, sym_extsz;
 static VALUE sym_createflags, sym_openflags;
+static VALUE sym_params;
 
 #define IDSIZE 30
 
@@ -2807,10 +2808,10 @@ cursor_alloc(VALUE klass)
  * Prepares <i>query</i> in the context of <i>database</i> with <i>options</i>
  * and returns a <code>Cursor</code> object.
  *
- * <i>options</i> can be nil or a hash with the following possible keys:
+ * <i>options</i> can be nil or a Hash object with the following possible keys:
  *
  *   :scroll => true or false
- *   :hold => true or false
+ *   :hold   => true or false
  */
 static VALUE
 cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
@@ -2880,6 +2881,51 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 		rb_extend_object(self, rb_mInsertCursor);
 	}
 	return self;
+}
+
+/*
+ * call-seq:
+ * Cursor.open(database, query, options)  => cursor
+ * Cursor.open(database, query, options) {|cursor| block }
+ *
+ * Prepares and opens <i>query</i> using <i>options</i>.
+ * In the first form the Cursor object is returned.
+ * In the second form the Cursor object is passed to the block and when it
+ * terminates, the Cursor object is dropped.
+ * 
+ * <i>options</i> can be nil or a Hash object with the following possible keys:
+ * 
+ *   :scroll => true or false
+ *   :hold   => true or false
+ *   :params => input parameters as an Array or nil
+ */
+static VALUE cursor_open(int argc, VALUE *argv, VALUE self);
+static VALUE cursor_drop(VALUE self);
+static VALUE
+cursor_s_open(int argc, VALUE *argv, VALUE klass)
+{
+	VALUE cursor, options, params;
+	int open_argc;
+
+	rb_scan_args(argc, argv, "21", 0, 0, &options);
+	open_argc = 0; params = Qnil;
+
+	if (RTEST(options)) {
+		params = rb_hash_aref(options, sym_params);
+
+		if (TYPE(params) == T_ARRAY)
+			open_argc = RARRAY(params)->len;
+		else if (params != Qnil)
+			rb_raise(rb_eRuntimeError, "Parameters must be supplied as an Array");
+	}
+
+	cursor = rb_class_new_instance(argc, argv, klass);
+	cursor_open(open_argc, &params, cursor);
+
+	if (rb_block_given_p())
+		return rb_ensure(rb_yield, cursor, cursor_drop, cursor);
+
+	return cursor;
 }
 
 /*
@@ -3106,6 +3152,7 @@ void Init_informix(void)
 	rb_cCursor = rb_define_class_under(rb_mInformix, "Cursor", rb_cObject);
 	rb_define_alloc_func(rb_cCursor, cursor_alloc);
 	rb_define_method(rb_cCursor, "initialize", cursor_initialize, 3);
+	rb_define_singleton_method(rb_cCursor, "open", cursor_s_open, -1);
 	rb_define_method(rb_cCursor, "id", cursor_id, 0);
 	rb_define_method(rb_cCursor, "open", cursor_open, -1);
 	rb_define_method(rb_cCursor, "close", cursor_close, 0);
@@ -3118,18 +3165,11 @@ void Init_informix(void)
 	rb_cBigDecimal = rb_const_get(rb_cObject, rb_intern("BigDecimal"));
 
 	/* Global symbols ----------------------------------------------------- */
-	s_read = rb_intern("read");
-	s_new = rb_intern("new");
-	s_utc = rb_intern("utc");
-	s_day = rb_intern("day");
-	s_month = rb_intern("month");
-	s_year = rb_intern("year");
-	s_hour = rb_intern("hour");
-	s_min = rb_intern("min");
-	s_sec = rb_intern("sec");
-	s_usec = rb_intern("usec");
-	s_to_s = rb_intern("to_s");
-	s_to_i = rb_intern("to_i");
+	#define INTERN(sym) s_##sym = rb_intern(#sym)
+	INTERN(read); INTERN(new);
+	INTERN(utc);  INTERN(day); INTERN(month); INTERN(year);
+	INTERN(hour); INTERN(min); INTERN(sec); INTERN(usec);
+	INTERN(to_s); INTERN(to_i);
 
 	sym_name = ID2SYM(rb_intern("name"));
 	sym_type = ID2SYM(rb_intern("type"));
@@ -3150,4 +3190,6 @@ void Init_informix(void)
 	sym_extsz = ID2SYM(rb_intern("extsz"));
 	sym_createflags = ID2SYM(rb_intern("createflags"));
 	sym_openflags = ID2SYM(rb_intern("openflags"));
+
+	sym_params = ID2SYM(rb_intern("params"));
 }
