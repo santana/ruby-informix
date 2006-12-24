@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.64 2006/12/24 20:28:27 santana Exp $ */
+/* $Id: informix.ec,v 1.65 2006/12/24 22:44:47 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -57,8 +57,6 @@ static VALUE sym_params;
 
 #define IDSIZE 30
 
-static char *currentdid = NULL;
-
 typedef struct {
 	short is_select, is_open;
 	struct sqlda daInput, *daOutput;
@@ -111,16 +109,11 @@ slob_free(slob_t *slob)
 		EXEC SQL end   declare section;
 
 		did = slob->database_id;
-		if (currentdid != did) {
-			EXEC SQL set connection :did;
-			if (SQLCODE < 0)
-				goto exit;
-			currentdid = did;
-		}
-		ifx_lo_close(slob->fd);
+		EXEC SQL set connection :did;
+		if (SQLCODE >= 0)
+			ifx_lo_close(slob->fd);
 	}
 
-exit:
 	if (slob->spec)
 		ifx_lo_spec_free(slob->spec);
 
@@ -175,12 +168,9 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 	rb_scan_args(argc, argv, "12", &db, &type, &options);
 	Data_Get_Struct(db, char, did);
 
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	Data_Get_Struct(self, slob_t, slob);
 	slob->db = db;
@@ -293,12 +283,9 @@ slob_open(int argc, VALUE *argv, VALUE self)
 		return self;
 
 	did = slob->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	rb_scan_args(argc, argv, "01", &access);
 
@@ -328,12 +315,9 @@ slob_close(VALUE self)
 		EXEC SQL end   declare section;
 
 		did = slob->database_id;
-		if (currentdid != did) {
-			EXEC SQL set connection :did;
-			if (SQLCODE < 0)
-				return self;
-			currentdid = did;
-		}
+		EXEC SQL set connection :did;
+		if (SQLCODE < 0)
+			return self;
 
 		ifx_lo_close(slob->fd);
 		slob->fd = -1;
@@ -369,12 +353,9 @@ slob_read(VALUE self, VALUE nbytes)
 		rb_raise(rb_eRuntimeError, "Open the Slob object before reading");
 
 	did = slob->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	c_nbytes = FIX2LONG(nbytes);
 	buffer = ALLOC_N(char, c_nbytes);
@@ -417,12 +398,9 @@ slob_write(VALUE self, VALUE data)
 		rb_raise(rb_eRuntimeError, "Open the Slob object before writing");
 
 	did = slob->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	str = StringValue(data);
 	buffer = RSTRING(str)->ptr;
@@ -472,12 +450,9 @@ slob_seek(VALUE self, VALUE offset, VALUE whence)
 		rb_raise(rb_eRuntimeError, "Open the Slob object first");
 
 	did = slob->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	NUM2INT8(offset, &offset8);
 	ret = ifx_lo_seek(slob->fd, &offset8, FIX2INT(whence), &seek_pos8);
@@ -513,12 +488,9 @@ slob_tell(VALUE self)
 		rb_raise(rb_eRuntimeError, "Open the Slob object first");
 
 	did = slob->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	ret = ifx_lo_tell(slob->fd, &seek_pos8);
 	if (ret < 0)
@@ -553,12 +525,9 @@ slob_truncate(VALUE self, VALUE offset)
 		rb_raise(rb_eRuntimeError, "Open the Slob object first");
 
 	did = slob->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	NUM2INT8(offset, &offset8);
 	ret = ifx_lo_truncate(slob->fd, &offset8);
@@ -1114,8 +1083,6 @@ database_free(void *p)
 
 	did = p;
 	EXEC SQL disconnect :did;
-	if (currentdid == did)
-		currentdid = NULL;
 	xfree(p);
 }
 
@@ -1171,8 +1138,6 @@ database_initialize(int argc, VALUE *argv, VALUE self)
 	if (SQLCODE < 0)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
-	currentdid = did;
-
 	return self;
 }
 
@@ -1191,8 +1156,6 @@ database_close(VALUE self)
 
 	Data_Get_Struct(self, char, did);
 	EXEC SQL disconnect :did;
-	if (did == currentdid)
-		currentdid = NULL;
 
 	return self;
 }
@@ -1215,12 +1178,9 @@ database_immediate(VALUE self, VALUE arg)
 
 	Data_Get_Struct(self, char, did);
 
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	query = StringValueCStr(arg);
 	EXEC SQL execute immediate :query;
@@ -1245,12 +1205,9 @@ database_rollback(VALUE self)
 
 	Data_Get_Struct(self, char, did);
 
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	EXEC SQL rollback;
 	return self;
@@ -1271,12 +1228,9 @@ database_commit(VALUE self)
 
 	Data_Get_Struct(self, char, did);
 
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	EXEC SQL commit;
 	return self;
@@ -1309,12 +1263,9 @@ database_transaction(VALUE self)
 
 	Data_Get_Struct(self, char, did);
 
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	EXEC SQL commit;
 
@@ -1408,12 +1359,9 @@ database_columns(VALUE self, VALUE tablename)
 
 	Data_Get_Struct(self, char, did);
 
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	tabname = StringValueCStr(tablename);
 
@@ -1564,17 +1512,12 @@ statement_free(void *p)
 	free_output_slots(p);
 
 	did = ((cursor_t *)p)->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			goto exit;
-		currentdid = did;
+	EXEC SQL set connection :did;
+	if (SQLCODE >= 0) {
+		sid = ((cursor_t *)p)->stmt_id;
+		EXEC SQL free :sid;
 	}
 
-	sid = ((cursor_t *)p)->stmt_id;
-	EXEC SQL free :sid;
-
-exit:
 	xfree(p);
 }
 
@@ -1612,12 +1555,9 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(db, char, did);
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	Data_Get_Struct(self, cursor_t, c);
 	c->db = db;
@@ -1697,12 +1637,9 @@ statement_call(int argc, VALUE *argv, VALUE self)
 	Data_Get_Struct(self, cursor_t, c);
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	output = c->daOutput;
 	input = &c->daInput;
@@ -1763,12 +1700,9 @@ statement_drop(VALUE self)
 	free_output_slots(c);
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			return Qnil;
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		return Qnil;
 	sid = c->stmt_id;
 	EXEC SQL free :sid;
 
@@ -1819,12 +1753,9 @@ fetch(VALUE self, VALUE type, int bang)
 		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	output = c->daOutput;
 	cid = c->cursor_id;
@@ -1922,12 +1853,9 @@ fetch_many(VALUE self, VALUE n, VALUE type)
 		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	output = c->daOutput;
 	cid = c->cursor_id;
@@ -2027,12 +1955,9 @@ each(VALUE self, VALUE type, int bang)
 		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	output = c->daOutput;
 	cid = c->cursor_id;
@@ -2182,12 +2107,9 @@ inscur_put(int argc, VALUE *argv, VALUE self)
 		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	input = &c->daInput;
 	cid = c->cursor_id;
@@ -2227,12 +2149,9 @@ inscur_flush(VALUE self)
 		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	cid = c->cursor_id;
 	EXEC SQL flush :cid;
@@ -2261,12 +2180,9 @@ scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
 		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			return Qnil;
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		return Qnil;
 
 	output = c->daOutput;
 	cid = c->cursor_id;
@@ -2438,12 +2354,9 @@ scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
 		rb_raise(rb_eRuntimeError, "Open the cursor object first");
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			return Qnil;
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		return Qnil;
 
 	rb_scan_args(argc, argv, "01", &offset);
 	pos = dir*(NIL_P(offset)? 1: NUM2LONG(offset));
@@ -2762,12 +2675,9 @@ cursor_close_or_free(cursor_t *c, short op)
 	}
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			return;
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		return;
 
 	cid = c->cursor_id;
 	EXEC SQL close :cid;
@@ -2832,12 +2742,9 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 
 	Data_Get_Struct(db, char, did);
 
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	Data_Get_Struct(self, cursor_t, c);
 	c->db = db;
@@ -2973,12 +2880,9 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 		return self;
 
 	did = c->database_id;
-	if (currentdid != did) {
-		EXEC SQL set connection :did;
-		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-		currentdid = did;
-	}
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	input = &c->daInput;
 	cid = c->cursor_id;
