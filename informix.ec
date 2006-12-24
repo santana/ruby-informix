@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.63 2006/12/23 05:23:43 santana Exp $ */
+/* $Id: informix.ec,v 1.64 2006/12/24 20:28:27 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -160,6 +160,7 @@ slob_alloc(VALUE klass)
  *   :col_info    => Get the previous values from the column-level storage
  *                   characteristics for the specified database column
  */
+static VALUE slob_close(VALUE self);
 static VALUE
 slob_initialize(int argc, VALUE *argv, VALUE self)
 {
@@ -249,6 +250,10 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 	if (slob->fd == -1) {
 		rb_raise(rb_eRuntimeError, "Informix Error: %d\n", error);
 	}
+
+	if (rb_block_given_p())
+		return rb_ensure(rb_yield, self, slob_close, self);
+
 	return self;
 }
 
@@ -568,7 +573,8 @@ slob_truncate(VALUE self, VALUE offset)
 /*
  * Counts the number of markers '?' in the query
  */
-static int count_markers(const char *query)
+static int
+count_markers(const char *query)
 {
 	register char c, quote = 0;
 	register int count = 0;
