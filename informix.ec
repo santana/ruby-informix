@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.65 2006/12/24 22:44:47 santana Exp $ */
+/* $Id: informix.ec,v 1.66 2006/12/25 08:39:53 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -135,7 +135,8 @@ slob_alloc(VALUE klass)
 
 /*
  * call-seq:
- * Slob.new(database, type = Slob::CLOB, options = nil)  => slob
+ * Slob.new(database, type = Slob::CLOB, options = nil)                  => slob
+ * Slob.new(database, type = Slob::CLOB, options = nil) {|slob| block }  => obj
  *
  * Creates a Smart Large Object of type <i>type</i> in <i>database</i>.
  * Returns a <code>Slob</code> object pointing to it.
@@ -241,10 +242,42 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d\n", error);
 	}
 
-	if (rb_block_given_p())
-		return rb_ensure(rb_yield, self, slob_close, self);
-
 	return self;
+}
+
+/*
+ * call-seq:
+ * Slob.new(database, type = Slob::CLOB, options = nil)                  => slob
+ * Slob.new(database, type = Slob::CLOB, options = nil) {|slob| block }  => obj
+ *
+ * Creates a Smart Large Object of type <i>type</i> in <i>database</i>.
+ * Returns a <code>Slob</code> object pointing to it.
+ *
+ * <i>type</i> can be Slob::BLOB or Slob::CLOB
+ *
+ * <i>options</i> can be nil or a Hash object with the following possible keys:
+ *
+ *   :sbspace     => Sbspace name
+ *   :estbytes    => Estimated size, in bytes
+ *   :extsz       => Allocation extent size
+ *   :createflags => Create-time flags
+ *   :openflags   => Access mode
+ *   :maxbytes    => Maximum size
+ *   :col_info    => Get the previous values from the column-level storage
+ *                   characteristics for the specified database column
+ */
+static VALUE slob_close(VALUE self);
+static VALUE
+slob_s_new(int argc, VALUE *argv, VALUE klass)
+{
+	VALUE slob;
+
+	slob = rb_class_new_instance(argc, argv, klass);
+
+	if (rb_block_given_p())
+		return rb_ensure(rb_yield, slob, slob_close, slob);
+
+	return slob;
 }
 
 /*
@@ -1280,12 +1313,13 @@ database_transaction(VALUE self)
 /*
  * call-seq:
  * db.prepare(query)                  => statement
- * db.prepare(query) {|stmt| block }  => nil
+ * db.prepare(query) {|stmt| block }  => obj
  *
- * Creates a <code>Statement</code> object based on <i>query</i>. If the
- * optional block is given, it will be passed <i>stmt</i> as an argument, and
- * the <code>Statement</code> object will be automatically closed when the
- * block terminates. Otherwise it will return a <code>Statement</code> object.
+ * Creates a <code>Statement</code> object based on <i>query</i>.
+ * In the first form the Statement object is returned.
+ * In the second form the Statement object is passed to the block and when it
+ * terminates, the Statement object is dropped, returning the value of the
+ * block.
  *
  * <i>query</i> may contain '?' placeholders for input parameters;
  * it must not be a query returning more than one row
@@ -1322,6 +1356,37 @@ database_cursor(int argc, VALUE *argv, VALUE self)
 	arg[0] = self;
 	rb_scan_args(argc, argv, "11", &arg[1], &arg[2]);
 	return rb_class_new_instance(3, arg, rb_cCursor);
+}
+
+/*
+ * call-seq:
+ * db.slob(type = Slob::CLOB, options = nil)                  => slob
+ * db.slob(type = Slob::CLOB, options = nil) {|slob| block }  => obj
+ *
+ * Creates a Smart Large Object of type <i>type</i>.
+ * Returns a <code>Slob</code> object pointing to it.
+ *
+ * <i>type</i> can be Slob::BLOB or Slob::CLOB
+ *
+ * <i>options</i> can be nil or a Hash object with the following possible keys:
+ *
+ *   :sbspace     => Sbspace name
+ *   :estbytes    => Estimated size, in bytes
+ *   :extsz       => Allocation extent size
+ *   :createflags => Create-time flags
+ *   :openflags   => Access mode
+ *   :maxbytes    => Maximum size
+ *   :col_info    => Get the previous values from the column-level storage
+ *                   characteristics for the specified database column
+ */
+static VALUE
+database_slob(int argc, VALUE *argv, VALUE self)
+{
+	VALUE arg[3];
+
+	arg[0] = self;
+	rb_scan_args(argc, argv, "02", &arg[1], &arg[2]);
+	return slob_s_new(3, arg, rb_cSlob);
 }
 
 /*
@@ -1534,12 +1599,14 @@ statement_alloc(VALUE klass)
 /*
  * call-seq:
  * Statement.new(database, query)                 => statement
- * Statement.new(database, query) {|stmt| block } => nil
+ * Statement.new(database, query) {|stmt| block } => obj
  *
- * Prepares <i>query</i> in the context of <i>database</i>. If the optional
- * block is given, it will be passed <i>stmt</i> as an argument, and the
- * <code>Statement</code> object will be automatically closed when the block
- * terminates. Otherwise it will return a <code>Statement</code> object.
+ * Creates a <code>Statement</code> object based on <i>query</i> in the
+ * context of <i>database</i>.
+ * In the first form the <code>Statement</code> object is returned.
+ * In the second form the Statement object is passed to the block and when it
+ * terminates, the Statement object is dropped, returning the value of the
+ * block.
  *
  * <i>query</i> may contain '?' placeholders for input parameters;
  * it must not be a query returning more than one row
@@ -1590,12 +1657,14 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 /*
  * call-seq:
  * Statement.new(database, query)                 => statement
- * Statement.new(database, query) {|stmt| block } => nil
+ * Statement.new(database, query) {|stmt| block } => obj
  *
- * Prepares <i>query</i> in the context of <i>database</i>. If the optional
- * block is given, it will be passed <i>stmt</i> as an argument, and the
- * <code>Statement</code> object will be automatically closed when the block
- * terminates. Otherwise it will return a <code>Statement</code> object.
+ * Creates a <code>Statement</code> object based on <i>query</i> in the
+ * context of <i>database</i>.
+ * In the first form the <code>Statement</code> object is returned.
+ * In the second form the Statement object is passed to the block and when it
+ * terminates, the Statement object is dropped, returning the value of the
+ * block.
  *
  * <i>query</i> may contain '?' placeholders for input parameters;
  * it must not be a query returning more than one row
@@ -2719,7 +2788,7 @@ cursor_alloc(VALUE klass)
 
 /*
  * call-seq:
- * Cursor.new(database, query, options) => cursor
+ * Cursor.new(database, query, options = nil) => cursor
  *
  * Prepares <i>query</i> in the context of <i>database</i> with <i>options</i>
  * and returns a <code>Cursor</code> object.
@@ -2730,8 +2799,9 @@ cursor_alloc(VALUE klass)
  *   :hold   => true or false
  */
 static VALUE
-cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
+cursor_initialize(int argc, VALUE *argv, VALUE self)
 {
+	VALUE db, query, options;
 	VALUE scroll, hold;
 	struct sqlda *output;
 	cursor_t *c;
@@ -2740,6 +2810,7 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 		char *cid, *sid, *did;
 	EXEC SQL end   declare section;
 
+	rb_scan_args(argc, argv, "21", &db, &query, &options);
 	Data_Get_Struct(db, char, did);
 
 	EXEC SQL set connection :did;
@@ -2798,13 +2869,14 @@ cursor_initialize(VALUE self, VALUE db, VALUE query, VALUE options)
 
 /*
  * call-seq:
- * Cursor.open(database, query, options)  => cursor
- * Cursor.open(database, query, options) {|cursor| block }
+ * Cursor.open(database, query, options)                    => cursor
+ * Cursor.open(database, query, options) {|cursor| block }  => obj
  *
- * Prepares and opens <i>query</i> using <i>options</i>.
+ * Creates and opens a Cursor object based on <i>query</i> using <i>options</i>
+ * in the context of <i>database</i>.
  * In the first form the Cursor object is returned.
  * In the second form the Cursor object is passed to the block and when it
- * terminates, the Cursor object is dropped.
+ * terminates, the Cursor object is dropped, returning the value of the block.
  * 
  * <i>options</i> can be nil or a Hash object with the following possible keys:
  * 
@@ -2959,6 +3031,7 @@ void Init_informix(void)
 	rb_cSlob = rb_define_class_under(rb_mInformix, "Slob", rb_cObject);
 	rb_define_alloc_func(rb_cSlob, slob_alloc);
 	rb_define_method(rb_cSlob, "initialize", slob_initialize, -1);
+	rb_define_singleton_method(rb_cSlob, "new", slob_s_new, -1);
 	rb_define_method(rb_cSlob, "open", slob_open, -1);
 	rb_define_method(rb_cSlob, "close", slob_close, 0);
 	rb_define_method(rb_cSlob, "read", slob_read, 1);
@@ -2999,6 +3072,7 @@ void Init_informix(void)
 	rb_define_method(rb_cDatabase, "prepare", database_prepare, 1);
 	rb_define_method(rb_cDatabase, "columns", database_columns, 1);
 	rb_define_method(rb_cDatabase, "cursor", database_cursor, -1);
+	rb_define_method(rb_cDatabase, "slob", database_slob, -1);
 
 	/* class Statement ---------------------------------------------------- */
 	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement", rb_cObject);
@@ -3061,7 +3135,7 @@ void Init_informix(void)
 	/* class Cursor ------------------------------------------------------- */
 	rb_cCursor = rb_define_class_under(rb_mInformix, "Cursor", rb_cObject);
 	rb_define_alloc_func(rb_cCursor, cursor_alloc);
-	rb_define_method(rb_cCursor, "initialize", cursor_initialize, 3);
+	rb_define_method(rb_cCursor, "initialize", cursor_initialize, -1);
 	rb_define_singleton_method(rb_cCursor, "open", cursor_s_open, -1);
 	rb_define_method(rb_cCursor, "id", cursor_id, 0);
 	rb_define_method(rb_cCursor, "open", cursor_open, -1);
