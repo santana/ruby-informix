@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.68 2006/12/26 05:30:22 santana Exp $ */
+/* $Id: informix.ec,v 1.69 2006/12/26 05:35:44 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -2828,7 +2828,7 @@ cursor_initialize(int argc, VALUE *argv, VALUE self)
 	cid = c->cursor_id; sid = c->stmt_id;
 	c_query = StringValueCStr(query);
 
-	if (RTEST(options)) {
+	if (!NIL_P(options)) {
 		Check_Type(options, T_HASH);
 		scroll = rb_hash_aref(options, sym_scroll);
 		hold = rb_hash_aref(options, sym_hold);
@@ -2898,7 +2898,7 @@ cursor_s_open(int argc, VALUE *argv, VALUE klass)
 	rb_scan_args(argc, argv, "21", 0, 0, &options);
 	open_argc = 0; params = Qnil;
 
-	if (RTEST(options)) {
+	if (!NIL_P(options)) {
 		Check_Type(options, T_HASH);
 		params = rb_hash_aref(options, sym_params);
 
