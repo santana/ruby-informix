@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.67 2006/12/26 01:40:49 santana Exp $ */
+/* $Id: informix.ec,v 1.68 2006/12/26 05:30:22 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -52,7 +52,7 @@ static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
 static VALUE sym_precision, sym_scale, sym_default, sym_xid;
 static VALUE sym_scroll, sym_hold;
 static VALUE sym_col_info, sym_sbspace, sym_estbytes, sym_extsz;
-static VALUE sym_createflags, sym_openflags;
+static VALUE sym_createflags, sym_openflags, sym_maxbytes;
 static VALUE sym_params;
 
 #define IDSIZE 30
@@ -177,7 +177,7 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 	slob->db = db;
 	slob->database_id = did;
 
-	if (RTEST(type)) {
+	if (!NIL_P(type)) {
 		int t = FIX2INT(type);
 		if (t != XID_CLOB && t != XID_BLOB)
 			rb_raise(rb_eRuntimeError, "Invalid type %d for an SLOB", t);
@@ -186,7 +186,7 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 
 	col_info = sbspace = estbytes = extsz = createflags = openflags = maxbytes = Qnil;
 
-	if (RTEST(options)) {
+	if (!NIL_P(options)) {
 		Check_Type(options, T_HASH);
 		col_info = rb_hash_aref(options, sym_col_info);
 		sbspace = rb_hash_aref(options, sym_sbspace);
@@ -194,25 +194,26 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 		extsz = rb_hash_aref(options, sym_extsz);
 		createflags = rb_hash_aref(options, sym_createflags);
 		openflags = rb_hash_aref(options, sym_openflags);
+		maxbytes = rb_hash_aref(options, sym_maxbytes);
 	}
 
 	ret = ifx_lo_def_create_spec(&slob->spec);
 	if (ret < 0)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
 
-	if (RTEST(col_info)) {
+	if (!NIL_P(col_info)) {
 		ret = ifx_lo_col_info(StringValueCStr(col_info), slob->spec);
 
 		if (ret < 0)
 			rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
 	}
-	if (RTEST(sbspace)) {
+	if (!NIL_P(sbspace)) {
 		char *c_sbspace = StringValueCStr(sbspace);
 		ret = ifx_lo_specset_sbspace(slob->spec, c_sbspace);
 		if (ret == -1)
 			rb_raise(rb_eRuntimeError, "Could not set sbspace name to %s", c_sbspace);
 	}
-	if (RTEST(estbytes)) {
+	if (!NIL_P(estbytes)) {
 		ifx_int8_t estbytes8;
 
 		NUM2INT8(estbytes, &estbytes8);
@@ -220,17 +221,17 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 		if (ret == -1)
 			rb_raise(rb_eRuntimeError, "Could not set estbytes");
 	}
-	if (RTEST(extsz)) {
+	if (!NIL_P(extsz)) {
 		ret = ifx_lo_specset_extsz(slob->spec, FIX2LONG(extsz));
 		if (ret == -1)
 			rb_raise(rb_eRuntimeError, "Could not set extsz to %d", FIX2LONG(extsz));
 	}
-	if (RTEST(createflags)) {
+	if (!NIL_P(createflags)) {
 		ret = ifx_lo_specset_flags(slob->spec, FIX2LONG(createflags));
 		if (ret == -1)
 			rb_raise(rb_eRuntimeError, "Could not set crate-time flags to 0x%X", FIX2LONG(createflags));
 	}
-	if (RTEST(maxbytes)) {
+	if (!NIL_P(maxbytes)) {
 		ifx_int8_t maxbytes8;
 
 		NUM2INT8(maxbytes, (&maxbytes8));
@@ -238,10 +239,10 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 		if (ret == -1)
 			rb_raise(rb_eRuntimeError, "Could not set maxbytes");
 	}
+
 	slob->fd = ifx_lo_create(slob->spec, RTEST(openflags)? FIX2LONG(openflags): LO_RDWR, &slob->lo, &error);
-	if (slob->fd == -1) {
+	if (slob->fd == -1)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d\n", error);
-	}
 
 	return self;
 }
@@ -3177,6 +3178,7 @@ void Init_informix(void)
 	sym_extsz = ID2SYM(rb_intern("extsz"));
 	sym_createflags = ID2SYM(rb_intern("createflags"));
 	sym_openflags = ID2SYM(rb_intern("openflags"));
+	sym_maxbytes = ID2SYM(rb_intern("maxbytes"));
 
 	sym_params = ID2SYM(rb_intern("params"));
 }
