@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.66 2006/12/25 08:39:53 santana Exp $ */
+/* $Id: informix.ec,v 1.67 2006/12/26 01:40:49 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -187,6 +187,7 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
 	col_info = sbspace = estbytes = extsz = createflags = openflags = maxbytes = Qnil;
 
 	if (RTEST(options)) {
+		Check_Type(options, T_HASH);
 		col_info = rb_hash_aref(options, sym_col_info);
 		sbspace = rb_hash_aref(options, sym_sbspace);
 		estbytes = rb_hash_aref(options, sym_estbytes);
@@ -2827,6 +2828,7 @@ cursor_initialize(int argc, VALUE *argv, VALUE self)
 	c_query = StringValueCStr(query);
 
 	if (RTEST(options)) {
+		Check_Type(options, T_HASH);
 		scroll = rb_hash_aref(options, sym_scroll);
 		hold = rb_hash_aref(options, sym_hold);
 	}
@@ -2896,6 +2898,7 @@ cursor_s_open(int argc, VALUE *argv, VALUE klass)
 	open_argc = 0; params = Qnil;
 
 	if (RTEST(options)) {
+		Check_Type(options, T_HASH);
 		params = rb_hash_aref(options, sym_params);
 
 		if (TYPE(params) == T_ARRAY)
