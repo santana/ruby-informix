@@ -1,16 +1,31 @@
 ------------------
 New features:
+	* Easier to install
 	* BigDecimal accepted for input parameters
 	* BigDecimal used for instantiating DECIMAL and MONEY values
+	* Cursor.open and Statement.new accept a block that automatically
+	  frees resources after execution. Based on ideas and pseudo-code by
+	  Edwin Fine <emofine at finecomputerconsultants dot com> and me.
+	* Slob.new accepts a block that automatically closes the SLOB when the
+	  block terminates.
+	* Database.open accept a block that automatically closes the
+	  connection when the block terminates.
+	* Database#slob shortcut for creating Slob objects
+	* Slob::Stat class implemented. Returned by Slob#stat, represents the
+	  SLOB status.
 
 Remarks:
 	* DECIMAL and MONEY columns are no longer returned as Float. BigDecimal
 	  is used instead.
 
 Bugs fixed:
-	* If there was an error reading (ifx_lo_read) an SLOB, memory allocated for
-	  the read buffer was not freed. Noticed by
+	* If there was an error reading (ifx_lo_read) an SLOB, memory
+	  allocated for the read buffer was not freed. Noticed by
 	  Edwin Fine <emofine at finecomputerconsultants dot com>
+	* maxbytes option was ignored when creating an Slob object
+
+Special thanks to Guy Bowerman, Jonathan Leffler and Logan Capaldo for their
+feedback and help.
 
 
 0.4.0  12/13/2006
