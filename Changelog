@@ -1,16 +1,14 @@
+0.5.0  12/27/2006
 ------------------
 New features:
 	* Easier to install
 	* BigDecimal accepted for input parameters
 	* BigDecimal used for instantiating DECIMAL and MONEY values
-	* Cursor.open and Statement.new accept a block that automatically
-	  frees resources after execution. Based on ideas and pseudo-code by
+	* Cursor, Statement, Slob and Database accept an optional block that
+	  automatically frees resources after execution.
+	  Based on ideas and pseudo-code by
 	  Edwin Fine <emofine at finecomputerconsultants dot com> and me.
-	* Slob.new accepts a block that automatically closes the SLOB when the
-	  block terminates.
-	* Database.open accept a block that automatically closes the
-	  connection when the block terminates.
-	* Database#slob shortcut for creating Slob objects
+	* Database#slob shortcut for creating Slob objects.
 	* Slob::Stat class implemented. Returned by Slob#stat, represents the
 	  SLOB status. Methods: atime, ctime, mtime, refcnt and size. Includes
 	  Comparable.
