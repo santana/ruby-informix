@@ -16,7 +16,8 @@ New features:
 	  Comparable.
 	* Slob new methods: <<, rewind, stat, pos, pos=, lock, unlock,
 	                    estbytes, extsz, flags, maxbytes, sbspace,
-	                    extsz=, flags=
+	                    extsz=, flags=,
+	                    atime, ctime, mtime, refcnt and size
 
 Remarks:
 	* DECIMAL and MONEY columns are no longer returned as Float. BigDecimal
