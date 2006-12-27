@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.69 2006/12/26 05:35:44 santana Exp $ */
+/* $Id: informix.ec,v 1.70 2006/12/27 00:11:39 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -40,7 +40,7 @@ static VALUE rb_mSequentialCursor;
 static VALUE rb_mScrollCursor;
 static VALUE rb_mInsertCursor;
 
-static VALUE rb_cSlob;
+static VALUE rb_cSlob, rb_cSlobStat;
 static VALUE rb_cDatabase;
 static VALUE rb_cStatement;
 static VALUE rb_cCursor;
@@ -77,6 +77,11 @@ typedef struct {
 	char *database_id;
 } slob_t;
 
+typedef struct {
+	mint atime, ctime, mtime, refcnt;
+	ifx_int8_t size;
+} slobstat_t;
+
 #define NUM2INT8(num, int8addr) do { \
 	VALUE str = rb_funcall(num, s_to_s, 0); \
 	char *c_str = StringValueCStr(str); \
@@ -91,6 +96,107 @@ typedef struct {
 	str[sizeof(str) - 1] = 0; \
 	num = rb_cstr2inum(str, 10); \
 }while(0)
+
+/* class Slob::Stat ------------------------------------------------------ */
+
+static void
+slobstat_free(slobstat_t *stat)
+{
+	xfree(stat);
+}
+
+static VALUE
+slobstat_alloc(VALUE klass)
+{
+	slobstat_t *stat;
+
+	stat = ALLOC(slobstat_t);
+	return Data_Wrap_Struct(klass, 0, slobstat_free, stat);
+}
+
+static VALUE
+rb_slobstat_initialize(VALUE self, VALUE slob)
+{
+	mint ret;
+	slob_t *sb;
+	slobstat_t *stat;
+	ifx_lo_stat_t *st;
+
+	Data_Get_Struct(slob, slob_t, sb);
+	Data_Get_Struct(self, slobstat_t, stat);
+
+	if (sb->fd == -1)
+		rb_raise(rb_eRuntimeError,
+			"Open the Slob object before getting its status");
+
+	ret = ifx_lo_stat(sb->fd, &st);
+
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+
+	stat->atime = ifx_lo_stat_atime(st);
+	stat->ctime = ifx_lo_stat_ctime(st);
+	stat->mtime = ifx_lo_stat_mtime_sec(st);
+	stat->refcnt = ifx_lo_stat_refcnt(st);
+	ret = ifx_lo_stat_size(st, &stat->size);
+
+	ifx_lo_stat_free(st);
+
+	if (stat->atime == -1 || stat->ctime == -1 || stat->mtime == -1 ||
+	    stat->refcnt == -1 || ret == -1) {
+		rb_raise(rb_eRuntimeError, "Unable to get status");
+	}
+
+	return self;
+}
+
+static VALUE
+rb_slobstat_atime(VALUE self)
+{
+	slobstat_t *stat;
+
+	Data_Get_Struct(self, slobstat_t, stat);
+	return rb_time_new(stat->atime, 0);
+}
+
+static VALUE
+rb_slobstat_ctime(VALUE self)
+{
+	slobstat_t *stat;
+
+	Data_Get_Struct(self, slobstat_t, stat);
+	return rb_time_new(stat->ctime, 0);
+}
+
+static VALUE
+rb_slobstat_mtime(VALUE self)
+{
+	slobstat_t *stat;
+
+	Data_Get_Struct(self, slobstat_t, stat);
+	return rb_time_new(stat->mtime, 0);
+}
+
+static VALUE
+rb_slobstat_refcnt(VALUE self)
+{
+	slobstat_t *stat;
+
+	Data_Get_Struct(self, slobstat_t, stat);
+	return INT2FIX(stat->refcnt);
+}
+
+static VALUE
+rb_slobstat_size(VALUE self)
+{
+	slobstat_t *stat;
+	VALUE size;
+
+	Data_Get_Struct(self, slobstat_t, stat);
+	INT82NUM(&stat->size, size);
+
+	return size;
+}
 
 /* class Slob ------------------------------------------------------------ */
 
@@ -128,7 +234,9 @@ slob_alloc(VALUE klass)
 	slob = ALLOC(slob_t);
 	slob->spec = NULL;
 	slob->fd = -1;
+	slob->database_id = NULL;
 	slob->type = XID_CLOB;
+	slob->db = 0;
 
 	return Data_Wrap_Struct(klass, slob_mark, slob_free, slob);
 }
@@ -1060,6 +1168,8 @@ make_result(cursor_t *c, VALUE record)
 				Data_Get_Struct(item, slob_t, slob);
 				memcpy(&slob->lo, var->sqldata, sizeof(ifx_lo_t));
 				slob->type = var->sqlxid;
+				slob->database_id = c->database_id;
+				slob->db = c->db;
 				break;
 			}
 		case SQLSET:
@@ -3061,6 +3171,17 @@ void Init_informix(void)
 	DEF_SLOB_CONST(SEEK_SET);
 	DEF_SLOB_CONST(SEEK_CUR);
 	DEF_SLOB_CONST(SEEK_END);
+
+	/* class Slob::Stat --------------------------------------------------- */
+
+	rb_cSlobStat = rb_define_class_under(rb_cSlob, "Stat", rb_cObject);
+	rb_define_alloc_func(rb_cSlobStat, slobstat_alloc);
+	rb_define_method(rb_cSlobStat, "initialize", rb_slobstat_initialize, 1);
+	rb_define_method(rb_cSlobStat, "atime", rb_slobstat_atime, 0);
+	rb_define_method(rb_cSlobStat, "ctime", rb_slobstat_ctime, 0);
+	rb_define_method(rb_cSlobStat, "mtime", rb_slobstat_mtime, 0);
+	rb_define_method(rb_cSlobStat, "refcnt", rb_slobstat_refcnt, 0);
+	rb_define_method(rb_cSlobStat, "size", rb_slobstat_size, 0);
 
 	/* class Database ----------------------------------------------------- */
 	rb_cDatabase = rb_define_class_under(rb_mInformix, "Database", rb_cObject);
