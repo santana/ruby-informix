@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.73 2006/12/27 03:23:47 santana Exp $ */
+/* $Id: informix.ec,v 1.74 2006/12/27 04:17:40 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -698,6 +698,18 @@ rb_slob_seek(VALUE self, VALUE offset, VALUE whence)
 
 /*
  * call-seq:
+ * slob.pos = integer    => integer
+ *
+ * Seeks to the given position (in bytes) in _slob_.
+ */
+static VALUE
+rb_slob_set_pos(VALUE self, VALUE pos)
+{
+	return rb_slob_seek(self, pos, LO_SEEK_SET);
+}
+
+/*
+ * call-seq:
  * slob.rewind  => fixnum
  *
  * Moves the cursor position to the start of the Smart Large Object.
@@ -710,10 +722,10 @@ rb_slob_rewind(VALUE self)
 
 /*
  * call-seq:
- * slob.tell  => fixnum or bignum
+ * slob.tell  => integer
+ * slob.pos   => integer
  * 
- * Returns the current file or seek position for an
- * open Smart Large Object
+ * Returns the current file or seek position for an open Smart Large Object
  */
 static VALUE
 rb_slob_tell(VALUE self)
@@ -781,6 +793,12 @@ rb_slob_truncate(VALUE self, VALUE offset)
 	return self;
 }
 
+/*
+ * call-seq:
+ * slob.stat  => stat
+ *
+ * Creates an Slob::Stat object with status information for _slob_.
+ */
 static VALUE
 rb_slob_stat(VALUE self)
 {
@@ -3286,6 +3304,8 @@ void Init_informix(void)
 	rb_define_method(rb_cSlob, "write", rb_slob_write, 1);
 	rb_define_method(rb_cSlob, "seek", rb_slob_seek, 2);
 	rb_define_method(rb_cSlob, "tell", rb_slob_tell, 0);
+	rb_define_alias(rb_cSlob, "pos", "tell");
+	rb_define_method(rb_cSlob, "pos=", rb_slob_set_pos, 1);
 	rb_define_method(rb_cSlob, "truncate", rb_slob_truncate, 1);
 	rb_define_method(rb_cSlob, "stat", rb_slob_stat, 0);
 	rb_define_method(rb_cSlob, "<<", rb_slob_addstr, 1);
