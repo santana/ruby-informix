@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.77 2006/12/27 06:27:13 santana Exp $ */
+/* $Id: informix.ec,v 1.78 2006/12/27 06:45:11 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -938,6 +938,55 @@ slob_specget(VALUE self, slob_option_t option)
 	return Qnil; /* Not reached */
 }
 
+static VALUE
+slob_specset(VALUE self, slob_option_t option, VALUE value)
+{
+	slob_t *slob;
+	mint ret;
+	ifx_lo_stat_t *stat;
+	ifx_lo_create_spec_t *spec;
+	EXEC SQL begin declare section;
+		char *did;
+	EXEC SQL end   declare section;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+
+	did = slob->database_id;
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+
+	ret = ifx_lo_stat(slob->fd, &stat);
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+
+	spec = ifx_lo_stat_cspec(stat);
+	if (spec == NULL) {
+		ifx_lo_stat_free(stat);
+		rb_raise(rb_eRuntimeError, "Unable to get storage characteristics");
+	}
+
+	switch(option) {
+	case slob_extsz:
+		ret = ifx_lo_specset_extsz(spec, FIX2INT(value));
+		break;
+	case slob_flags:
+		ret = ifx_lo_specset_flags(spec, FIX2INT(value));
+		break;
+	default:
+		break; /* Not reached */
+	}
+
+	ifx_lo_stat_free(stat);
+	if (ret == -1)
+		rb_raise(rb_eRuntimeError, "Unable to set information for %s", str_slob_options[option]);
+
+	return value;
+}
+
 /*
  * call-seq:
  * slob.estbytes  => fixnum or bignum
@@ -996,6 +1045,30 @@ static VALUE
 rb_slob_sbspace(VALUE self)
 {
 	return slob_specget(self, slob_sbspace);
+}
+
+/*
+ * call-seq:
+ * slob.extsz = fixnum    => fixnum
+ *
+ * Sets the allocation extent size for the SLOB
+ */
+static VALUE
+rb_slob_set_extsz(VALUE self, VALUE value)
+{
+	return slob_specset(self, slob_extsz, value);
+}
+
+/*
+ * call-seq:
+ * slob.flags = fixnum    => fixnum
+ *
+ * Sets the create-time flags of the SLOB
+ */
+static VALUE
+rb_slob_set_flags(VALUE self, VALUE value)
+{
+	return slob_specset(self, slob_flags, value);
 }
 
 /* Helper functions ------------------------------------------------------- */
@@ -3514,6 +3587,9 @@ void Init_informix(void)
 	rb_define_method(rb_cSlob, "flags", rb_slob_flags, 0);
 	rb_define_method(rb_cSlob, "maxbytes", rb_slob_maxbytes, 0);
 	rb_define_method(rb_cSlob, "sbspace", rb_slob_sbspace, 0);
+
+	rb_define_method(rb_cSlob, "extsz=", rb_slob_set_extsz, 1);
+	rb_define_method(rb_cSlob, "flags=", rb_slob_set_flags, 1);
 
 	#define DEF_SLOB_CONST(k) rb_define_const(rb_cSlob, #k, INT2FIX(LO_##k))
 

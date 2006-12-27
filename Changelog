@@ -14,7 +14,9 @@ New features:
 	* Slob::Stat class implemented. Returned by Slob#stat, represents the
 	  SLOB status. Methods: atime, ctime, mtime, refcnt and size. Includes
 	  Comparable.
-	* Slob new methods: <<, rewind, stat, pos, pos=, lock, unlock
+	* Slob new methods: <<, rewind, stat, pos, pos=, lock, unlock,
+	                    estbytes, extsz, flags, maxbytes, sbspace,
+	                    extsz=, flags=
 
 Remarks:
 	* DECIMAL and MONEY columns are no longer returned as Float. BigDecimal
