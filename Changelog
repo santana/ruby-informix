@@ -18,6 +18,7 @@ New features:
 	                    estbytes, extsz, flags, maxbytes, sbspace,
 	                    extsz=, flags=,
 	                    atime, ctime, mtime, refcnt and size
+	* Thread safe
 
 Remarks:
 	* DECIMAL and MONEY columns are no longer returned as Float. BigDecimal
