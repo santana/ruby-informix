@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.74 2006/12/27 04:17:40 santana Exp $ */
+/* $Id: informix.ec,v 1.75 2006/12/27 04:37:45 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -3328,6 +3328,11 @@ void Init_informix(void)
 	DEF_SLOB_CONST(SEEK_SET);
 	DEF_SLOB_CONST(SEEK_CUR);
 	DEF_SLOB_CONST(SEEK_END);
+
+	DEF_SLOB_CONST(LOG);
+	DEF_SLOB_CONST(NOLOG);
+	DEF_SLOB_CONST(KEEP_LASTACCESS_TIME);
+	DEF_SLOB_CONST(NOKEEP_LASTACCESS_TIME);
 
 	/* class Slob::Stat --------------------------------------------------- */
 
