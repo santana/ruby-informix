@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.75 2006/12/27 04:37:45 santana Exp $ */
+/* $Id: informix.ec,v 1.76 2006/12/27 05:23:27 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -803,6 +803,64 @@ static VALUE
 rb_slob_stat(VALUE self)
 {
 	return rb_class_new_instance(1, &self, rb_cSlobStat);
+}
+
+static VALUE
+rb_slob_lock(VALUE self, VALUE offset, VALUE whence, VALUE range, VALUE mode)
+{
+	slob_t *slob;
+	mint ret;
+	ifx_int8_t offset8, range8;
+	EXEC SQL begin declare section;
+		char *did;
+	EXEC SQL end   declare section;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+
+	did = slob->database_id;
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+
+	NUM2INT8(offset, &offset8);
+	NUM2INT8(range, &range8);
+	ret = ifx_lo_lock(slob->fd, &offset8, FIX2INT(whence), &range8, FIX2INT(mode));
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+
+	return self;
+}
+
+static VALUE
+rb_slob_unlock(VALUE self, VALUE offset, VALUE whence, VALUE range)
+{
+	slob_t *slob;
+	mint ret;
+	ifx_int8_t offset8, range8;
+	EXEC SQL begin declare section;
+		char *did;
+	EXEC SQL end   declare section;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+
+	did = slob->database_id;
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+
+	NUM2INT8(offset, &offset8);
+	NUM2INT8(range, &range8);
+	ret = ifx_lo_unlock(slob->fd, &offset8, FIX2INT(whence), &range8);
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+
+	return self;
 }
 
 /* Helper functions ------------------------------------------------------- */
@@ -3310,12 +3368,15 @@ void Init_informix(void)
 	rb_define_method(rb_cSlob, "stat", rb_slob_stat, 0);
 	rb_define_method(rb_cSlob, "<<", rb_slob_addstr, 1);
 	rb_define_method(rb_cSlob, "rewind", rb_slob_rewind, 0);
+	rb_define_method(rb_cSlob, "lock", rb_slob_lock, 4);
+	rb_define_method(rb_cSlob, "unlock", rb_slob_unlock, 3);
 
 	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
 	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
 
 	#define DEF_SLOB_CONST(k) rb_define_const(rb_cSlob, #k, INT2FIX(LO_##k))
 
+	/* Access modes */
 	DEF_SLOB_CONST(RDONLY);
 	DEF_SLOB_CONST(DIRTY_READ);
 	DEF_SLOB_CONST(WRONLY);
@@ -3329,10 +3390,19 @@ void Init_informix(void)
 	DEF_SLOB_CONST(SEEK_CUR);
 	DEF_SLOB_CONST(SEEK_END);
 
+	/* Creation-time flags */
 	DEF_SLOB_CONST(LOG);
 	DEF_SLOB_CONST(NOLOG);
 	DEF_SLOB_CONST(KEEP_LASTACCESS_TIME);
 	DEF_SLOB_CONST(NOKEEP_LASTACCESS_TIME);
+
+	/* Ranges */
+	DEF_SLOB_CONST(CURRENT_END);
+	DEF_SLOB_CONST(MAX_END);
+
+	/* Lock modes */
+	DEF_SLOB_CONST(SHARED_MODE);
+	DEF_SLOB_CONST(EXCLUSIVE_MODE);
 
 	/* class Slob::Stat --------------------------------------------------- */
 
