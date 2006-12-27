@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.79 2006/12/27 07:20:05 santana Exp $ */
+/* $Id: informix.ec,v 1.80 2006/12/27 08:11:34 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -1763,8 +1763,8 @@ database_alloc(VALUE klass)
 {
 	char *did;
 
-	did = ALLOC_N(char, IDSIZE);
-	did[0] = 0;
+	did = ALLOC_N(char, IDSIZE<<1);
+	did[0] = did[IDSIZE] = 0;
 	return Data_Wrap_Struct(klass, 0, database_free, did);
 }
 
@@ -1848,6 +1848,10 @@ rb_database_close(VALUE self)
 	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, char, did);
+	did += IDSIZE;
+	if (*did)
+		EXEC SQL free :did;
+	did -= IDSIZE;
 	EXEC SQL disconnect :did;
 
 	return self;
@@ -2073,7 +2077,7 @@ rb_database_columns(VALUE self, VALUE tablename)
 	};
 
 	EXEC SQL begin declare section;
-		char *did;
+		char *did, *cid;
 		char *tabname;
 		int tabid, xid;
 		varchar colname[129];
@@ -2097,21 +2101,28 @@ rb_database_columns(VALUE self, VALUE tablename)
 
 	result = rb_ary_new();
 
-	EXEC SQL declare cur cursor for
-		select colname, coltype, collength, extended_id, type, default, c.colno
-		from syscolumns c, outer sysdefaults d
-		where c.tabid = :tabid and c.tabid = d.tabid and c.colno = d.colno
-		order by c.colno;
+	cid = did + IDSIZE;
+	if (!*cid) {
+		snprintf(cid, IDSIZE, "COLS%lX", self);
+		EXEC SQL declare :cid cursor for
+			select colname, coltype, collength, extended_id,
+				type, default, c.colno
+			from syscolumns c, outer sysdefaults d
+			where c.tabid = :tabid and c.tabid = d.tabid
+				and c.colno = d.colno
+			order by c.colno;
+		if (SQLCODE < 0) {
+			cid[0] = 0;
+			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		}
+	}
 
-	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
-
-	EXEC SQL open cur;
+	EXEC SQL open :cid;
 	if (SQLCODE < 0)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	for(;;) {
-		EXEC SQL fetch cur into :colname, :coltype, :collength, :xid,
+		EXEC SQL fetch :cid into :colname, :coltype, :collength, :xid,
 			:deftype, :defvalue;
 		if (SQLCODE < 0)
 			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
@@ -2206,8 +2217,7 @@ rb_database_columns(VALUE self, VALUE tablename)
 		rb_ary_push(result, column);
 	}
 
-	EXEC SQL close cur;
-	EXEC SQL free cur;
+	EXEC SQL close :cid;
 
 	return result;
 }
