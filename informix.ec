@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.71 2006/12/27 01:41:48 santana Exp $ */
+/* $Id: informix.ec,v 1.72 2006/12/27 02:18:18 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -408,8 +408,8 @@ rb_slob_s_new(int argc, VALUE *argv, VALUE klass)
  * Slob::RDONLY::		Read only
  * Slob::DIRTY_READ::	Read uncommitted data
  * Slob::WRONLY::	Write only
- * Slob::APPEND::	Append data to the end, if combined with RDRW or WRONLY; read only otherwise
- * Slob::RDRW::		Read/Write
+ * Slob::APPEND::	Append data to the end, if combined with RDWR or WRONLY; read only otherwise
+ * Slob::RDWR::		Read/Write
  * Slob::BUFFER::	Use standard database server buffer pool
  * Slob::NOBUFFER::	Use private buffer from the session pool of the database server
  * Slob::LOCKALL::		Lock the entire Smart Large Object
@@ -526,7 +526,8 @@ rb_slob_read(VALUE self, VALUE nbytes)
  * call-seq:
  * slob.write(data)  => fixnum or bignum
  * 
- * Writes <i>data</i> to the Smart Large Object.
+ * Writes <i>data</i> to the Smart Large Object. If <i>data</i> is not a
+ * String object it will be converted to String using <code>to_s</code>.
  *
  * Returns the number of bytes written.
  */
@@ -552,7 +553,7 @@ rb_slob_write(VALUE self, VALUE data)
 	if (SQLCODE < 0)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
-	str = StringValue(data);
+	str = rb_obj_as_string(data);
 	buffer = RSTRING(str)->ptr;
 	nbytes = RSTRING(str)->len;
 
@@ -562,6 +563,22 @@ rb_slob_write(VALUE self, VALUE data)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", error);
 
 	return LONG2NUM(ret);
+}
+
+/*
+ * call-seq:
+ * slob << data   => slob
+ *
+ * Writes <i>data</i> to the Smart Large Object. If <i>data</i> is not a
+ * String object it will be converted to String using <code>to_s</code>.
+ *
+ * Returns self.
+ */
+static VALUE
+rb_slob_addstr(VALUE self, VALUE data)
+{
+	rb_slob_write(self, data);
+	return self;
 }
 
 /*
@@ -612,6 +629,18 @@ rb_slob_seek(VALUE self, VALUE offset, VALUE whence)
 	INT82NUM(&seek_pos8, seek_pos);
 
 	return seek_pos;
+}
+
+/*
+ * call-seq:
+ * slob.rewind  => fixnum
+ *
+ * Moves the cursor position to the start of the Smart Large Object.
+ */
+static VALUE
+rb_slob_rewind(VALUE self)
+{
+	return rb_slob_seek(self, INT2FIX(0), LO_SEEK_SET);
 }
 
 /*
@@ -3194,6 +3223,8 @@ void Init_informix(void)
 	rb_define_method(rb_cSlob, "tell", rb_slob_tell, 0);
 	rb_define_method(rb_cSlob, "truncate", rb_slob_truncate, 1);
 	rb_define_method(rb_cSlob, "stat", rb_slob_stat, 0);
+	rb_define_method(rb_cSlob, "<<", rb_slob_addstr, 1);
+	rb_define_method(rb_cSlob, "rewind", rb_slob_rewind, 0);
 
 	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
 	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
