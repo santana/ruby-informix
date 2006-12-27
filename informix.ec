@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.72 2006/12/27 02:18:18 santana Exp $ */
+/* $Id: informix.ec,v 1.73 2006/12/27 03:23:47 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -114,6 +114,13 @@ slobstat_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, 0, slobstat_free, stat);
 }
 
+/*
+ * call-seq:
+ * Slob::Stat.new(slob)  => stat
+ *
+ * Creates an Slob::Stat object with status information for the given Slob
+ * object.
+ */
 static VALUE
 rb_slobstat_initialize(VALUE self, VALUE slob)
 {
@@ -158,6 +165,40 @@ rb_slobstat_initialize(VALUE self, VALUE slob)
 	return self;
 }
 
+/*
+ * call-seq:
+ * stat <=> other_stat  => -1, 0, 1
+ *
+ * Compares with another <code>Slob::Stat</code> object by comparing their
+ * modification times.
+ */
+static VALUE
+rb_slobstat_cmp(VALUE self, VALUE other)
+{
+	if (rb_obj_is_kind_of(other, rb_obj_class(self))) {
+		slobstat_t *stat;
+		time_t t1, t2;
+
+		Data_Get_Struct(self, slobstat_t, stat);  t1 = stat->mtime;
+		Data_Get_Struct(other, slobstat_t, stat); t2 = stat->mtime;
+
+		if (t1 == t2)
+			return INT2FIX(0);
+		else if (t1 < t2)
+			return INT2FIX(-1);
+		else
+			return INT2FIX(1);
+	}
+
+	return Qnil;
+}
+
+/*
+ * call-seq:
+ * stat.atime  => time
+ *
+ * Returns the time of last access as a Time object.
+ */
 static VALUE
 rb_slobstat_atime(VALUE self)
 {
@@ -167,6 +208,12 @@ rb_slobstat_atime(VALUE self)
 	return rb_time_new(stat->atime, 0);
 }
 
+/*
+ * call-seq:
+ * stat.atime  => time
+ *
+ * Returns the time of last change in status as a Time object.
+ */
 static VALUE
 rb_slobstat_ctime(VALUE self)
 {
@@ -176,6 +223,12 @@ rb_slobstat_ctime(VALUE self)
 	return rb_time_new(stat->ctime, 0);
 }
 
+/*
+ * call-seq:
+ * stat.mtime  => time
+ *
+ * Returns the time of last modification as a Time object.
+ */
 static VALUE
 rb_slobstat_mtime(VALUE self)
 {
@@ -185,6 +238,12 @@ rb_slobstat_mtime(VALUE self)
 	return rb_time_new(stat->mtime, 0);
 }
 
+/*
+ * call-seq:
+ * stat.refcnt  => fixnum
+ *
+ * Returns the number of references
+ */
 static VALUE
 rb_slobstat_refcnt(VALUE self)
 {
@@ -194,6 +253,12 @@ rb_slobstat_refcnt(VALUE self)
 	return INT2FIX(stat->refcnt);
 }
 
+/*
+ * call-seq:
+ * stat.size  => fixnum or bignum
+ *
+ * Returns the size in bytes
+ */
 static VALUE
 rb_slobstat_size(VALUE self)
 {
@@ -3249,6 +3314,10 @@ void Init_informix(void)
 	rb_cSlobStat = rb_define_class_under(rb_cSlob, "Stat", rb_cObject);
 	rb_define_alloc_func(rb_cSlobStat, slobstat_alloc);
 	rb_define_method(rb_cSlobStat, "initialize", rb_slobstat_initialize, 1);
+
+	rb_include_module(rb_cSlobStat, rb_mComparable);
+	rb_define_method(rb_cSlobStat, "<=>", rb_slobstat_cmp, 1);
+
 	rb_define_method(rb_cSlobStat, "atime", rb_slobstat_atime, 0);
 	rb_define_method(rb_cSlobStat, "ctime", rb_slobstat_ctime, 0);
 	rb_define_method(rb_cSlobStat, "mtime", rb_slobstat_mtime, 0);
