@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.80 2006/12/27 08:11:34 santana Exp $ */
+/* $Id: informix.ec,v 1.81 2006/12/27 20:57:39 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -468,7 +468,7 @@ rb_slob_s_new(int argc, VALUE *argv, VALUE klass)
  *
  * Opens the Smart Large Object in <i>access</i> mode.
  *
- * access modes:
+ * Access modes:
  * 
  * Slob::RDONLY::		Read only
  * Slob::DIRTY_READ::	Read uncommitted data
@@ -797,7 +797,7 @@ rb_slob_truncate(VALUE self, VALUE offset)
  * call-seq:
  * slob.stat  => stat
  *
- * Creates an Slob::Stat object with status information for _slob_.
+ * Creates and returns an Slob::Stat object with status information for _slob_.
  */
 static VALUE
 rb_slob_stat(VALUE self)
@@ -805,6 +805,22 @@ rb_slob_stat(VALUE self)
 	return rb_class_new_instance(1, &self, rb_cSlobStat);
 }
 
+/*
+ * call-seq:
+ * slob.lock(offset, whence, range, mode)  =>  slob
+ *
+ * Locks _range_ number of bytes, starting from _offset_ bytes from
+ * _whence_, in _mode_ mode.
+ *
+ * Returns _self_.
+ *
+ * Possible values:
+ *
+ *   offset  =>  integer
+ *   whence  =>  Slob::SEEK_SET, Slob::SEEK_CUR, Slob::SEEK_END
+ *   range   =>  integer, Slob::CURRENT_END, Slob::MAX_END
+ *   mode    =>  Slob::SHARED_MODE, Slob::EXCLUSIVE_MODE
+ */
 static VALUE
 rb_slob_lock(VALUE self, VALUE offset, VALUE whence, VALUE range, VALUE mode)
 {
@@ -834,6 +850,21 @@ rb_slob_lock(VALUE self, VALUE offset, VALUE whence, VALUE range, VALUE mode)
 	return self;
 }
 
+/*
+ * call-seq:
+ * slob.unlock(offset, whence, range)  =>  slob
+ *
+ * Unlocks _range_ number of bytes, starting from _offset_ bytes from
+ * _whence_.
+ *
+ * Returns _self_.
+ *
+ * Possible values:
+ *
+ *   offset  =>  integer
+ *   whence  =>  Slob::SEEK_SET, Slob::SEEK_CUR, Slob::SEEK_END
+ *   range   =>  integer
+ */
 static VALUE
 rb_slob_unlock(VALUE self, VALUE offset, VALUE whence, VALUE range)
 {
@@ -868,6 +899,9 @@ typedef enum {
 } slob_option_t;
 static char *str_slob_options[] = {
 	"estbytes", "extsz", "flags", "maxbytes", "sbspace"};
+/*
+ * Base function for getting storage charasteristics
+ */
 static VALUE
 slob_specget(VALUE self, slob_option_t option)
 {
@@ -938,6 +972,9 @@ slob_specget(VALUE self, slob_option_t option)
 	return Qnil; /* Not reached */
 }
 
+/*
+ * Base function for setting extsz and flags
+ */
 static VALUE
 slob_specset(VALUE self, slob_option_t option, VALUE value)
 {
@@ -1076,6 +1113,9 @@ static char *str_slob_stats[] = {
 	"atime", "ctime", "mtime", "refcnt", "size"
 };
 
+/*
+ * Base function for getting status information
+ */
 static VALUE
 slob_stat(VALUE self, slob_stat_t stat)
 {
