@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.78 2006/12/27 06:45:11 santana Exp $ */
+/* $Id: informix.ec,v 1.79 2006/12/27 07:20:05 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -210,7 +210,7 @@ rb_slobstat_atime(VALUE self)
 
 /*
  * call-seq:
- * stat.atime  => time
+ * stat.ctime  => time
  *
  * Returns the time of last change in status as a Time object.
  */
@@ -1069,6 +1069,136 @@ static VALUE
 rb_slob_set_flags(VALUE self, VALUE value)
 {
 	return slob_specset(self, slob_flags, value);
+}
+
+typedef enum { slob_atime, slob_ctime, slob_mtime, slob_refcnt, slob_size } slob_stat_t;
+static char *str_slob_stats[] = {
+	"atime", "ctime", "mtime", "refcnt", "size"
+};
+
+static VALUE
+slob_stat(VALUE self, slob_stat_t stat)
+{
+	mint ret;
+	slob_t *slob;
+	ifx_lo_stat_t *st;
+	ifx_int8_t int8;
+	VALUE result;
+	EXEC SQL begin declare section;
+		char *did;
+	EXEC SQL end   declare section;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError,
+			"Open the Slob object before getting its status");
+
+	did = slob->database_id;
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+
+	ret = ifx_lo_stat(slob->fd, &st);
+
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+
+	switch(stat) {
+	case slob_atime:
+		ret = ifx_lo_stat_atime(st);
+		break;
+	case slob_ctime:
+		ret = ifx_lo_stat_ctime(st);
+		break;
+	case slob_mtime:
+		ret = ifx_lo_stat_mtime_sec(st);
+		break;
+	case slob_refcnt:
+		ret = ifx_lo_stat_refcnt(st);
+		break;
+	case slob_size:
+		ret = ifx_lo_stat_size(st, &int8);
+	}
+
+	ifx_lo_stat_free(st);
+
+	if (ret == -1)
+		rb_raise(rb_eRuntimeError, "Unable to get value of %s", str_slob_stats[stat]);
+
+	switch(stat) {
+		case slob_atime:
+		case slob_ctime:
+		case slob_mtime:
+			return rb_time_new(ret, 0);
+		case slob_refcnt:
+			return INT2FIX(ret);
+		case slob_size:
+			INT82NUM(&int8, result);
+			return result;
+	}
+
+	return Qnil; /* Not reached */
+}
+
+/*
+ * call-seq:
+ * slob.atime  => time
+ *
+ * Returns the time of last access as a Time object.
+ */
+static VALUE
+rb_slob_atime(VALUE self)
+{
+	return slob_stat(self, slob_atime);
+}
+
+/*
+ * call-seq:
+ * stat.ctime  => time
+ *
+ * Returns the time of last change in status as a Time object.
+ */
+static VALUE
+rb_slob_ctime(VALUE self)
+{
+	return slob_stat(self, slob_ctime);
+}
+
+/*
+ * call-seq:
+ * stat.mtime  => time
+ *
+ * Returns the time of last modification as a Time object.
+ */
+static VALUE
+rb_slob_mtime(VALUE self)
+{
+	return slob_stat(self, slob_mtime);
+}
+
+/*
+ * call-seq:
+ * stat.refcnt  => fixnum
+ *
+ * Returns the number of references
+ */
+static VALUE
+rb_slob_refcnt(VALUE self)
+{
+	return slob_stat(self, slob_refcnt);
+}
+
+/*
+ * call-seq:
+ * stat.size  => fixnum or bignum
+ *
+ * Returns the size in bytes
+ */
+static VALUE
+rb_slob_size(VALUE self)
+{
+	return slob_stat(self, slob_size);
 }
 
 /* Helper functions ------------------------------------------------------- */
@@ -3579,8 +3709,11 @@ void Init_informix(void)
 	rb_define_method(rb_cSlob, "lock", rb_slob_lock, 4);
 	rb_define_method(rb_cSlob, "unlock", rb_slob_unlock, 3);
 
-	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
-	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
+	rb_define_method(rb_cSlob, "atime", rb_slob_atime, 0);
+	rb_define_method(rb_cSlob, "ctime", rb_slob_ctime, 0);
+	rb_define_method(rb_cSlob, "mtime", rb_slob_mtime, 0);
+	rb_define_method(rb_cSlob, "refcnt", rb_slob_refcnt, 0);
+	rb_define_method(rb_cSlob, "size", rb_slob_size, 0);
 
 	rb_define_method(rb_cSlob, "estbytes", rb_slob_estbytes, 0);
 	rb_define_method(rb_cSlob, "extsz", rb_slob_extsz, 0);
@@ -3590,6 +3723,9 @@ void Init_informix(void)
 
 	rb_define_method(rb_cSlob, "extsz=", rb_slob_set_extsz, 1);
 	rb_define_method(rb_cSlob, "flags=", rb_slob_set_flags, 1);
+
+	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
+	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
 
 	#define DEF_SLOB_CONST(k) rb_define_const(rb_cSlob, #k, INT2FIX(LO_##k))
 
