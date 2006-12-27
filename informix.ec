@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.70 2006/12/27 00:11:39 santana Exp $ */
+/* $Id: informix.ec,v 1.71 2006/12/27 01:41:48 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -121,6 +121,9 @@ rb_slobstat_initialize(VALUE self, VALUE slob)
 	slob_t *sb;
 	slobstat_t *stat;
 	ifx_lo_stat_t *st;
+	EXEC SQL begin declare section;
+		char *did;
+	EXEC SQL end   declare section;
 
 	Data_Get_Struct(slob, slob_t, sb);
 	Data_Get_Struct(self, slobstat_t, stat);
@@ -128,6 +131,11 @@ rb_slobstat_initialize(VALUE self, VALUE slob)
 	if (sb->fd == -1)
 		rb_raise(rb_eRuntimeError,
 			"Open the Slob object before getting its status");
+
+	did = sb->database_id;
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
 
 	ret = ifx_lo_stat(sb->fd, &st);
 
@@ -262,9 +270,8 @@ slob_alloc(VALUE klass)
  *   :col_info    => Get the previous values from the column-level storage
  *                   characteristics for the specified database column
  */
-static VALUE slob_close(VALUE self);
 static VALUE
-slob_initialize(int argc, VALUE *argv, VALUE self)
+rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 {
 	mint ret, error;
 	slob_t *slob;
@@ -376,16 +383,16 @@ slob_initialize(int argc, VALUE *argv, VALUE self)
  *   :col_info    => Get the previous values from the column-level storage
  *                   characteristics for the specified database column
  */
-static VALUE slob_close(VALUE self);
+static VALUE rb_slob_close(VALUE self);
 static VALUE
-slob_s_new(int argc, VALUE *argv, VALUE klass)
+rb_slob_s_new(int argc, VALUE *argv, VALUE klass)
 {
 	VALUE slob;
 
 	slob = rb_class_new_instance(argc, argv, klass);
 
 	if (rb_block_given_p())
-		return rb_ensure(rb_yield, slob, slob_close, slob);
+		return rb_ensure(rb_yield, slob, rb_slob_close, slob);
 
 	return slob;
 }
@@ -411,7 +418,7 @@ slob_s_new(int argc, VALUE *argv, VALUE klass)
  * Returns __self__.
  */
 static VALUE
-slob_open(int argc, VALUE *argv, VALUE self)
+rb_slob_open(int argc, VALUE *argv, VALUE self)
 {
 	VALUE access;
 	slob_t *slob;
@@ -447,7 +454,7 @@ slob_open(int argc, VALUE *argv, VALUE self)
  * Closes the Smart Large Object and returns __self__.
  */
 static VALUE
-slob_close(VALUE self)
+rb_slob_close(VALUE self)
 {
 	slob_t *slob;
 
@@ -478,7 +485,7 @@ slob_close(VALUE self)
  * Returns the bytes read as a String object.
  */
 static VALUE
-slob_read(VALUE self, VALUE nbytes)
+rb_slob_read(VALUE self, VALUE nbytes)
 {
 	slob_t *slob;
 	mint error, ret;
@@ -524,7 +531,7 @@ slob_read(VALUE self, VALUE nbytes)
  * Returns the number of bytes written.
  */
 static VALUE
-slob_write(VALUE self, VALUE data)
+rb_slob_write(VALUE self, VALUE data)
 {
 	slob_t *slob;
 	mint error, ret;
@@ -577,7 +584,7 @@ slob_write(VALUE self, VALUE data)
  * Returns the new position.
  */
 static VALUE
-slob_seek(VALUE self, VALUE offset, VALUE whence)
+rb_slob_seek(VALUE self, VALUE offset, VALUE whence)
 {
 	slob_t *slob;
 	mint ret;
@@ -615,7 +622,7 @@ slob_seek(VALUE self, VALUE offset, VALUE whence)
  * open Smart Large Object
  */
 static VALUE
-slob_tell(VALUE self)
+rb_slob_tell(VALUE self)
 {
 	slob_t *slob;
 	mint ret;
@@ -653,7 +660,7 @@ slob_tell(VALUE self)
  * Returns __self__.
  */
 static VALUE
-slob_truncate(VALUE self, VALUE offset)
+rb_slob_truncate(VALUE self, VALUE offset)
 {
 	slob_t *slob;
 	mint ret;
@@ -678,6 +685,12 @@ slob_truncate(VALUE self, VALUE offset)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
 
 	return self;
+}
+
+static VALUE
+rb_slob_stat(VALUE self)
+{
+	return rb_class_new_instance(1, &self, rb_cSlobStat);
 }
 
 /* Helper functions ------------------------------------------------------- */
@@ -1204,16 +1217,22 @@ make_result(cursor_t *c, VALUE record)
 
 /*
  * call-seq:
- * Informix.connect(dbname, user = nil, password = nil)  => database
+ * Informix.connect(dbname, user=nil, password=nil)                      => database
+ * Informix.connect(dbname, user=nil, password=nil) {|database| block }  => obj
  *
- * Returns a <code>Database</code> object connected to <i>dbname</i> as
+ * Creates a <code>Database</code> object connected to <i>dbname</i> as
  * <i>user</i> with <i>password</i>. If these are not given, connects to
  * <i>dbname</i> as the current user.
+ *
+ * The Database object is passed to the block if it's given, and automatically
+ * closes the connection when the block terminates, returning the value of
+ * the block.
  */
+static VALUE rb_database_s_open(int argc, VALUE *argv, VALUE klass);
 static VALUE
 informix_connect(int argc, VALUE *argv, VALUE self)
 {
-	return rb_class_new_instance(argc, argv, rb_cDatabase);
+	return rb_database_s_open(argc, argv, rb_cDatabase);
 }
 
 
@@ -1241,16 +1260,8 @@ database_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, 0, database_free, did);
 }
 
-/*
- * call-seq:
- * Database.new(dbname, user = nil, password = nil)  => database
- *
- * Returns a <code>Database</code> object connected to <i>dbname</i> as
- * <i>user</i> with <i>password</i>. If these are not given, connects to
- * <i>dbname</i> as the current user.
- */
 static VALUE
-database_initialize(int argc, VALUE *argv, VALUE self)
+rb_database_initialize(int argc, VALUE *argv, VALUE self)
 {
 	VALUE arg[3];
 
@@ -1288,12 +1299,41 @@ database_initialize(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
+ * Database.new(dbname, user = nil, password = nil)                      => database
+ * Database.open(dbname, user = nil, password = nil)                      => database
+ * Database.new(dbname, user = nil, password = nil) {|database| block }  => obj
+ * Database.open(dbname, user = nil, password = nil) {|database| block }  => obj
+ *
+ * Creates a <code>Database</code> object connected to <i>dbname</i> as
+ * <i>user</i> with <i>password</i>. If these are not given, connects to
+ * <i>dbname</i> as the current user.
+ *
+ * The Database object is passed to the block if it's given, and automatically
+ * closes the connection when the block terminates, returning the value of
+ * the block.
+ */
+static VALUE rb_database_close(VALUE self);
+static VALUE
+rb_database_s_open(int argc, VALUE *argv, VALUE klass)
+{
+	VALUE database;
+
+	database = rb_class_new_instance(argc, argv, klass);
+
+	if (rb_block_given_p())
+		return rb_ensure(rb_yield, database, rb_database_close, database);
+
+	return database;
+}
+
+/*
+ * call-seq:
  * db.close  => db
  *
  * Disconnects <i>db</i> and returns __self__
  */
 static VALUE
-database_close(VALUE self)
+rb_database_close(VALUE self)
 {
 	EXEC SQL begin declare section;
 		char *did;
@@ -1315,7 +1355,7 @@ database_close(VALUE self)
  */
 
 static VALUE
-database_immediate(VALUE self, VALUE arg)
+rb_database_immediate(VALUE self, VALUE arg)
 {
 	EXEC SQL begin declare section;
 		char *query, *did;
@@ -1342,7 +1382,7 @@ database_immediate(VALUE self, VALUE arg)
  * Rolls back a transaction and returns __self__.
  */
 static VALUE
-database_rollback(VALUE self)
+rb_database_rollback(VALUE self)
 {
 	EXEC SQL begin declare section;
 		char *did;
@@ -1365,7 +1405,7 @@ database_rollback(VALUE self)
  * Commits a transaction and returns __self__.
  */
 static VALUE
-database_commit(VALUE self)
+rb_database_commit(VALUE self)
 {
 	EXEC SQL begin declare section;
 		char *did;
@@ -1384,7 +1424,7 @@ database_commit(VALUE self)
 static VALUE
 database_transfail(VALUE self)
 {
-	database_rollback(self);
+	rb_database_rollback(self);
 	return Qundef;
 }
 
@@ -1399,7 +1439,7 @@ database_transfail(VALUE self)
  * Returns __self__.
  */
 static VALUE
-database_transaction(VALUE self)
+rb_database_transaction(VALUE self)
 {
 	VALUE ret;
 	EXEC SQL begin declare section;
@@ -1439,7 +1479,7 @@ database_transaction(VALUE self)
  */
 static VALUE statement_s_new(int, VALUE *, VALUE);
 static VALUE
-database_prepare(VALUE self, VALUE query)
+rb_database_prepare(VALUE self, VALUE query)
 {
 	VALUE argv[2];
 
@@ -1461,7 +1501,7 @@ database_prepare(VALUE self, VALUE query)
  *
  */
 static VALUE
-database_cursor(int argc, VALUE *argv, VALUE self)
+rb_database_cursor(int argc, VALUE *argv, VALUE self)
 {
 	VALUE arg[3];
 
@@ -1492,13 +1532,13 @@ database_cursor(int argc, VALUE *argv, VALUE self)
  *                   characteristics for the specified database column
  */
 static VALUE
-database_slob(int argc, VALUE *argv, VALUE self)
+rb_database_slob(int argc, VALUE *argv, VALUE self)
 {
 	VALUE arg[3];
 
 	arg[0] = self;
 	rb_scan_args(argc, argv, "02", &arg[1], &arg[2]);
-	return slob_s_new(3, arg, rb_cSlob);
+	return rb_slob_s_new(3, arg, rb_cSlob);
 }
 
 /*
@@ -1508,7 +1548,7 @@ database_slob(int argc, VALUE *argv, VALUE self)
  * Returns an array with information for every column of the given table.
  */
 static VALUE
-database_columns(VALUE self, VALUE tablename)
+rb_database_columns(VALUE self, VALUE tablename)
 {
 	VALUE v, column, result;
 	char *stype;
@@ -3144,15 +3184,16 @@ void Init_informix(void)
 	/* class Slob --------------------------------------------------------- */
 	rb_cSlob = rb_define_class_under(rb_mInformix, "Slob", rb_cObject);
 	rb_define_alloc_func(rb_cSlob, slob_alloc);
-	rb_define_method(rb_cSlob, "initialize", slob_initialize, -1);
-	rb_define_singleton_method(rb_cSlob, "new", slob_s_new, -1);
-	rb_define_method(rb_cSlob, "open", slob_open, -1);
-	rb_define_method(rb_cSlob, "close", slob_close, 0);
-	rb_define_method(rb_cSlob, "read", slob_read, 1);
-	rb_define_method(rb_cSlob, "write", slob_write, 1);
-	rb_define_method(rb_cSlob, "seek", slob_seek, 2);
-	rb_define_method(rb_cSlob, "tell", slob_tell, 0);
-	rb_define_method(rb_cSlob, "truncate", slob_truncate, 1);
+	rb_define_method(rb_cSlob, "initialize", rb_slob_initialize, -1);
+	rb_define_singleton_method(rb_cSlob, "new", rb_slob_s_new, -1);
+	rb_define_method(rb_cSlob, "open", rb_slob_open, -1);
+	rb_define_method(rb_cSlob, "close", rb_slob_close, 0);
+	rb_define_method(rb_cSlob, "read", rb_slob_read, 1);
+	rb_define_method(rb_cSlob, "write", rb_slob_write, 1);
+	rb_define_method(rb_cSlob, "seek", rb_slob_seek, 2);
+	rb_define_method(rb_cSlob, "tell", rb_slob_tell, 0);
+	rb_define_method(rb_cSlob, "truncate", rb_slob_truncate, 1);
+	rb_define_method(rb_cSlob, "stat", rb_slob_stat, 0);
 
 	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
 	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
@@ -3186,18 +3227,20 @@ void Init_informix(void)
 	/* class Database ----------------------------------------------------- */
 	rb_cDatabase = rb_define_class_under(rb_mInformix, "Database", rb_cObject);
 	rb_define_alloc_func(rb_cDatabase, database_alloc);
-	rb_define_method(rb_cDatabase, "initialize", database_initialize, -1);
-	rb_define_alias(rb_cDatabase, "open", "initialize");
-	rb_define_method(rb_cDatabase, "close", database_close, 0);
-	rb_define_method(rb_cDatabase, "immediate", database_immediate, 1);
+	rb_define_method(rb_cDatabase, "initialize", rb_database_initialize, -1);
+	rb_define_singleton_method(rb_cDatabase, "open", rb_database_s_open, -1);
+	rb_define_alias(rb_cDatabase, "new", "open");
+	rb_define_method(rb_cDatabase, "close", rb_database_close, 0);
+	rb_define_alias(rb_cDatabase, "disconnect", "close");
+	rb_define_method(rb_cDatabase, "immediate", rb_database_immediate, 1);
 	rb_define_alias(rb_cDatabase, "do", "immediate");
-	rb_define_method(rb_cDatabase, "rollback", database_rollback, 0);
-	rb_define_method(rb_cDatabase, "commit", database_commit, 0);
-	rb_define_method(rb_cDatabase, "transaction", database_transaction, 0);
-	rb_define_method(rb_cDatabase, "prepare", database_prepare, 1);
-	rb_define_method(rb_cDatabase, "columns", database_columns, 1);
-	rb_define_method(rb_cDatabase, "cursor", database_cursor, -1);
-	rb_define_method(rb_cDatabase, "slob", database_slob, -1);
+	rb_define_method(rb_cDatabase, "rollback", rb_database_rollback, 0);
+	rb_define_method(rb_cDatabase, "commit", rb_database_commit, 0);
+	rb_define_method(rb_cDatabase, "transaction", rb_database_transaction, 0);
+	rb_define_method(rb_cDatabase, "prepare", rb_database_prepare, 1);
+	rb_define_method(rb_cDatabase, "columns", rb_database_columns, 1);
+	rb_define_method(rb_cDatabase, "cursor", rb_database_cursor, -1);
+	rb_define_method(rb_cDatabase, "slob", rb_database_slob, -1);
 
 	/* class Statement ---------------------------------------------------- */
 	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement", rb_cObject);
