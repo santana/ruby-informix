@@ -12,7 +12,9 @@ New features:
 	  connection when the block terminates.
 	* Database#slob shortcut for creating Slob objects
 	* Slob::Stat class implemented. Returned by Slob#stat, represents the
-	  SLOB status.
+	  SLOB status. Methods: atime, ctime, mtime, refcnt and size. Includes
+	  Comparable.
+	* Slob new methods: <<, rewind, stat, pos, pos=, lock, unlock
 
 Remarks:
 	* DECIMAL and MONEY columns are no longer returned as Float. BigDecimal
@@ -23,6 +25,8 @@ Bugs fixed:
 	  allocated for the read buffer was not freed. Noticed by
 	  Edwin Fine <emofine at finecomputerconsultants dot com>
 	* maxbytes option was ignored when creating an Slob object
+	* Documentation for Slob mentioned an RDRW constant, but it actually
+	  is RDWR.
 
 Special thanks to Guy Bowerman, Jonathan Leffler and Logan Capaldo for their
 feedback and help.
