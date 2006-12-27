@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.76 2006/12/27 05:23:27 santana Exp $ */
+/* $Id: informix.ec,v 1.77 2006/12/27 06:27:13 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -861,6 +861,141 @@ rb_slob_unlock(VALUE self, VALUE offset, VALUE whence, VALUE range)
 		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
 
 	return self;
+}
+
+typedef enum {
+	slob_estbytes, slob_extsz, slob_flags, slob_maxbytes, slob_sbspace
+} slob_option_t;
+static char *str_slob_options[] = {
+	"estbytes", "extsz", "flags", "maxbytes", "sbspace"};
+static VALUE
+slob_specget(VALUE self, slob_option_t option)
+{
+	slob_t *slob;
+	mint ret;
+	ifx_lo_stat_t *stat;
+	ifx_lo_create_spec_t *spec;
+	ifx_int8_t int8;
+	char buffer[129];
+	VALUE item;
+	EXEC SQL begin declare section;
+		char *did;
+	EXEC SQL end   declare section;
+
+	Data_Get_Struct(self, slob_t, slob);
+
+	if (slob->fd == -1)
+		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+
+	did = slob->database_id;
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+
+	ret = ifx_lo_stat(slob->fd, &stat);
+	if (ret < 0)
+		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+
+	spec = ifx_lo_stat_cspec(stat);
+	if (spec == NULL) {
+		ifx_lo_stat_free(stat);
+		rb_raise(rb_eRuntimeError, "Unable to get storage characteristics");
+	}
+
+	switch(option) {
+	case slob_estbytes:
+		ret = ifx_lo_specget_estbytes(spec, &int8);
+		break;
+	case slob_extsz:
+		ret = ifx_lo_specget_extsz(spec);
+		break;
+	case slob_flags:
+		ret = ifx_lo_specget_flags(spec);
+		break;
+	case slob_maxbytes:
+		ret = ifx_lo_specget_maxbytes(spec, &int8);
+		break;
+	case slob_sbspace:
+		ret = ifx_lo_specget_sbspace(spec, buffer, sizeof(buffer));
+	}
+
+	ifx_lo_stat_free(stat);
+	if (ret == -1)
+		rb_raise(rb_eRuntimeError, "Unable to get information for %s", str_slob_options[option]);
+
+	switch(option) {
+	case slob_estbytes:
+	case slob_maxbytes:
+		INT82NUM(&int8, item);
+		return item;
+	case slob_extsz:
+	case slob_flags:
+		return INT2FIX(ret);
+	case slob_sbspace:
+		return rb_str_new2(buffer);
+	}
+
+	return Qnil; /* Not reached */
+}
+
+/*
+ * call-seq:
+ * slob.estbytes  => fixnum or bignum
+ *
+ * Returns the estimated size of the SLOB
+ */
+static VALUE
+rb_slob_estbytes(VALUE self)
+{
+	return slob_specget(self, slob_estbytes);
+}
+
+/*
+ * call-seq:
+ * slob.extsz  => fixnum
+ *
+ * Returns the allocation extent size of the SLOB
+ */
+static VALUE
+rb_slob_extsz(VALUE self)
+{
+	return slob_specget(self, slob_extsz);
+}
+
+/*
+ * call-seq:
+ * slob.flags  => fixnum
+ *
+ * Returns the create-time flags of the SLOB
+ */
+static VALUE
+rb_slob_flags(VALUE self)
+{
+	return slob_specget(self, slob_flags);
+}
+
+/*
+ * call-seq:
+ * slob.maxbytes  => fixnum or bignum
+ *
+ * Returns the maximum size of the SLOB
+ */
+static VALUE
+rb_slob_maxbytes(VALUE self)
+{
+	return slob_specget(self, slob_maxbytes);
+}
+
+/*
+ * call-seq:
+ * slob.sbspace  => string
+ *
+ * Returns the name of the sbspace where the SLOB is stored
+ */
+static VALUE
+rb_slob_sbspace(VALUE self)
+{
+	return slob_specget(self, slob_sbspace);
 }
 
 /* Helper functions ------------------------------------------------------- */
@@ -3373,6 +3508,12 @@ void Init_informix(void)
 
 	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
 	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
+
+	rb_define_method(rb_cSlob, "estbytes", rb_slob_estbytes, 0);
+	rb_define_method(rb_cSlob, "extsz", rb_slob_extsz, 0);
+	rb_define_method(rb_cSlob, "flags", rb_slob_flags, 0);
+	rb_define_method(rb_cSlob, "maxbytes", rb_slob_maxbytes, 0);
+	rb_define_method(rb_cSlob, "sbspace", rb_slob_sbspace, 0);
 
 	#define DEF_SLOB_CONST(k) rb_define_const(rb_cSlob, #k, INT2FIX(LO_##k))
 
