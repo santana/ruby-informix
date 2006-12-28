@@ -8,37 +8,38 @@ Ruby/Informix installation
 
 1. Building requirements
 
-	All platforms
-		* Informix CSDK 2.90
+  All platforms
+	* Informix CSDK 2.90
 
-	Windows
-		* Microsoft Visual Studio 6.0
+  Windows
+	* Microsoft Visual Studio 6.0
 
-	Unix
-		* Any ANSI C compiler
+  Unix
+	* Any ANSI C compiler
 
 
 2. Building instructions
 
-	After setting the INFORMIXDIR environment variable appropriately run
-	(use nmake instead of make on Windows platforms):
+  After setting the INFORMIXDIR environment variable appropriately run:
 
     $ ruby extconf.rb
     $ make
     # make install
 
 
-	If Informix libraries or header files are not in their standard locations
-	under INFORMIXDIR, use --with-informix-include and --with-informix-lib to
-	provide them, like this:
+  Note: use nmake instead of make on Windows platforms
 
-	$ ruby extconf.rb --with-informix-include=C:\somewhere\incl\esql --with-informix-lib=C:\somewhere_else\lib
-	$ nmake
-	$ nmake install
+  If Informix libraries or header files are not in their standard locations
+under INFORMIXDIR, use --with-informix-include and --with-informix-lib to
+provide them, like this:
+
+  $ ruby extconf.rb --with-informix-include=C:\somewhere\incl\esql --with-informix-lib=C:\somewhere_else\lib
+  $ nmake
+  $ nmake install
 
 
 3. Gem installation
 
-	After setting the INFORMIXDIR environment variable appropriately run:
+  After setting the INFORMIXDIR environment variable appropriately run:
 
-	# gem install ruby-informix
+  # gem install ruby-informix
