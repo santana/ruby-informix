@@ -47,7 +47,8 @@ http://ruby-informix.rubyforge.org
 
 All built-in data types are supported, except interval. As you would expect,
 numeric, string and boolean data types are mapped to their respective objects
-in Ruby; DATE, DATETIME and NULL are mapped to Date, Time and nil respectively.
+in Ruby; DECIMAL/MONEY, DATE, DATETIME and NULL are mapped to BigDecimal, Date,
+Time and nil respectively.
 
 The notable exception is TEXT/BYTE columns, where Ruby/Informix expects an
 IO-based (File) or IO-like (StringIO) object as input, and returns an String
@@ -59,7 +60,8 @@ Objects (CLOB/BLOB).
 
 4. Recommendations
 
-* use #drop for prepared statements and cursors to release Informix resources
+* use #drop for prepared statements and cursors or use them with blocks,
+  to release Informix resources.
 * you can optimize cursor execution by changing the fetch and insert buffers,
   setting the environment variable FET_BUF_SIZE to up to 32767 for Informix 9.x,
   or BIG_FET_BUF_SIZE for Informix 10.x
