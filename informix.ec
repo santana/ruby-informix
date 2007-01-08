@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.81 2006/12/27 20:57:39 santana Exp $ */
+/* $Id: informix.ec,v 1.82 2007/01/08 16:31:11 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -82,7 +82,8 @@ typedef struct {
 	ifx_int8_t size;
 } slobstat_t;
 
-#define NUM2INT8(num, int8addr) do { \
+#define NUM2INT8(num, int8addr) \
+do { \
 	VALUE str = rb_funcall(num, s_to_s, 0); \
 	char *c_str = StringValueCStr(str); \
 	mint ret = ifx_int8cvasc(c_str, strlen(c_str), (int8addr)); \
@@ -90,7 +91,8 @@ typedef struct {
 		rb_raise(rb_eRuntimeError, "Could not convert %s to int8", c_str); \
 }while(0)
 
-#define INT82NUM(int8addr, num) do { \
+#define INT82NUM(int8addr, num) \
+do { \
 	char str[21]; \
 	ifx_int8toasc((int8addr), str, sizeof(str) - 1); \
 	str[sizeof(str) - 1] = 0; \
@@ -2493,7 +2495,8 @@ statement_drop(VALUE self)
 /* Decides whether to use an Array or a Hash, and instantiate a new
  * object or reuse an existing one.
  */
-#define RECORD(c, type, bang, record) do {\
+#define RECORD(c, type, bang, record) \
+do {\
 	if (type == T_ARRAY) {\
 		if (bang) {\
 			if (!c->array)\
