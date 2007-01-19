@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.82 2007/01/08 16:31:11 santana Exp $ */
+/* $Id: informix.ec,v 1.1 2007/01/19 15:20:18 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
