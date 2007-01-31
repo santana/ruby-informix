@@ -1,3 +1,4 @@
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../ext"
 require 'test/unit'
 require 'informix'
 require 'date'
