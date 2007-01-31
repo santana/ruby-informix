@@ -1,3 +1,4 @@
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../ext"
 require 'informix'
 require 'test/unit'
 
@@ -15,6 +16,11 @@ class IfxAll
 end
 
 if __FILE__ == $0
+  if ARGV.size == 0
+    STDERR.puts "Usage:
+ruby #{$0} database [username password]"
+    exit 1
+  end
   require 'test/unit/ui/console/testrunner'
   Dir.glob("ifx_test*.rb").each do |testcase|
     require "#{testcase}"
