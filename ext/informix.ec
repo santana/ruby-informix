@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.1 2007/01/19 15:20:18 santana Exp $ */
+/* $Id: informix.ec,v 1.2 2007/01/31 02:41:46 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,10 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
+static const char rcsid[] = "$Id: informix.ec,v 1.2 2007/01/31 02:41:46 santana Exp $";
+
 #include "ruby.h"
+#include "ifx_except.h"
 
 #include <sqlstype.h>
 #include <sqltypes.h>
@@ -54,6 +57,9 @@ static VALUE sym_scroll, sym_hold;
 static VALUE sym_col_info, sym_sbspace, sym_estbytes, sym_extsz;
 static VALUE sym_createflags, sym_openflags, sym_maxbytes;
 static VALUE sym_params;
+
+/* Symbols from ifx_except module */
+static ifx_except_symbols_t esyms;
 
 #define IDSIZE 30
 
@@ -88,8 +94,8 @@ do { \
 	char *c_str = StringValueCStr(str); \
 	mint ret = ifx_int8cvasc(c_str, strlen(c_str), (int8addr)); \
 	if (ret < 0) \
-		rb_raise(rb_eRuntimeError, "Could not convert %s to int8", c_str); \
-}while(0)
+		rb_raise(esyms.eOperationalError, "Could not convert %s to int8", c_str); \
+} while(0)
 
 #define INT82NUM(int8addr, num) \
 do { \
@@ -97,7 +103,7 @@ do { \
 	ifx_int8toasc((int8addr), str, sizeof(str) - 1); \
 	str[sizeof(str) - 1] = 0; \
 	num = rb_cstr2inum(str, 10); \
-}while(0)
+} while(0)
 
 /* class Slob::Stat ------------------------------------------------------ */
 
@@ -138,18 +144,18 @@ rb_slobstat_initialize(VALUE self, VALUE slob)
 	Data_Get_Struct(self, slobstat_t, stat);
 
 	if (sb->fd == -1)
-		rb_raise(rb_eRuntimeError,
+		rb_raise(esyms.eProgrammingError,
 			"Open the Slob object before getting its status");
 
 	did = sb->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	ret = ifx_lo_stat(sb->fd, &st);
 
 	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+		raise_ifx_extended();
 
 	stat->atime = ifx_lo_stat_atime(st);
 	stat->ctime = ifx_lo_stat_ctime(st);
@@ -161,7 +167,7 @@ rb_slobstat_initialize(VALUE self, VALUE slob)
 
 	if (stat->atime == -1 || stat->ctime == -1 || stat->mtime == -1 ||
 	    stat->refcnt == -1 || ret == -1) {
-		rb_raise(rb_eRuntimeError, "Unable to get status");
+		rb_raise(esyms.eOperationalError, "Unable to get status");
 	}
 
 	return self;
@@ -353,7 +359,7 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	Data_Get_Struct(self, slob_t, slob);
 	slob->db = db;
@@ -362,7 +368,7 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 	if (!NIL_P(type)) {
 		int t = FIX2INT(type);
 		if (t != XID_CLOB && t != XID_BLOB)
-			rb_raise(rb_eRuntimeError, "Invalid type %d for an SLOB", t);
+			rb_raise(esyms.eInternalError, "Invalid type %d for an SLOB", t);
 		slob->type = t;
 	}
 
@@ -381,19 +387,19 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 
 	ret = ifx_lo_def_create_spec(&slob->spec);
 	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+		raise_ifx_extended();
 
 	if (!NIL_P(col_info)) {
 		ret = ifx_lo_col_info(StringValueCStr(col_info), slob->spec);
 
 		if (ret < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+			raise_ifx_extended();
 	}
 	if (!NIL_P(sbspace)) {
 		char *c_sbspace = StringValueCStr(sbspace);
 		ret = ifx_lo_specset_sbspace(slob->spec, c_sbspace);
 		if (ret == -1)
-			rb_raise(rb_eRuntimeError, "Could not set sbspace name to %s", c_sbspace);
+			rb_raise(esyms.eOperationalError, "Could not set sbspace name to %s", c_sbspace);
 	}
 	if (!NIL_P(estbytes)) {
 		ifx_int8_t estbytes8;
@@ -401,17 +407,17 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 		NUM2INT8(estbytes, &estbytes8);
 		ret = ifx_lo_specset_estbytes(slob->spec, &estbytes8);
 		if (ret == -1)
-			rb_raise(rb_eRuntimeError, "Could not set estbytes");
+			rb_raise(esyms.eOperationalError, "Could not set estbytes");
 	}
 	if (!NIL_P(extsz)) {
 		ret = ifx_lo_specset_extsz(slob->spec, FIX2LONG(extsz));
 		if (ret == -1)
-			rb_raise(rb_eRuntimeError, "Could not set extsz to %d", FIX2LONG(extsz));
+			rb_raise(esyms.eOperationalError, "Could not set extsz to %d", FIX2LONG(extsz));
 	}
 	if (!NIL_P(createflags)) {
 		ret = ifx_lo_specset_flags(slob->spec, FIX2LONG(createflags));
 		if (ret == -1)
-			rb_raise(rb_eRuntimeError, "Could not set crate-time flags to 0x%X", FIX2LONG(createflags));
+			rb_raise(esyms.eOperationalError, "Could not set crate-time flags to 0x%X", FIX2LONG(createflags));
 	}
 	if (!NIL_P(maxbytes)) {
 		ifx_int8_t maxbytes8;
@@ -419,12 +425,12 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 		NUM2INT8(maxbytes, (&maxbytes8));
 		ret = ifx_lo_specset_maxbytes(slob->spec, &maxbytes8);
 		if (ret == -1)
-			rb_raise(rb_eRuntimeError, "Could not set maxbytes");
+			rb_raise(esyms.eOperationalError, "Could not set maxbytes");
 	}
 
 	slob->fd = ifx_lo_create(slob->spec, RTEST(openflags)? FIX2LONG(openflags): LO_RDWR, &slob->lo, &error);
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d\n", error);
+		raise_ifx_extended();
 
 	return self;
 }
@@ -502,14 +508,14 @@ rb_slob_open(int argc, VALUE *argv, VALUE self)
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	rb_scan_args(argc, argv, "01", &access);
 
 	slob->fd = ifx_lo_open(&slob->lo, NIL_P(access)? LO_RDONLY: FIX2INT(access), &error);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", error);
+		raise_ifx_extended();
 
 	return self;
 }
@@ -567,12 +573,12 @@ rb_slob_read(VALUE self, VALUE nbytes)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Open the Slob object before reading");
+		rb_raise(esyms.eProgrammingError, "Open the Slob object before reading");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	c_nbytes = FIX2LONG(nbytes);
 	buffer = ALLOC_N(char, c_nbytes);
@@ -580,7 +586,7 @@ rb_slob_read(VALUE self, VALUE nbytes)
 
 	if (ret == -1) {
 		xfree(buffer);
-		rb_raise(rb_eRuntimeError, "Informix Error: %d\n", error);
+		raise_ifx_extended();
 	}
 
 	str = rb_str_new(buffer, ret);
@@ -613,12 +619,12 @@ rb_slob_write(VALUE self, VALUE data)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Open the Slob object before writing");
+		rb_raise(esyms.eProgrammingError, "Open the Slob object before writing");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	str = rb_obj_as_string(data);
 	buffer = RSTRING(str)->ptr;
@@ -627,7 +633,7 @@ rb_slob_write(VALUE self, VALUE data)
 	ret = ifx_lo_write(slob->fd, buffer, nbytes, &error);
 
 	if (ret == -1)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", error);
+		raise_ifx_extended();
 
 	return LONG2NUM(ret);
 }
@@ -681,17 +687,17 @@ rb_slob_seek(VALUE self, VALUE offset, VALUE whence)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	NUM2INT8(offset, &offset8);
 	ret = ifx_lo_seek(slob->fd, &offset8, FIX2INT(whence), &seek_pos8);
 	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+		raise_ifx_extended();
 
 	INT82NUM(&seek_pos8, seek_pos);
 
@@ -743,16 +749,16 @@ rb_slob_tell(VALUE self)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	ret = ifx_lo_tell(slob->fd, &seek_pos8);
 	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+		raise_ifx_extended();
 
 	INT82NUM(&seek_pos8, seek_pos);
 
@@ -780,17 +786,17 @@ rb_slob_truncate(VALUE self, VALUE offset)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	NUM2INT8(offset, &offset8);
 	ret = ifx_lo_truncate(slob->fd, &offset8);
 	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+		raise_ifx_extended();
 
 	return self;
 }
@@ -836,18 +842,18 @@ rb_slob_lock(VALUE self, VALUE offset, VALUE whence, VALUE range, VALUE mode)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	NUM2INT8(offset, &offset8);
 	NUM2INT8(range, &range8);
 	ret = ifx_lo_lock(slob->fd, &offset8, FIX2INT(whence), &range8, FIX2INT(mode));
 	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+		raise_ifx_extended();
 
 	return self;
 }
@@ -880,18 +886,18 @@ rb_slob_unlock(VALUE self, VALUE offset, VALUE whence, VALUE range)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	NUM2INT8(offset, &offset8);
 	NUM2INT8(range, &range8);
 	ret = ifx_lo_unlock(slob->fd, &offset8, FIX2INT(whence), &range8);
 	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+		raise_ifx_extended();
 
 	return self;
 }
@@ -921,21 +927,21 @@ slob_specget(VALUE self, slob_option_t option)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	ret = ifx_lo_stat(slob->fd, &stat);
 	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+		raise_ifx_extended();
 
 	spec = ifx_lo_stat_cspec(stat);
 	if (spec == NULL) {
 		ifx_lo_stat_free(stat);
-		rb_raise(rb_eRuntimeError, "Unable to get storage characteristics");
+		rb_raise(esyms.eOperationalError, "Unable to get storage characteristics");
 	}
 
 	switch(option) {
@@ -957,7 +963,7 @@ slob_specget(VALUE self, slob_option_t option)
 
 	ifx_lo_stat_free(stat);
 	if (ret == -1)
-		rb_raise(rb_eRuntimeError, "Unable to get information for %s", str_slob_options[option]);
+		rb_raise(esyms.eOperationalError, "Unable to get information for %s", str_slob_options[option]);
 
 	switch(option) {
 	case slob_estbytes:
@@ -991,21 +997,21 @@ slob_specset(VALUE self, slob_option_t option, VALUE value)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError, "Open the Slob object first");
+		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	ret = ifx_lo_stat(slob->fd, &stat);
 	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+		raise_ifx_extended();
 
 	spec = ifx_lo_stat_cspec(stat);
 	if (spec == NULL) {
 		ifx_lo_stat_free(stat);
-		rb_raise(rb_eRuntimeError, "Unable to get storage characteristics");
+		rb_raise(esyms.eOperationalError, "Unable to get storage characteristics");
 	}
 
 	switch(option) {
@@ -1021,7 +1027,7 @@ slob_specset(VALUE self, slob_option_t option, VALUE value)
 
 	ifx_lo_stat_free(stat);
 	if (ret == -1)
-		rb_raise(rb_eRuntimeError, "Unable to set information for %s", str_slob_options[option]);
+		rb_raise(esyms.eOperationalError, "Unable to set information for %s", str_slob_options[option]);
 
 	return value;
 }
@@ -1133,18 +1139,18 @@ slob_stat(VALUE self, slob_stat_t stat)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(rb_eRuntimeError,
+		rb_raise(esyms.eProgrammingError,
 			"Open the Slob object before getting its status");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	ret = ifx_lo_stat(slob->fd, &st);
 
 	if (ret < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", ret);
+		raise_ifx_extended();
 
 	switch(stat) {
 	case slob_atime:
@@ -1166,7 +1172,7 @@ slob_stat(VALUE self, slob_stat_t stat)
 	ifx_lo_stat_free(st);
 
 	if (ret == -1)
-		rb_raise(rb_eRuntimeError, "Unable to get value of %s", str_slob_stats[stat]);
+		rb_raise(esyms.eOperationalError, "Unable to get value of %s", str_slob_stats[stat]);
 
 	switch(stat) {
 		case slob_atime:
@@ -1706,7 +1712,7 @@ make_result(cursor_t *c, VALUE record)
 			ret = dectoasc((dec_t *)var->sqldata, buffer,
 					sizeof(buffer) - 1, -1);
 			if (ret)
-				rb_raise(rb_eRuntimeError,
+				rb_raise(esyms.eOperationalError,
 					"Unable to convert DECIMAL to BigDecimal");
 
 			buffer[sizeof(buffer) - 1] = 0;
@@ -1822,7 +1828,7 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
 	rb_scan_args(argc, argv, "12", &arg[0], &arg[1], &arg[2]);
 
 	if (NIL_P(arg[0]))
-		rb_raise(rb_eRuntimeError, "A database name must be specified");
+		rb_raise(esyms.eProgrammingError, "A database name must be specified");
 
 	Data_Get_Struct(self, char, did);
 
@@ -1842,7 +1848,7 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
 		EXEC SQL connect to :dbname as :did with concurrent transaction;
 
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	return self;
 }
@@ -1919,12 +1925,12 @@ rb_database_immediate(VALUE self, VALUE arg)
 
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	query = StringValueCStr(arg);
 	EXEC SQL execute immediate :query;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	return INT2FIX(sqlca.sqlerrd[2]);
 }
@@ -1946,7 +1952,7 @@ rb_database_rollback(VALUE self)
 
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	EXEC SQL rollback;
 	return self;
@@ -1969,7 +1975,7 @@ rb_database_commit(VALUE self)
 
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	EXEC SQL commit;
 	return self;
@@ -2004,14 +2010,14 @@ rb_database_transaction(VALUE self)
 
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	EXEC SQL commit;
 
 	EXEC SQL begin work;
 	ret = rb_rescue(rb_yield, self, database_transfail, self);
 	if (ret == Qundef)
-		rb_raise(rb_eRuntimeError, "Transaction rolled back");
+		rb_raise(esyms.eOperationalError, "Transaction rolled back");
 	EXEC SQL commit;
 	return self;
 }
@@ -2132,14 +2138,14 @@ rb_database_columns(VALUE self, VALUE tablename)
 
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	tabname = StringValueCStr(tablename);
 
 	EXEC SQL select tabid into :tabid from systables where tabname = :tabname;
 
 	if (SQLCODE == SQLNOTFOUND)
-		rb_raise(rb_eRuntimeError, "Table '%s' doesn't exist", tabname);
+		rb_raise(esyms.eProgrammingError, "Table '%s' doesn't exist", tabname);
 
 	result = rb_ary_new();
 
@@ -2155,19 +2161,19 @@ rb_database_columns(VALUE self, VALUE tablename)
 			order by c.colno;
 		if (SQLCODE < 0) {
 			cid[0] = 0;
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+			raise_ifx_extended();
 		}
 	}
 
 	EXEC SQL open :cid;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	for(;;) {
 		EXEC SQL fetch :cid into :colname, :coltype, :collength, :xid,
 			:deftype, :defvalue;
 		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+			raise_ifx_extended();
 
 		if (SQLCODE == SQLNOTFOUND)
 			break;
@@ -2336,7 +2342,7 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 	Data_Get_Struct(db, char, did);
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	Data_Get_Struct(self, cursor_t, c);
 	c->db = db;
@@ -2348,7 +2354,7 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 
 	EXEC SQL prepare :sid from :c_query;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	alloc_input_slots(c, c_query);
 	EXEC SQL describe :sid into output;
@@ -2420,7 +2426,7 @@ statement_call(int argc, VALUE *argv, VALUE self)
 	did = c->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	output = c->daOutput;
 	input = &c->daInput;
@@ -2441,7 +2447,7 @@ statement_call(int argc, VALUE *argv, VALUE self)
 			EXEC SQL execute :sid into descriptor output;
 
 		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+			raise_ifx_extended();
 
 		if (SQLCODE == SQLNOTFOUND)
 			return Qnil;
@@ -2457,7 +2463,7 @@ statement_call(int argc, VALUE *argv, VALUE self)
 			EXEC SQL execute :sid;
 	}
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	return INT2FIX(sqlca.sqlerrd[2]);
 }
@@ -2532,19 +2538,19 @@ fetch(VALUE self, VALUE type, int bang)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(rb_eRuntimeError, "Open the cursor object first");
+		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	output = c->daOutput;
 	cid = c->cursor_id;
 
 	EXEC SQL fetch :cid using descriptor output;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	if (SQLCODE == SQLNOTFOUND)
 		return Qnil;
@@ -2632,12 +2638,12 @@ fetch_many(VALUE self, VALUE n, VALUE type)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(rb_eRuntimeError, "Open the cursor object first");
+		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	output = c->daOutput;
 	cid = c->cursor_id;
@@ -2653,7 +2659,7 @@ fetch_many(VALUE self, VALUE n, VALUE type)
 	for(i = 0; all || i < max; i++) {
 		EXEC SQL fetch :cid using descriptor output;
 		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+			raise_ifx_extended();
 
 		if (SQLCODE == SQLNOTFOUND)
 			break;
@@ -2734,12 +2740,12 @@ each(VALUE self, VALUE type, int bang)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(rb_eRuntimeError, "Open the cursor object first");
+		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	output = c->daOutput;
 	cid = c->cursor_id;
@@ -2747,7 +2753,7 @@ each(VALUE self, VALUE type, int bang)
 	for(;;) {
 		EXEC SQL fetch :cid using descriptor output;
 		if (SQLCODE < 0)
-			rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+			raise_ifx_extended();
 
 		if (SQLCODE == SQLNOTFOUND)
 			return self;
@@ -2886,12 +2892,12 @@ inscur_put(int argc, VALUE *argv, VALUE self)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(rb_eRuntimeError, "Open the cursor object first");
+		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	input = &c->daInput;
 	cid = c->cursor_id;
@@ -2904,7 +2910,7 @@ inscur_put(int argc, VALUE *argv, VALUE self)
 	EXEC SQL put :cid using descriptor input;
 	clean_input_slots(c);
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	/* XXX 2-448, Guide to SQL: Sytax*/
 	return INT2FIX(sqlca.sqlerrd[2]);
@@ -2928,12 +2934,12 @@ inscur_flush(VALUE self)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(rb_eRuntimeError, "Open the cursor object first");
+		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	cid = c->cursor_id;
 	EXEC SQL flush :cid;
@@ -2959,7 +2965,7 @@ scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(rb_eRuntimeError, "Open the cursor object first");
+		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
@@ -2982,7 +2988,7 @@ scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
 		return Qnil;
 
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	RECORD(c, type, bang, record);
 	return make_result(c, record);
@@ -3133,7 +3139,7 @@ scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(rb_eRuntimeError, "Open the cursor object first");
+		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
@@ -3151,7 +3157,7 @@ scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
 		return Qnil;
 
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	RECORD(c, type, bang, record);
 	return make_result(c, record);
@@ -3528,7 +3534,7 @@ cursor_initialize(int argc, VALUE *argv, VALUE self)
 
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	Data_Get_Struct(self, cursor_t, c);
 	c->db = db;
@@ -3547,7 +3553,7 @@ cursor_initialize(int argc, VALUE *argv, VALUE self)
 
 	EXEC SQL prepare :sid from :c_query;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	if (RTEST(scroll) && RTEST(hold))
 		EXEC SQL declare :cid scroll cursor with hold for :sid;
@@ -3559,7 +3565,7 @@ cursor_initialize(int argc, VALUE *argv, VALUE self)
 		EXEC SQL declare :cid cursor for :sid;
 
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	alloc_input_slots(c, c_query);
 	EXEC SQL describe :sid into output;
@@ -3616,7 +3622,7 @@ cursor_s_open(int argc, VALUE *argv, VALUE klass)
 		if (TYPE(params) == T_ARRAY)
 			open_argc = RARRAY(params)->len;
 		else if (params != Qnil)
-			rb_raise(rb_eRuntimeError, "Parameters must be supplied as an Array");
+			rb_raise(rb_eArgError, "Parameters must be supplied as an Array");
 	}
 
 	cursor = rb_class_new_instance(argc, argv, klass);
@@ -3669,7 +3675,7 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 	did = c->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	input = &c->daInput;
 	cid = c->cursor_id;
@@ -3692,7 +3698,7 @@ cursor_open(int argc, VALUE *argv, VALUE self)
 		EXEC SQL open :cid;
 
 	if (SQLCODE < 0)
-		rb_raise(rb_eRuntimeError, "Informix Error: %d", SQLCODE);
+		raise_ifx_extended();
 
 	c->is_open = 1;
 	return self;
@@ -3946,4 +3952,7 @@ void Init_informix(void)
 	sym_maxbytes = ID2SYM(rb_intern("maxbytes"));
 
 	sym_params = ID2SYM(rb_intern("params"));
+
+	/* Initialize ifx_except module */
+	rbifx_except_init(rb_mInformix, &esyms);
 }
