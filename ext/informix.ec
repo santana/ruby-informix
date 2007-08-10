@@ -1,6 +1,6 @@
-/* $Id: informix.ec,v 1.3 2007/08/10 14:37:54 santana Exp $ */
+/* $Id: informix.ec,v 1.4 2007/08/10 23:38:15 santana Exp $ */
 /*
-* Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
+* Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
 * 
 * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.3 2007/08/10 14:37:54 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.4 2007/08/10 23:38:15 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
