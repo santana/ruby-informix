@@ -1,3 +1,11 @@
+0.5.1  08/10/2007
+------------------
+Bugs fixed:
+	* When a DATETIME HOUR TO SECOND column had a value with leading zeroes
+	  it was incorrectly interpreted.
+	  Reported by Daniel Bush <dlb.id.au at gmail>
+
+
 0.5.0  12/27/2006
 ------------------
 New features:
