@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.2 2007/01/31 02:41:46 santana Exp $ */
+/* $Id: informix.ec,v 1.3 2007/08/10 14:37:54 santana Exp $ */
 /*
 * Copyright (c) 2006, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.2 2007/01/31 02:41:46 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.3 2007/08/10 14:37:54 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -1647,47 +1647,48 @@ make_result(cursor_t *c, VALUE record)
 			break;
 		}
 		case SQLDTIME: {
-			register short qual;
+			register short qual, i;
 			short year, month, day, hour, minute, second;
 			int usec;
-			dtime_t *dt;
+			dtime_t dt;
 			register char *dgts;
 
 			month = day = 1;
 			year = hour = minute = second = usec = 0;
-			dt = (dtime_t *)var->sqldata;
-			dgts = dt->dt_dec.dec_dgts;
+			dt.dt_qual = TU_DTENCODE(TU_YEAR, TU_F5);
+			dtextend((dtime_t *)var->sqldata, &dt);
+			dgts = dt.dt_dec.dec_dgts;
 
-			qual = TU_START(dt->dt_qual);
-			for (; qual <= TU_END(dt->dt_qual); qual++) {
+			for (i = 0, qual = TU_YEAR;
+				 qual <= TU_F5 && i < dt.dt_dec.dec_ndgts; qual++) {
 				switch(qual) {
 				case TU_YEAR:
-					year = 100**dgts++;
-					year += *dgts++;
+					year = 100*dgts[i++];
+					year += dgts[i++];
 					break;
 				case TU_MONTH:
-					month = *dgts++;
+					month = dgts[i++];
 					break;
 				case TU_DAY:
-					day = *dgts++;
+					day = dgts[i++];
 					break;
 				case TU_HOUR:
-					hour = *dgts++;
+					hour = dgts[i++];
 					break;
 				case TU_MINUTE:
-					minute = *dgts++;
+					minute = dgts[i++];
 					break;
 				case TU_SECOND:
-					second = *dgts++;
+					second = dgts[i++];
 					break;
 				case TU_F1:
-					usec = 10000**dgts++;
+					usec = 10000*dgts[i++];
 					break;
 				case TU_F3:
-					usec += 100**dgts++;
+					usec += 100*dgts[i++];
 					break;
 				case TU_F5:
-					usec += *dgts++;
+					usec += dgts[i++];
 					break;
 				}
 			}
@@ -1697,11 +1698,6 @@ make_result(cursor_t *c, VALUE record)
 				INT2FIX(hour), INT2FIX(minute), INT2FIX(second),
 				INT2FIX(usec));
 
-			/* Clean the buffer for DATETIME columns because
-			 * ESQL/C leaves the previous content when a
-			 * a time field is zero.
-			 */
-			memset(dt, 0, sizeof(dtime_t));
 			break;
 		}
 		case SQLDECIMAL:
