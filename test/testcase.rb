@@ -5,8 +5,6 @@ require 'date'
 require 'stringio'
 
 module Informix
-  class Database; alias :execute :do; end
-
   class TestCase < Test::Unit::TestCase
     NOW = Time.now.utc
     TODAY = Date.today
