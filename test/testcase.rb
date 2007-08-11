@@ -1,4 +1,6 @@
-$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../ext"
+testdir = File.expand_path(File.dirname(__FILE__))
+$LOAD_PATH.unshift File.join(testdir, "..", "ext")
+
 require 'test/unit'
 require 'informix'
 require 'date'
