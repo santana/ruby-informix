@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.4 2007/08/10 23:38:15 santana Exp $ */
+/* $Id: informix.ec,v 1.5 2007/08/11 00:41:59 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.4 2007/08/10 23:38:15 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.5 2007/08/11 00:41:59 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -3837,6 +3837,7 @@ void Init_informix(void)
 	rb_define_alias(rb_cDatabase, "disconnect", "close");
 	rb_define_method(rb_cDatabase, "immediate", rb_database_immediate, 1);
 	rb_define_alias(rb_cDatabase, "do", "immediate");
+	rb_define_alias(rb_cDatabase, "execute", "immediate");
 	rb_define_method(rb_cDatabase, "rollback", rb_database_rollback, 0);
 	rb_define_method(rb_cDatabase, "commit", rb_database_commit, 0);
 	rb_define_method(rb_cDatabase, "transaction", rb_database_transaction, 0);
