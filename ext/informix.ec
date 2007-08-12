@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.5 2007/08/11 00:41:59 santana Exp $ */
+/* $Id: informix.ec,v 1.6 2007/08/12 16:59:39 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.5 2007/08/11 00:41:59 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.6 2007/08/12 16:59:39 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -1782,11 +1782,28 @@ make_result(cursor_t *c, VALUE record)
  */
 static VALUE rb_database_s_open(int argc, VALUE *argv, VALUE klass);
 static VALUE
-informix_connect(int argc, VALUE *argv, VALUE self)
+rb_informix_connect(int argc, VALUE *argv, VALUE self)
 {
 	return rb_database_s_open(argc, argv, rb_cDatabase);
 }
 
+/*
+ * call-seq:
+ * Informix.version => string
+ *
+ * Returns the version of this Ruby/Informix driver.
+ * Note that this is NOT the Informix database version.
+ */
+static VALUE rb_informix_version(void)
+{
+	static const char * const ver = "0.6.0";
+	static VALUE driver_version;
+
+	if (driver_version == 0)
+		driver_version = rb_str_freeze(rb_str_new2(ver));
+
+	return driver_version;
+}
 
 /* class Database --------------------------------------------------------- */
 
@@ -3742,7 +3759,8 @@ void Init_informix(void)
 	rb_mInformix = rb_define_module("Informix");
 	rb_mScrollCursor = rb_define_module_under(rb_mInformix, "ScrollCursor");
 	rb_mInsertCursor = rb_define_module_under(rb_mInformix, "InsertCursor");
-	rb_define_module_function(rb_mInformix, "connect", informix_connect, -1);
+	rb_define_module_function(rb_mInformix, "connect", rb_informix_connect, -1);
+	rb_define_module_function(rb_mInformix, "version", rb_informix_version, 0);
 
 	/* class Slob --------------------------------------------------------- */
 	rb_cSlob = rb_define_class_under(rb_mInformix, "Slob", rb_cObject);
