@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.8 2007/08/15 01:51:05 santana Exp $ */
+/* $Id: informix.ec,v 1.9 2007/08/15 01:57:27 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.8 2007/08/15 01:51:05 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.9 2007/08/15 01:57:27 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -2308,22 +2308,6 @@ statement_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, statement_mark, statement_free, c);
 }
 
-/*
- * call-seq:
- * Statement.new(database, query)                 => statement
- * Statement.new(database, query) {|stmt| block } => obj
- *
- * Creates a <code>Statement</code> object based on <i>query</i> in the
- * context of <i>database</i>.
- * In the first form the <code>Statement</code> object is returned.
- * In the second form the Statement object is passed to the block and when it
- * terminates, the Statement object is dropped, returning the value of the
- * block.
- *
- * <i>query</i> may contain '?' placeholders for input parameters;
- * it must not be a query returning more than one row
- * (use <code>Cursor</code> instead.)
- */
 static VALUE
 statement_initialize(VALUE self, VALUE db, VALUE query)
 {
@@ -2366,6 +2350,7 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 	return self;
 }
 
+static VALUE statement_drop(VALUE);
 /*
  * call-seq:
  * Statement.new(database, query)                 => statement
@@ -2382,7 +2367,6 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
  * it must not be a query returning more than one row
  * (use <code>Cursor</code> instead.)
  */
-static VALUE statement_drop(VALUE);
 static VALUE
 statement_s_new(int argc, VALUE *argv, VALUE klass)
 {
