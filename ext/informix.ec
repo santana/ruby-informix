@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.7 2007/08/15 01:11:11 santana Exp $ */
+/* $Id: informix.ec,v 1.8 2007/08/15 01:51:05 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.7 2007/08/15 01:11:11 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.8 2007/08/15 01:51:05 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -322,27 +322,6 @@ slob_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, slob_mark, slob_free, slob);
 }
 
-/*
- * call-seq:
- * Slob.new(database, type = Slob::CLOB, options = nil)                  => slob
- * Slob.new(database, type = Slob::CLOB, options = nil) {|slob| block }  => obj
- *
- * Creates a Smart Large Object of type <i>type</i> in <i>database</i>.
- * Returns a <code>Slob</code> object pointing to it.
- *
- * <i>type</i> can be Slob::BLOB or Slob::CLOB
- *
- * <i>options</i> must be a hash with the following possible keys:
- *
- *   :sbspace     => Sbspace name
- *   :estbytes    => Estimated size, in bytes
- *   :extsz       => Allocation extent size
- *   :createflags => Create-time flags
- *   :openflags   => Access mode
- *   :maxbytes    => Maximum size
- *   :col_info    => Get the previous values from the column-level storage
- *                   characteristics for the specified database column
- */
 static VALUE
 rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 {
@@ -435,6 +414,7 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 	return self;
 }
 
+static VALUE rb_slob_close(VALUE self);
 /*
  * call-seq:
  * Slob.new(database, type = Slob::CLOB, options = nil)                  => slob
@@ -456,7 +436,6 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
  *   :col_info    => Get the previous values from the column-level storage
  *                   characteristics for the specified database column
  */
-static VALUE rb_slob_close(VALUE self);
 static VALUE
 rb_slob_s_new(int argc, VALUE *argv, VALUE klass)
 {
@@ -1767,6 +1746,7 @@ make_result(cursor_t *c, VALUE record)
 
 /* module Informix -------------------------------------------------------- */
 
+static VALUE rb_database_s_open(int argc, VALUE *argv, VALUE klass);
 /*
  * call-seq:
  * Informix.connect(dbname, user=nil, password=nil)                      => database
@@ -1780,7 +1760,6 @@ make_result(cursor_t *c, VALUE record)
  * closes the connection when the block terminates, returning the value of
  * the block.
  */
-static VALUE rb_database_s_open(int argc, VALUE *argv, VALUE klass);
 static VALUE
 rb_informix_connect(int argc, VALUE *argv, VALUE self)
 {
@@ -2036,6 +2015,7 @@ rb_database_transaction(VALUE self)
 	return self;
 }
 
+static VALUE statement_s_new(int, VALUE *, VALUE);
 /*
  * call-seq:
  * db.prepare(query)                  => statement
@@ -2051,7 +2031,6 @@ rb_database_transaction(VALUE self)
  * it must not be a query returning more than one row
  * (use <code>Database#cursor</code> instead.)
  */
-static VALUE statement_s_new(int, VALUE *, VALUE);
 static VALUE
 rb_database_prepare(VALUE self, VALUE query)
 {
@@ -2061,6 +2040,7 @@ rb_database_prepare(VALUE self, VALUE query)
 	return statement_s_new(2, argv, rb_cStatement);
 }
 
+static VALUE rb_cursor_s_new(int argc, VALUE *argv, VALUE klass);
 /*
  * call-seq:
  * db.cursor(query, options = nil) => cursor
@@ -2081,7 +2061,7 @@ rb_database_cursor(int argc, VALUE *argv, VALUE self)
 
 	arg[0] = self;
 	rb_scan_args(argc, argv, "11", &arg[1], &arg[2]);
-	return rb_class_new_instance(3, arg, rb_cCursor);
+	return rb_cursor_s_new(3, arg, rb_cCursor);
 }
 
 /*
@@ -3519,18 +3499,6 @@ cursor_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, cursor_mark, cursor_free, c);
 }
 
-/*
- * call-seq:
- * Cursor.new(database, query, options = nil) => cursor
- *
- * Prepares <i>query</i> in the context of <i>database</i> with <i>options</i>
- * and returns a <code>Cursor</code> object.
- *
- * <i>options</i> can be nil or a Hash object with the following possible keys:
- *
- *   :scroll => true or false
- *   :hold   => true or false
- */
 static VALUE
 cursor_initialize(int argc, VALUE *argv, VALUE self)
 {
@@ -3601,6 +3569,37 @@ cursor_initialize(int argc, VALUE *argv, VALUE self)
 	return self;
 }
 
+static VALUE cursor_drop(VALUE self);
+/*
+ * call-seq:
+ * Cursor.new(database, query, options)                    => cursor
+ * Cursor.new(database, query, options) {|cursor| block }  => obj
+ *
+ * Creates a Cursor object based on <i>query</i> using <i>options</i>
+ * in the context of <i>database</i> but does not open it.
+ * In the first form the Cursor object is returned.
+ * In the second form the Cursor object is passed to the block and when it
+ * terminates, the Cursor object is dropped, returning the value of the block.
+ * 
+ * <i>options</i> can be nil or a Hash object with the following possible keys:
+ * 
+ *   :scroll => true or false
+ *   :hold   => true or false
+ */
+static VALUE
+rb_cursor_s_new(int argc, VALUE *argv, VALUE klass)
+{
+	VALUE cursor;
+
+	cursor = rb_class_new_instance(argc, argv, klass);
+
+	if (rb_block_given_p())
+		return rb_ensure(rb_yield, cursor, cursor_drop, cursor);
+
+	return cursor;
+}
+
+static VALUE cursor_open(int argc, VALUE *argv, VALUE self);
 /*
  * call-seq:
  * Cursor.open(database, query, options)                    => cursor
@@ -3618,8 +3617,6 @@ cursor_initialize(int argc, VALUE *argv, VALUE self)
  *   :hold   => true or false
  *   :params => input parameters as an Array or nil
  */
-static VALUE cursor_open(int argc, VALUE *argv, VALUE self);
-static VALUE cursor_drop(VALUE self);
 static VALUE
 cursor_s_open(int argc, VALUE *argv, VALUE klass)
 {
