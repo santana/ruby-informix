@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.6 2007/08/12 16:59:39 santana Exp $ */
+/* $Id: informix.ec,v 1.7 2007/08/15 01:11:11 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.6 2007/08/12 16:59:39 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.7 2007/08/15 01:11:11 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -1921,6 +1921,7 @@ rb_database_close(VALUE self)
 /*
  * call-seq:
  * db.immediate(query)  => fixnum
+ * db.execute(query)    => fixnum
  *
  * Executes <i>query</i> and returns the number of rows affected.
  * <i>query</i> must not return rows. Executes efficiently any
