@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.9 2007/08/15 01:57:27 santana Exp $ */
+/* $Id: informix.ec,v 1.10 2007/08/23 02:32:56 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.9 2007/08/15 01:57:27 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.10 2007/08/23 02:32:56 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -3908,6 +3908,7 @@ void Init_informix(void)
 	rb_cCursor = rb_define_class_under(rb_mInformix, "Cursor", rb_cObject);
 	rb_define_alloc_func(rb_cCursor, cursor_alloc);
 	rb_define_method(rb_cCursor, "initialize", cursor_initialize, -1);
+	rb_define_singleton_method(rb_cCursor, "new", rb_cursor_s_new, -1);
 	rb_define_singleton_method(rb_cCursor, "open", cursor_s_open, -1);
 	rb_define_method(rb_cCursor, "id", cursor_id, 0);
 	rb_define_method(rb_cCursor, "open", cursor_open, -1);
