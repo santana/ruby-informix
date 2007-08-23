@@ -5,10 +5,10 @@ spec = Gem::Specification.new do |s|
   s.version = '0.6.0'
   s.summary = 'Informix driver for Ruby'
   s.description = %{Ruby extension for connecting to IBM Informix Dynamic Server, written in ESQL/C.}
-  s.files = ['informix.ec', 'ifx_except.ec', '../COPYRIGHT', '../Changelog', '../README']
+  s.files = ['informix.ec', 'ifx_except.ec', 'ifx_assert.h',  'ifx_except.h', 'COPYRIGHT', 'Changelog', 'README']
   s.autorequire = 'informix'
   s.has_rdoc = true
-  s.extra_rdoc_files = ['informix.c']
+  s.extra_rdoc_files = ['informix.c', 'ifx_except.c']
   s.rdoc_options << '--title' << 'Ruby/Informix -- Informix driver for Ruby'
   s.author = 'Gerardo Santana Gomez Garrido'
   s.email = 'gerardo.santana@gmail.com'
