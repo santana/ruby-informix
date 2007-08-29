@@ -1,3 +1,50 @@
+0.6.0  08/25/2007
+------------------
+New features:
+	* Test suite
+	* Error, Warning, and AssertionFailure classes replace RuntimeError when
+	  raising exceptions.
+
+	  Error class methods: 
+		- message
+		- sql_code
+		- add_info
+		- []
+		- each
+		- to_s
+		- size, length
+
+	  message and sql_code reference the first error message. Following
+	  errors can be accessed through Error#[] as ExcInfo objects.
+
+	  ExcInfo is a Struct with the following members:
+		- sql_code
+		- sql_state
+		- class_origin_val
+		- subclass_origin_val
+		- message
+		- server_name
+		- connection_name
+
+	  See test/testcase.rb for a simple example of exception handling.
+
+	* Informix.version returns the version of this extension
+	* Database#do aliased as Database#execute
+	* More documentation
+
+Remarks:
+	* Database#do is deprecated and will be removed in next versions. Use
+	  Database#execute or Database#immediate instead.
+
+	* In case of Informix errors, RuntimeError objects are no longer raised.
+	  Error, Warning and AssertionFailure objects are raised instead.
+
+
+Acknowledgments:
+	I want to thank Edwin Fine <emofine at finecomputerconsultants dot com>
+who contributed all the functionality of this release.
+
+
 0.5.1  08/10/2007
 ------------------
 Bugs fixed:
