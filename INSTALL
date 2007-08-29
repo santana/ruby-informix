@@ -9,7 +9,7 @@ Ruby/Informix installation
 1. Building requirements
 
   All platforms
-	* Informix CSDK 2.90
+	* Informix CSDK 2.90 or above
 
   Windows
 	* Microsoft Visual Studio 6.0
