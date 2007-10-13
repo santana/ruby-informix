@@ -1,3 +1,17 @@
+0.6.1  13/10/2007
+------------------
+Bugs fixed:
+	* Database#columns was returning an empty array from within the
+	  Informix ActiveRecord adapter
+	  (ActiveRecord::ConnectionAdapters::InformixAdapter#columns) if
+	  called for different tables. This bug was raising the following
+	  error in Ruby on Rails:
+
+		undefined method columname=
+
+	  Noticed by Andrés Rafael <aandresrafael at gmail dot com>
+
+
 0.6.0  08/28/2007
 ------------------
 New features:
