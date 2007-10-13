@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.10 2007/08/23 02:32:56 santana Exp $ */
+/* $Id: informix.ec,v 1.11 2007/10/13 20:00:19 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.10 2007/08/23 02:32:56 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.11 2007/10/13 20:00:19 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -2144,22 +2144,30 @@ rb_database_columns(VALUE self, VALUE tablename)
 	result = rb_ary_new();
 
 	cid = did + IDSIZE;
+
 	if (!*cid) {
-		snprintf(cid, IDSIZE, "COLS%lX", self);
-		EXEC SQL declare :cid cursor for
-			select colname, coltype, collength, extended_id,
+		EXEC SQL begin declare section;
+			char sid[IDSIZE];
+		EXEC SQL end   declare section;
+
+		snprintf(sid, IDSIZE, "COLS%lX", self);
+		snprintf(cid, IDSIZE, "COLC%lX", self);
+
+		EXEC SQL prepare :sid from
+			'select colname, coltype, collength, extended_id,
 				type, default, c.colno
 			from syscolumns c, outer sysdefaults d
-			where c.tabid = :tabid and c.tabid = d.tabid
+			where c.tabid = ? and c.tabid = d.tabid
 				and c.colno = d.colno
-			order by c.colno;
+			order by c.colno';
+		EXEC SQL declare :cid cursor for :sid;
 		if (SQLCODE < 0) {
 			cid[0] = 0;
 			raise_ifx_extended();
 		}
 	}
 
-	EXEC SQL open :cid;
+	EXEC SQL open :cid using :tabid;
 	if (SQLCODE < 0)
 		raise_ifx_extended();
 
