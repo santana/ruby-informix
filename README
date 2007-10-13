@@ -18,9 +18,9 @@ Ruby/Informix has been tested succesfully on the following platforms:
 
 Operating System    Architecture       Informix	      CSDK
 -------------------------------------------------------------
-Solaris 10             SPARC          11.10.UC1      3.00UC2
-Solaris 10             SPARC           9.40FC6       3.00UC2
-Solaris 9              SPARC           9.40FC6       2.90UC3
+Solaris 10             SPARC64        11.10.UC1      3.00UC2
+Solaris 10             SPARC64         9.40FC6       3.00UC2
+Solaris 9              SPARC64         9.40FC6       2.90UC3
 Fedora Core 5            x86          10.00.UC3R1    2.90UC4
 Fedora Core 4            x86          10.00.UC3R1    2.90UC4
 SuSE Linux 9.3           x86           9.30TC1       2.90UC4
@@ -65,9 +65,8 @@ Objects (CLOB/BLOB).
 
 * use #drop for prepared statements and cursors or use them with blocks,
   to release Informix resources.
-* you can optimize cursor execution by changing the fetch and insert buffers,
-  setting the environment variable FET_BUF_SIZE to up to 32767 for Informix 9.x,
-  or BIG_FET_BUF_SIZE for Informix 10.x
+* you can optimize cursor execution by changing the size of fetch and insert
+  buffers, setting the environment variable FET_BUF_SIZE to up to 32767.
 
 
 5. Caveats
@@ -77,7 +76,8 @@ Objects (CLOB/BLOB).
 6. Support
 
 Feel free to send me bug reports, feature requests, comments, patches or
-questions to my mailbox or Ruby/Informix's forums at Rubyforge.
+questions to my mailbox or Ruby/Informix's forums and mailing list at
+Rubyforge (http://rubyforge.org/projects/ruby-informix/)
 
 
 -----------------------------------------
