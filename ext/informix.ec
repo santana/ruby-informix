@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.11 2007/10/13 20:00:19 santana Exp $ */
+/* $Id: informix.ec,v 1.12 2007/10/14 00:18:50 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.11 2007/10/13 20:00:19 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.12 2007/10/14 00:18:50 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -1775,7 +1775,7 @@ rb_informix_connect(int argc, VALUE *argv, VALUE self)
  */
 static VALUE rb_informix_version(void)
 {
-	static const char * const ver = "0.6.0";
+	static const char * const ver = "0.6.1";
 	static VALUE driver_version;
 
 	if (driver_version == 0)
