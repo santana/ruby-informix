@@ -1,4 +1,13 @@
-0.6.1  13/10/2007
+0.6.2  10/20/2007
+------------------
+Bugs fixed:
+	* Microsoft's cl compiler was failing due to a variable declaration
+	  where it is not allowed.
+
+	  Noticed by Joe Lanotte <joe.lanotte at comcast dot net>
+
+
+0.6.1  10/13/2007
 ------------------
 Bugs fixed:
 	* Database#columns was returning an empty array from within the
