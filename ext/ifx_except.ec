@@ -1,4 +1,4 @@
-/* $Id: ifx_except.ec,v 1.1 2007/01/31 02:16:32 santana Exp $ */
+/* $Id: ifx_except.ec,v 1.2 2007/10/20 10:17:35 santana Exp $ */
 /*
 * Copyright (c) 2006, 2007 Edwin M. Fine <efine@finecomputerconsultants.com>
 * All rights reserved.
@@ -50,7 +50,7 @@
 /* Constants */
 #define NUM_SQL_EXCEPTION_ARGS          7    /* Number of things we get from GET EXCEPTION */
 
-static const char * const vcs_id = "$Id: ifx_except.ec,v 1.1 2007/01/31 02:16:32 santana Exp $";
+static const char * const vcs_id = "$Id: ifx_except.ec,v 1.2 2007/10/20 10:17:35 santana Exp $";
 
 /*
  * Ruby object/class/module handles
@@ -304,6 +304,7 @@ VALUE rbifx_ext_exception(VALUE exception_class)
     mint sql_exception_number;
     mint exc_count = 0;
     mint message_len;
+    mint i;
     EXEC SQL END DECLARE SECTION;
 
     new_instance = rb_class_new_instance(0, 0, exception_class);
@@ -334,8 +335,6 @@ VALUE rbifx_ext_exception(VALUE exception_class)
             return rb_class_new_instance(NUM_ELEMS(argv), argv, sym.eOperationalError);
         }
     }
-
-    mint i;
 
     for (i = 0; i < exc_count; ++i) {
         sql_exception_number = i + 1;
