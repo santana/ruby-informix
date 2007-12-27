@@ -1,4 +1,4 @@
-/* $Id: ifx_except.ec,v 1.2 2007/10/20 10:17:35 santana Exp $ */
+/* $Id: ifx_except.ec,v 1.3 2007/12/27 06:58:48 santana Exp $ */
 /*
 * Copyright (c) 2006, 2007 Edwin M. Fine <efine@finecomputerconsultants.com>
 * All rights reserved.
@@ -50,7 +50,7 @@
 /* Constants */
 #define NUM_SQL_EXCEPTION_ARGS          7    /* Number of things we get from GET EXCEPTION */
 
-static const char * const vcs_id = "$Id: ifx_except.ec,v 1.2 2007/10/20 10:17:35 santana Exp $";
+static const char * const vcs_id = "$Id: ifx_except.ec,v 1.3 2007/12/27 06:58:48 santana Exp $";
 
 /*
  * Ruby object/class/module handles
@@ -234,7 +234,7 @@ static VALUE ifx_exc_to_s(VALUE self)
                 VALUE item_value = rb_String(struct_ref);
                 VALUE args[] = { fmt_str, rb_String(ID2SYM(field)), item_value };
 
-                if (RSTRING(item_value)->len != 0) { /* Skip empty fields */
+                if (RSTRING_LEN(item_value) != 0) { /* Skip empty fields */
                     rb_str_concat(s, rb_f_sprintf(NUM_ELEMS(args), args));
                 }
             }
