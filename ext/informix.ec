@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.13 2007/12/27 06:58:06 santana Exp $ */
+/* $Id: informix.ec,v 1.14 2007/12/27 08:03:40 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.13 2007/12/27 06:58:06 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.14 2007/12/27 08:03:40 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -322,6 +322,7 @@ slob_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, slob_mark, slob_free, slob);
 }
 
+/* :nodoc: */
 static VALUE
 rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 {
@@ -1807,6 +1808,7 @@ database_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, 0, database_free, did);
 }
 
+/* :nodoc: */
 static VALUE
 rb_database_initialize(int argc, VALUE *argv, VALUE self)
 {
@@ -2315,6 +2317,7 @@ statement_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, statement_mark, statement_free, c);
 }
 
+/* :nodoc: */
 static VALUE
 statement_initialize(VALUE self, VALUE db, VALUE query)
 {
@@ -3490,6 +3493,7 @@ cursor_alloc(VALUE klass)
 	return Data_Wrap_Struct(klass, cursor_mark, cursor_free, c);
 }
 
+/* :nodoc: */
 static VALUE
 cursor_initialize(int argc, VALUE *argv, VALUE self)
 {
