@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.12 2007/10/14 00:18:50 santana Exp $ */
+/* $Id: informix.ec,v 1.13 2007/12/27 06:58:06 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.12 2007/10/14 00:18:50 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.13 2007/12/27 06:58:06 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -606,8 +606,8 @@ rb_slob_write(VALUE self, VALUE data)
 		raise_ifx_extended();
 
 	str = rb_obj_as_string(data);
-	buffer = RSTRING(str)->ptr;
-	nbytes = RSTRING(str)->len;
+	buffer = RSTRING_PTR(str);
+	nbytes = RSTRING_LEN(str);
 
 	ret = ifx_lo_write(slob->fd, buffer, nbytes, &error);
 
@@ -1517,7 +1517,7 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			if (klass == rb_cBigDecimal) {
 				data = rb_funcall(data, s_to_s, 0);
 				var->sqldata = (char *)ALLOC(dec_t);
-				deccvasc(RSTRING(data)->ptr, RSTRING(data)->len,
+				deccvasc(RSTRING_PTR(data), RSTRING_LEN(data),
 					(dec_t *)var->sqldata);
 				var->sqltype = CDECIMALTYPE;
 				var->sqllen = sizeof(dec_t);
@@ -1530,9 +1530,8 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				long len;
 
 				data = rb_funcall(data, s_read, 0);
-				data = StringValue(data);
-				str = RSTRING(data)->ptr;
-				len = RSTRING(data)->len;
+				str = RSTRING_PTR(data);
+				len = RSTRING_LEN(data);
 
 				loc = (loc_t *)ALLOC(loc_t);
 				byfill((char *)loc, sizeof(loc_t), 0);
@@ -1561,8 +1560,8 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			char *str;
 			long len;
 
-			str = RSTRING(data)->ptr;
-			len = RSTRING(data)->len;
+			str = RSTRING_PTR(data);
+			len = RSTRING_LEN(data);
 			var->sqldata = ALLOC_N(char, len + 1);
 			memcpy(var->sqldata, str, len);
 			var->sqldata[len] = 0;
