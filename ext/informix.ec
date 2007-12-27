@@ -1,4 +1,4 @@
-/* $Id: informix.ec,v 1.14 2007/12/27 08:03:40 santana Exp $ */
+/* $Id: informix.ec,v 1.15 2007/12/27 08:48:08 santana Exp $ */
 /*
 * Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 * All rights reserved.
@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.14 2007/12/27 08:03:40 santana Exp $";
+static const char rcsid[] = "$Id: informix.ec,v 1.15 2007/12/27 08:48:08 santana Exp $";
 
 #include "ruby.h"
 #include "ifx_except.h"
@@ -1846,6 +1846,7 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
 	return self;
 }
 
+static VALUE rb_database_close(VALUE self);
 /*
  * call-seq:
  * Database.new(dbname, user = nil, password = nil)                      => database
@@ -1861,7 +1862,6 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
  * closes the connection when the block terminates, returning the value of
  * the block.
  */
-static VALUE rb_database_close(VALUE self);
 static VALUE
 rb_database_s_open(int argc, VALUE *argv, VALUE klass)
 {
