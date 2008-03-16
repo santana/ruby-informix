@@ -1,4 +1,4 @@
-# $Id: ifx_except.rb,v 1.1 2008/03/16 02:03:47 santana Exp $
+# $Id: ifx_except.rb,v 1.2 2008/03/16 05:51:23 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -34,6 +34,17 @@ module Informix
   ExcInfo = Struct.new(:sql_code, :sql_state, :class_origin, :subclass_origin,
                        :message, :server_name, :connection_name)
 
+  class ExcInfo
+    FORMAT = "%-15s: %s\n".freeze
+    def to_s
+      ret = "\n"
+      each_pair do |member, value|
+        ret += sprintf(FORMAT, member.to_s, value)
+      end
+      ret
+    end
+  end # class ExcInfo
+
   class Error < StandardError
     include Enumerable
 
@@ -50,11 +61,13 @@ module Informix
       case v
       when NilClass
         @info = []
-      when Array
-        @info = v
       when String
         @info = []
-        super(v)
+        super
+      when Array
+        raise(TypeError, "Array may contain only Informix::ExcInfo structs") \
+          if v.any? {|e| !(ExcInfo === e) }
+        @info = v
       else
         raise(TypeError,
                  "Expected string, or array of Informix::ExcInfo, as argument")
@@ -89,7 +102,7 @@ module Informix
       @info.each(&block)
     end
 
-    # exc.at(index) => info
+    # exc[index] => info
     #
     # Returns the ExcInfo object at index.
     def [](index)
@@ -98,6 +111,12 @@ module Informix
 
     # XXX not yet implemented
     def to_s
+      return super if @info.size == 0
+      ret = ""
+      @info.each do |info|
+        ret += info.to_s
+      end
+      ret
     end
 
     # exc.message   => string
