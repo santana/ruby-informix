@@ -1,3 +1,19 @@
+0.7.0  --/--/2008
+------------------
+New features:
+	* Database#each, Database#each_hash, which automatically declare and open
+	  a cursor for the given query
+	  Contributed by Reid Morrison <reidmo at gmail>
+	* SequentialCursor includes Enumerable
+
+Bugs fixed:
+	* The documentation for class Error was not being recognized by rdoc
+
+Remarks:
+	* Database.new deprecated in favor of Database.open
+	* A portion of C code has been reimplemented in Ruby
+
+
 0.6.2  10/20/2007
 ------------------
 Bugs fixed:

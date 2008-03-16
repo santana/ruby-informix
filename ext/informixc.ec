@@ -1,55 +1,61 @@
-/* $Id: informix.ec,v 1.15 2007/12/27 08:48:08 santana Exp $ */
+/* $Id: informixc.ec,v 1.1 2008/03/16 02:03:48 santana Exp $ */
 /*
-* Copyright (c) 2006-2007, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
-* All rights reserved.
-* 
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions
-* are met:
-* 
-* 1. Redistributions of source code must retain the above copyright
-*    notice, this list of conditions and the following disclaimer.
-* 2. Redistributions in binary form must reproduce the above copyright
-*    notice, this list of conditions and the following disclaimer in the
-*    documentation and/or other materials provided with the distribution.
-* 3. The name of the author may not be used to endorse or promote products
-*    derived from this software without specific prior written permission.
-* 
-* THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
-* IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
-* INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-* SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-* HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-* STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-* ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-* POSSIBILITY OF SUCH DAMAGE.
-*/
+* Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
 
-static const char rcsid[] = "$Id: informix.ec,v 1.15 2007/12/27 08:48:08 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.1 2008/03/16 02:03:48 santana Exp $";
 
 #include "ruby.h"
-#include "ifx_except.h"
 
 #include <sqlstype.h>
 #include <sqltypes.h>
 
 static VALUE rb_cDate, rb_cBigDecimal;
 
+/* Modules */
 static VALUE rb_mInformix;
 static VALUE rb_mSequentialCursor;
 static VALUE rb_mScrollCursor;
 static VALUE rb_mInsertCursor;
 
+/* Classes */
 static VALUE rb_cSlob, rb_cSlobStat;
 static VALUE rb_cDatabase;
 static VALUE rb_cStatement;
 static VALUE rb_cCursor;
 
+/* Exceptions */
+static VALUE rb_eError, rb_eWarning, rb_eInternalError;
+static VALUE rb_eProgrammingError, rb_eOperationalError, rb_eDatabaseError;
+
 static ID s_read, s_new, s_utc, s_day, s_month, s_year;
 static ID s_hour, s_min, s_sec, s_usec, s_to_s, s_to_i;
+static ID s_add_info;
 
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
 static VALUE sym_precision, sym_scale, sym_default, sym_xid;
@@ -57,9 +63,6 @@ static VALUE sym_scroll, sym_hold;
 static VALUE sym_col_info, sym_sbspace, sym_estbytes, sym_extsz;
 static VALUE sym_createflags, sym_openflags, sym_maxbytes;
 static VALUE sym_params;
-
-/* Symbols from ifx_except module */
-static ifx_except_symbols_t esyms;
 
 #define IDSIZE 30
 
@@ -94,7 +97,7 @@ do { \
 	char *c_str = StringValueCStr(str); \
 	mint ret = ifx_int8cvasc(c_str, strlen(c_str), (int8addr)); \
 	if (ret < 0) \
-		rb_raise(esyms.eOperationalError, "Could not convert %s to int8", c_str); \
+		rb_raise(rb_eOperationalError, "Could not convert %s to int8", c_str); \
 } while(0)
 
 #define INT82NUM(int8addr, num) \
@@ -104,6 +107,147 @@ do { \
 	str[sizeof(str) - 1] = 0; \
 	num = rb_cstr2inum(str, 10); \
 } while(0)
+
+/*
+ *****************************************************************************
+ * Begins code copyrighted by Edwin M. Fine
+ *****************************************************************************
+ *
+ * Copyright (c) 2006, 2007 Edwin M. Fine <efine@finecomputerconsultants.com>
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *****************************************************************************
+ */
+#define TRIM_BLANKS(s) ((s)[byleng(s, stleng(s))] = '\0')
+#define NUM_ELEMS(arr) (sizeof(arr) / sizeof(*arr))
+
+static VALUE
+rbifx_ext_exception(VALUE exception_class)
+{
+	VALUE new_instance;
+
+	EXEC SQL BEGIN DECLARE SECTION;
+	/* All field sizes defined in IBM Informix ESQL/C Programmer's Manual */
+	int4 sql_code;
+
+	char sql_state[5 + 1];
+	char class_origin_val[255 + 1];
+	char subclass_origin_val[255 + 1];
+	char message[8191 + 1];
+	char server_name[255 + 1];
+	char connection_name[255 + 1];
+
+	mint sql_exception_number;
+	mint exc_count = 0;
+	mint message_len;
+	mint i;
+	EXEC SQL END DECLARE SECTION;
+
+    new_instance = rb_class_new_instance(0, 0, exception_class);
+
+    /* Check that instance of exception_class is derived from
+     * Informix::Error
+     */
+    if (!rb_obj_is_kind_of(new_instance, rb_eError) &&
+        !rb_obj_is_kind_of(new_instance, rb_eWarning)) {
+        rb_raise(rb_eRuntimeError,
+                "Can't instantiate exception from %s, only from %s or %s or their children",
+                rb_class2name(exception_class),
+                rb_class2name(rb_eWarning),
+                rb_class2name(rb_eError));
+    }
+    
+    EXEC SQL GET DIAGNOSTICS :exc_count = NUMBER;
+
+    if (exc_count == 0) { /* Something went wrong */
+        char message[128];
+        snprintf(message,
+                 sizeof(message),
+                 "SQL ERROR: SQLCODE %d (sorry, no GET DIAGNOSTICS information available)",
+                 SQLCODE);
+
+        {
+            VALUE argv[] = { rb_str_new2(message) };
+            return rb_class_new_instance(NUM_ELEMS(argv), argv, rb_eOperationalError);
+        }
+    }
+
+    for (i = 0; i < exc_count; ++i) {
+        sql_exception_number = i + 1;
+
+        EXEC SQL GET DIAGNOSTICS EXCEPTION :sql_exception_number
+            :sql_code            = INFORMIX_SQLCODE,
+            :sql_state           = RETURNED_SQLSTATE,
+            :class_origin_val    = CLASS_ORIGIN,
+            :subclass_origin_val = SUBCLASS_ORIGIN,
+            :message             = MESSAGE_TEXT,
+            :message_len         = MESSAGE_LENGTH,
+            :server_name         = SERVER_NAME,
+            :connection_name     = CONNECTION_NAME
+            ;
+        
+        TRIM_BLANKS(class_origin_val);
+        TRIM_BLANKS(subclass_origin_val);
+        TRIM_BLANKS(server_name);
+        TRIM_BLANKS(connection_name);
+        message[message_len - 1] = '\0';
+        TRIM_BLANKS(message);
+
+        {
+            VALUE sprintf_args[] = { rb_str_new2(message), rb_str_new2(sqlca.sqlerrm) };
+            VALUE argv[] = {
+                INT2FIX(sql_code),
+                rb_str_new2(sql_state),
+                rb_str_new2(class_origin_val),
+                rb_str_new2(subclass_origin_val),
+                rb_f_sprintf(NUM_ELEMS(sprintf_args), sprintf_args),
+                rb_str_new2(server_name),
+                rb_str_new2(connection_name)
+            };
+
+			rb_funcall(new_instance, s_add_info, 1, rb_ary_new4(7, argv));
+        }
+    }
+    
+    return new_instance;
+}
+
+/*
+ * C helper functions (see ifx_except.h for documentation)
+ */
+static void
+raise_ifx_extended(void)
+{
+    rb_exc_raise(rbifx_ext_exception(rb_eDatabaseError));
+}
+/*
+ *****************************************************************************
+ * Ends code copyrighted by Edwin M. Fine
+ *****************************************************************************
+ */
 
 /* class Slob::Stat ------------------------------------------------------ */
 
@@ -144,7 +288,7 @@ rb_slobstat_initialize(VALUE self, VALUE slob)
 	Data_Get_Struct(self, slobstat_t, stat);
 
 	if (sb->fd == -1)
-		rb_raise(esyms.eProgrammingError,
+		rb_raise(rb_eProgrammingError,
 			"Open the Slob object before getting its status");
 
 	did = sb->database_id;
@@ -167,7 +311,7 @@ rb_slobstat_initialize(VALUE self, VALUE slob)
 
 	if (stat->atime == -1 || stat->ctime == -1 || stat->mtime == -1 ||
 	    stat->refcnt == -1 || ret == -1) {
-		rb_raise(esyms.eOperationalError, "Unable to get status");
+		rb_raise(rb_eOperationalError, "Unable to get status");
 	}
 
 	return self;
@@ -348,7 +492,7 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 	if (!NIL_P(type)) {
 		int t = FIX2INT(type);
 		if (t != XID_CLOB && t != XID_BLOB)
-			rb_raise(esyms.eInternalError, "Invalid type %d for an SLOB", t);
+			rb_raise(rb_eInternalError, "Invalid type %d for an SLOB", t);
 		slob->type = t;
 	}
 
@@ -379,7 +523,7 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 		char *c_sbspace = StringValueCStr(sbspace);
 		ret = ifx_lo_specset_sbspace(slob->spec, c_sbspace);
 		if (ret == -1)
-			rb_raise(esyms.eOperationalError, "Could not set sbspace name to %s", c_sbspace);
+			rb_raise(rb_eOperationalError, "Could not set sbspace name to %s", c_sbspace);
 	}
 	if (!NIL_P(estbytes)) {
 		ifx_int8_t estbytes8;
@@ -387,17 +531,17 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 		NUM2INT8(estbytes, &estbytes8);
 		ret = ifx_lo_specset_estbytes(slob->spec, &estbytes8);
 		if (ret == -1)
-			rb_raise(esyms.eOperationalError, "Could not set estbytes");
+			rb_raise(rb_eOperationalError, "Could not set estbytes");
 	}
 	if (!NIL_P(extsz)) {
 		ret = ifx_lo_specset_extsz(slob->spec, FIX2LONG(extsz));
 		if (ret == -1)
-			rb_raise(esyms.eOperationalError, "Could not set extsz to %d", FIX2LONG(extsz));
+			rb_raise(rb_eOperationalError, "Could not set extsz to %d", FIX2LONG(extsz));
 	}
 	if (!NIL_P(createflags)) {
 		ret = ifx_lo_specset_flags(slob->spec, FIX2LONG(createflags));
 		if (ret == -1)
-			rb_raise(esyms.eOperationalError, "Could not set crate-time flags to 0x%X", FIX2LONG(createflags));
+			rb_raise(rb_eOperationalError, "Could not set crate-time flags to 0x%X", FIX2LONG(createflags));
 	}
 	if (!NIL_P(maxbytes)) {
 		ifx_int8_t maxbytes8;
@@ -405,7 +549,7 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 		NUM2INT8(maxbytes, (&maxbytes8));
 		ret = ifx_lo_specset_maxbytes(slob->spec, &maxbytes8);
 		if (ret == -1)
-			rb_raise(esyms.eOperationalError, "Could not set maxbytes");
+			rb_raise(rb_eOperationalError, "Could not set maxbytes");
 	}
 
 	slob->fd = ifx_lo_create(slob->spec, RTEST(openflags)? FIX2LONG(openflags): LO_RDWR, &slob->lo, &error);
@@ -553,7 +697,7 @@ rb_slob_read(VALUE self, VALUE nbytes)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(esyms.eProgrammingError, "Open the Slob object before reading");
+		rb_raise(rb_eProgrammingError, "Open the Slob object before reading");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
@@ -599,7 +743,7 @@ rb_slob_write(VALUE self, VALUE data)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(esyms.eProgrammingError, "Open the Slob object before writing");
+		rb_raise(rb_eProgrammingError, "Open the Slob object before writing");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
@@ -667,7 +811,7 @@ rb_slob_seek(VALUE self, VALUE offset, VALUE whence)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
+		rb_raise(rb_eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
@@ -729,7 +873,7 @@ rb_slob_tell(VALUE self)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
+		rb_raise(rb_eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
@@ -766,7 +910,7 @@ rb_slob_truncate(VALUE self, VALUE offset)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
+		rb_raise(rb_eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
@@ -822,7 +966,7 @@ rb_slob_lock(VALUE self, VALUE offset, VALUE whence, VALUE range, VALUE mode)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
+		rb_raise(rb_eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
@@ -866,7 +1010,7 @@ rb_slob_unlock(VALUE self, VALUE offset, VALUE whence, VALUE range)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
+		rb_raise(rb_eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
@@ -907,7 +1051,7 @@ slob_specget(VALUE self, slob_option_t option)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
+		rb_raise(rb_eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
@@ -921,7 +1065,7 @@ slob_specget(VALUE self, slob_option_t option)
 	spec = ifx_lo_stat_cspec(stat);
 	if (spec == NULL) {
 		ifx_lo_stat_free(stat);
-		rb_raise(esyms.eOperationalError, "Unable to get storage characteristics");
+		rb_raise(rb_eOperationalError, "Unable to get storage characteristics");
 	}
 
 	switch(option) {
@@ -943,7 +1087,7 @@ slob_specget(VALUE self, slob_option_t option)
 
 	ifx_lo_stat_free(stat);
 	if (ret == -1)
-		rb_raise(esyms.eOperationalError, "Unable to get information for %s", str_slob_options[option]);
+		rb_raise(rb_eOperationalError, "Unable to get information for %s", str_slob_options[option]);
 
 	switch(option) {
 	case slob_estbytes:
@@ -977,7 +1121,7 @@ slob_specset(VALUE self, slob_option_t option, VALUE value)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(esyms.eProgrammingError, "Open the Slob object first");
+		rb_raise(rb_eProgrammingError, "Open the Slob object first");
 
 	did = slob->database_id;
 	EXEC SQL set connection :did;
@@ -991,7 +1135,7 @@ slob_specset(VALUE self, slob_option_t option, VALUE value)
 	spec = ifx_lo_stat_cspec(stat);
 	if (spec == NULL) {
 		ifx_lo_stat_free(stat);
-		rb_raise(esyms.eOperationalError, "Unable to get storage characteristics");
+		rb_raise(rb_eOperationalError, "Unable to get storage characteristics");
 	}
 
 	switch(option) {
@@ -1007,7 +1151,7 @@ slob_specset(VALUE self, slob_option_t option, VALUE value)
 
 	ifx_lo_stat_free(stat);
 	if (ret == -1)
-		rb_raise(esyms.eOperationalError, "Unable to set information for %s", str_slob_options[option]);
+		rb_raise(rb_eOperationalError, "Unable to set information for %s", str_slob_options[option]);
 
 	return value;
 }
@@ -1119,7 +1263,7 @@ slob_stat(VALUE self, slob_stat_t stat)
 	Data_Get_Struct(self, slob_t, slob);
 
 	if (slob->fd == -1)
-		rb_raise(esyms.eProgrammingError,
+		rb_raise(rb_eProgrammingError,
 			"Open the Slob object before getting its status");
 
 	did = slob->database_id;
@@ -1152,7 +1296,7 @@ slob_stat(VALUE self, slob_stat_t stat)
 	ifx_lo_stat_free(st);
 
 	if (ret == -1)
-		rb_raise(esyms.eOperationalError, "Unable to get value of %s", str_slob_stats[stat]);
+		rb_raise(rb_eOperationalError, "Unable to get value of %s", str_slob_stats[stat]);
 
 	switch(stat) {
 		case slob_atime:
@@ -1687,7 +1831,7 @@ make_result(cursor_t *c, VALUE record)
 			ret = dectoasc((dec_t *)var->sqldata, buffer,
 					sizeof(buffer) - 1, -1);
 			if (ret)
-				rb_raise(esyms.eOperationalError,
+				rb_raise(rb_eOperationalError,
 					"Unable to convert DECIMAL to BigDecimal");
 
 			buffer[sizeof(buffer) - 1] = 0;
@@ -1744,46 +1888,6 @@ make_result(cursor_t *c, VALUE record)
 	return record;
 }
 
-/* module Informix -------------------------------------------------------- */
-
-static VALUE rb_database_s_open(int argc, VALUE *argv, VALUE klass);
-/*
- * call-seq:
- * Informix.connect(dbname, user=nil, password=nil)                      => database
- * Informix.connect(dbname, user=nil, password=nil) {|database| block }  => obj
- *
- * Creates a <code>Database</code> object connected to <i>dbname</i> as
- * <i>user</i> with <i>password</i>. If these are not given, connects to
- * <i>dbname</i> as the current user.
- *
- * The Database object is passed to the block if it's given, and automatically
- * closes the connection when the block terminates, returning the value of
- * the block.
- */
-static VALUE
-rb_informix_connect(int argc, VALUE *argv, VALUE self)
-{
-	return rb_database_s_open(argc, argv, rb_cDatabase);
-}
-
-/*
- * call-seq:
- * Informix.version => string
- *
- * Returns the version of this Ruby/Informix driver.
- * Note that this is NOT the Informix database version.
- */
-static VALUE rb_informix_version(void)
-{
-	static const char * const ver = "0.6.1";
-	static VALUE driver_version;
-
-	if (driver_version == 0)
-		driver_version = rb_str_freeze(rb_str_new2(ver));
-
-	return driver_version;
-}
-
 /* class Database --------------------------------------------------------- */
 
 static void
@@ -1821,7 +1925,7 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
 	rb_scan_args(argc, argv, "12", &arg[0], &arg[1], &arg[2]);
 
 	if (NIL_P(arg[0]))
-		rb_raise(esyms.eProgrammingError, "A database name must be specified");
+		rb_raise(rb_eProgrammingError, "A database name must be specified");
 
 	Data_Get_Struct(self, char, did);
 
@@ -1844,35 +1948,6 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
 		raise_ifx_extended();
 
 	return self;
-}
-
-static VALUE rb_database_close(VALUE self);
-/*
- * call-seq:
- * Database.new(dbname, user = nil, password = nil)                      => database
- * Database.open(dbname, user = nil, password = nil)                      => database
- * Database.new(dbname, user = nil, password = nil) {|database| block }  => obj
- * Database.open(dbname, user = nil, password = nil) {|database| block }  => obj
- *
- * Creates a <code>Database</code> object connected to <i>dbname</i> as
- * <i>user</i> with <i>password</i>. If these are not given, connects to
- * <i>dbname</i> as the current user.
- *
- * The Database object is passed to the block if it's given, and automatically
- * closes the connection when the block terminates, returning the value of
- * the block.
- */
-static VALUE
-rb_database_s_open(int argc, VALUE *argv, VALUE klass)
-{
-	VALUE database;
-
-	database = rb_class_new_instance(argc, argv, klass);
-
-	if (rb_block_given_p())
-		return rb_ensure(rb_yield, database, rb_database_close, database);
-
-	return database;
 }
 
 /*
@@ -2011,89 +2086,9 @@ rb_database_transaction(VALUE self)
 	EXEC SQL begin work;
 	ret = rb_rescue(rb_yield, self, database_transfail, self);
 	if (ret == Qundef)
-		rb_raise(esyms.eOperationalError, "Transaction rolled back");
+		rb_raise(rb_eOperationalError, "Transaction rolled back");
 	EXEC SQL commit;
 	return self;
-}
-
-static VALUE statement_s_new(int, VALUE *, VALUE);
-/*
- * call-seq:
- * db.prepare(query)                  => statement
- * db.prepare(query) {|stmt| block }  => obj
- *
- * Creates a <code>Statement</code> object based on <i>query</i>.
- * In the first form the Statement object is returned.
- * In the second form the Statement object is passed to the block and when it
- * terminates, the Statement object is dropped, returning the value of the
- * block.
- *
- * <i>query</i> may contain '?' placeholders for input parameters;
- * it must not be a query returning more than one row
- * (use <code>Database#cursor</code> instead.)
- */
-static VALUE
-rb_database_prepare(VALUE self, VALUE query)
-{
-	VALUE argv[2];
-
-	argv[0] = self; argv[1] = query;
-	return statement_s_new(2, argv, rb_cStatement);
-}
-
-static VALUE rb_cursor_s_new(int argc, VALUE *argv, VALUE klass);
-/*
- * call-seq:
- * db.cursor(query, options = nil) => cursor
- *
- * Returns a <code>Cursor</code> object based on <i>query</i>.
- * <i>query</i> may contain '?' placeholders for input parameters.
- *
- * <i>options</i> must be a hash with the following possible keys:
- *
- *   :scroll => true or false
- *   :hold   => true or false
- *
- */
-static VALUE
-rb_database_cursor(int argc, VALUE *argv, VALUE self)
-{
-	VALUE arg[3];
-
-	arg[0] = self;
-	rb_scan_args(argc, argv, "11", &arg[1], &arg[2]);
-	return rb_cursor_s_new(3, arg, rb_cCursor);
-}
-
-/*
- * call-seq:
- * db.slob(type = Slob::CLOB, options = nil)                  => slob
- * db.slob(type = Slob::CLOB, options = nil) {|slob| block }  => obj
- *
- * Creates a Smart Large Object of type <i>type</i>.
- * Returns a <code>Slob</code> object pointing to it.
- *
- * <i>type</i> can be Slob::BLOB or Slob::CLOB
- *
- * <i>options</i> can be nil or a Hash object with the following possible keys:
- *
- *   :sbspace     => Sbspace name
- *   :estbytes    => Estimated size, in bytes
- *   :extsz       => Allocation extent size
- *   :createflags => Create-time flags
- *   :openflags   => Access mode
- *   :maxbytes    => Maximum size
- *   :col_info    => Get the previous values from the column-level storage
- *                   characteristics for the specified database column
- */
-static VALUE
-rb_database_slob(int argc, VALUE *argv, VALUE self)
-{
-	VALUE arg[3];
-
-	arg[0] = self;
-	rb_scan_args(argc, argv, "02", &arg[1], &arg[2]);
-	return rb_slob_s_new(3, arg, rb_cSlob);
 }
 
 /*
@@ -2140,7 +2135,7 @@ rb_database_columns(VALUE self, VALUE tablename)
 	EXEC SQL select tabid into :tabid from systables where tabname = :tabname;
 
 	if (SQLCODE == SQLNOTFOUND)
-		rb_raise(esyms.eProgrammingError, "Table '%s' doesn't exist", tabname);
+		rb_raise(rb_eProgrammingError, "Table '%s' doesn't exist", tabname);
 
 	result = rb_ary_new();
 
@@ -2526,7 +2521,7 @@ fetch(VALUE self, VALUE type, int bang)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
+		rb_raise(rb_eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
@@ -2626,7 +2621,7 @@ fetch_many(VALUE self, VALUE n, VALUE type)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
+		rb_raise(rb_eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
@@ -2728,7 +2723,7 @@ each(VALUE self, VALUE type, int bang)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
+		rb_raise(rb_eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
@@ -2880,7 +2875,7 @@ inscur_put(int argc, VALUE *argv, VALUE self)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
+		rb_raise(rb_eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
@@ -2922,7 +2917,7 @@ inscur_flush(VALUE self)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
+		rb_raise(rb_eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
@@ -2953,7 +2948,7 @@ scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
+		rb_raise(rb_eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
@@ -3127,7 +3122,7 @@ scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
 
 	Data_Get_Struct(self, cursor_t, c);
 	if (!c->is_open)
-		rb_raise(esyms.eProgrammingError, "Open the cursor object first");
+		rb_raise(rb_eProgrammingError, "Open the cursor object first");
 
 	did = c->database_id;
 	EXEC SQL set connection :did;
@@ -3594,52 +3589,6 @@ rb_cursor_s_new(int argc, VALUE *argv, VALUE klass)
 	return cursor;
 }
 
-static VALUE cursor_open(int argc, VALUE *argv, VALUE self);
-/*
- * call-seq:
- * Cursor.open(database, query, options)                    => cursor
- * Cursor.open(database, query, options) {|cursor| block }  => obj
- *
- * Creates and opens a Cursor object based on <i>query</i> using <i>options</i>
- * in the context of <i>database</i>.
- * In the first form the Cursor object is returned.
- * In the second form the Cursor object is passed to the block and when it
- * terminates, the Cursor object is dropped, returning the value of the block.
- * 
- * <i>options</i> can be nil or a Hash object with the following possible keys:
- * 
- *   :scroll => true or false
- *   :hold   => true or false
- *   :params => input parameters as an Array or nil
- */
-static VALUE
-cursor_s_open(int argc, VALUE *argv, VALUE klass)
-{
-	VALUE cursor, options, params;
-	int open_argc;
-
-	rb_scan_args(argc, argv, "21", 0, 0, &options);
-	open_argc = 0; params = Qnil;
-
-	if (!NIL_P(options)) {
-		Check_Type(options, T_HASH);
-		params = rb_hash_aref(options, sym_params);
-
-		if (TYPE(params) == T_ARRAY)
-			open_argc = RARRAY(params)->len;
-		else if (params != Qnil)
-			rb_raise(rb_eArgError, "Parameters must be supplied as an Array");
-	}
-
-	cursor = rb_class_new_instance(argc, argv, klass);
-	cursor_open(open_argc, &params, cursor);
-
-	if (rb_block_given_p())
-		return rb_ensure(rb_yield, cursor, cursor_drop, cursor);
-
-	return cursor;
-}
-
 /*
  * call-seq:
  * cursor.id  => string
@@ -3746,14 +3695,12 @@ cursor_drop(VALUE self)
 
 /* Entry point ------------------------------------------------------------ */
 
-void Init_informix(void)
+void Init_informixc(void)
 {
 	/* module Informix ---------------------------------------------------- */
 	rb_mInformix = rb_define_module("Informix");
 	rb_mScrollCursor = rb_define_module_under(rb_mInformix, "ScrollCursor");
 	rb_mInsertCursor = rb_define_module_under(rb_mInformix, "InsertCursor");
-	rb_define_module_function(rb_mInformix, "connect", rb_informix_connect, -1);
-	rb_define_module_function(rb_mInformix, "version", rb_informix_version, 0);
 
 	/* class Slob --------------------------------------------------------- */
 	rb_cSlob = rb_define_class_under(rb_mInformix, "Slob", rb_cObject);
@@ -3842,8 +3789,6 @@ void Init_informix(void)
 	rb_cDatabase = rb_define_class_under(rb_mInformix, "Database", rb_cObject);
 	rb_define_alloc_func(rb_cDatabase, database_alloc);
 	rb_define_method(rb_cDatabase, "initialize", rb_database_initialize, -1);
-	rb_define_singleton_method(rb_cDatabase, "open", rb_database_s_open, -1);
-	rb_define_alias(rb_cDatabase, "new", "open");
 	rb_define_method(rb_cDatabase, "close", rb_database_close, 0);
 	rb_define_alias(rb_cDatabase, "disconnect", "close");
 	rb_define_method(rb_cDatabase, "immediate", rb_database_immediate, 1);
@@ -3852,10 +3797,7 @@ void Init_informix(void)
 	rb_define_method(rb_cDatabase, "rollback", rb_database_rollback, 0);
 	rb_define_method(rb_cDatabase, "commit", rb_database_commit, 0);
 	rb_define_method(rb_cDatabase, "transaction", rb_database_transaction, 0);
-	rb_define_method(rb_cDatabase, "prepare", rb_database_prepare, 1);
 	rb_define_method(rb_cDatabase, "columns", rb_database_columns, 1);
-	rb_define_method(rb_cDatabase, "cursor", rb_database_cursor, -1);
-	rb_define_method(rb_cDatabase, "slob", rb_database_slob, -1);
 
 	/* class Statement ---------------------------------------------------- */
 	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement", rb_cObject);
@@ -3920,7 +3862,6 @@ void Init_informix(void)
 	rb_define_alloc_func(rb_cCursor, cursor_alloc);
 	rb_define_method(rb_cCursor, "initialize", cursor_initialize, -1);
 	rb_define_singleton_method(rb_cCursor, "new", rb_cursor_s_new, -1);
-	rb_define_singleton_method(rb_cCursor, "open", cursor_s_open, -1);
 	rb_define_method(rb_cCursor, "id", cursor_id, 0);
 	rb_define_method(rb_cCursor, "open", cursor_open, -1);
 	rb_define_method(rb_cCursor, "close", cursor_close, 0);
@@ -3929,8 +3870,17 @@ void Init_informix(void)
 	/* Global constants --------------------------------------------------- */
 	rb_require("date");
 	rb_cDate = rb_const_get(rb_cObject, rb_intern("Date"));
+
 	rb_require("bigdecimal");
 	rb_cBigDecimal = rb_const_get(rb_cObject, rb_intern("BigDecimal"));
+
+	rb_require("ifx_except");
+	rb_eError = rb_const_get(rb_mInformix, rb_intern("Error"));
+	rb_eWarning = rb_const_get(rb_mInformix, rb_intern("Warning"));
+	rb_eInternalError = rb_const_get(rb_mInformix, rb_intern("InternalError"));
+	rb_eProgrammingError = rb_const_get(rb_mInformix, rb_intern("ProgrammingError"));
+	rb_eOperationalError = rb_const_get(rb_mInformix, rb_intern("OperationalError"));
+	rb_eDatabaseError = rb_const_get(rb_mInformix, rb_intern("DatabaseError"));
 
 	/* Global symbols ----------------------------------------------------- */
 	#define INTERN(sym) s_##sym = rb_intern(#sym)
@@ -3938,6 +3888,7 @@ void Init_informix(void)
 	INTERN(utc);  INTERN(day); INTERN(month); INTERN(year);
 	INTERN(hour); INTERN(min); INTERN(sec); INTERN(usec);
 	INTERN(to_s); INTERN(to_i);
+	INTERN(add_info);
 
 	sym_name = ID2SYM(rb_intern("name"));
 	sym_type = ID2SYM(rb_intern("type"));
@@ -3961,7 +3912,4 @@ void Init_informix(void)
 	sym_maxbytes = ID2SYM(rb_intern("maxbytes"));
 
 	sym_params = ID2SYM(rb_intern("params"));
-
-	/* Initialize ifx_except module */
-	rbifx_except_init(rb_mInformix, &esyms);
 }

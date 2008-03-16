@@ -32,5 +32,5 @@ else
 end
 
 
-`#{env} #{esql} -e informix.ec ifx_except.ec`
-create_makefile("informix")
+`#{env} #{esql} -e informixc.ec ifx_except.ec`
+create_makefile("informixc")
