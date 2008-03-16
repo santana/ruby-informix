@@ -1,4 +1,4 @@
-# $Id: ifx_except.rb,v 1.2 2008/03/16 05:51:23 santana Exp $
+# $Id: ifx_except.rb,v 1.3 2008/03/16 15:06:19 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -36,6 +36,10 @@ module Informix
 
   class ExcInfo
     FORMAT = "%-15s: %s\n".freeze
+
+    # excinfo.to_s => string
+    #
+    # Returns a string representation of self.
     def to_s
       ret = "\n"
       each_pair do |member, value|
@@ -109,7 +113,9 @@ module Informix
       @info[index]
     end
 
-    # XXX not yet implemented
+    # exc.to_s => string
+    #
+    # Returns a string representation of self.
     def to_s
       return super if @info.size == 0
       ret = ""
