@@ -5,6 +5,7 @@ New features:
 	  a cursor for the given query
 	  Contributed by Reid Morrison <reidmo at gmail>
 	* SequentialCursor includes Enumerable
+	* Ruby 1.9 compatible
 
 Bugs fixed:
 	* The documentation for class Error was not being recognized by rdoc
