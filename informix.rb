@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.1 2008/03/16 02:03:47 santana Exp $
+# $Id: informix.rb,v 1.2 2008/03/22 21:34:59 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -68,11 +68,8 @@ module Informix
     # the value of the block.
     def self.open(dbname, user=nil, password=nil)
       db = new(dbname, user, password)
-      if block_given?
-        begin yield db ensure db.close end
-      else
-        db
-      end
+      return db unless block_given?
+      begin yield db ensure db.close end
     end
 
     # db.prepare(query)                  => statement
@@ -166,11 +163,8 @@ module Informix
       end
       cur = new(database, query, options)
       params ? cur.open(*params) : cur.open
-      if block_given?
-        begin yield cur ensure cur.drop end
-      else
-        cur
-      end
+      return cur unless block_given?
+      begin yield cur ensure cur.drop end
     end
   end # class Cursor
 
