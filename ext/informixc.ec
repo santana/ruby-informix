@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.1 2008/03/16 02:03:48 santana Exp $ */
+/* $Id: informixc.ec,v 1.2 2008/03/25 02:38:20 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,14 +28,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.1 2008/03/16 02:03:48 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.2 2008/03/25 02:38:20 santana Exp $";
 
 #include "ruby.h"
 
 #include <sqlstype.h>
 #include <sqltypes.h>
 
-static VALUE rb_cDate, rb_cBigDecimal;
+static VALUE rb_cDate, rb_cBigDecimal, rb_cRational;
 
 /* Modules */
 static VALUE rb_mInformix;
@@ -48,6 +48,7 @@ static VALUE rb_cSlob, rb_cSlobStat;
 static VALUE rb_cDatabase;
 static VALUE rb_cStatement;
 static VALUE rb_cCursor;
+static VALUE rb_cInterval;
 
 /* Exceptions */
 static VALUE rb_eError, rb_eWarning, rb_eInternalError;
@@ -55,7 +56,8 @@ static VALUE rb_eProgrammingError, rb_eOperationalError, rb_eDatabaseError;
 
 static ID s_read, s_new, s_utc, s_day, s_month, s_year;
 static ID s_hour, s_min, s_sec, s_usec, s_to_s, s_to_i;
-static ID s_add_info;
+static ID s_add_info, s_qual, s_from_months, s_from_seconds;
+static ID s_add;
 
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
 static VALUE sym_precision, sym_scale, sym_default, sym_xid;
@@ -63,6 +65,7 @@ static VALUE sym_scroll, sym_hold;
 static VALUE sym_col_info, sym_sbspace, sym_estbytes, sym_extsz;
 static VALUE sym_createflags, sym_openflags, sym_maxbytes;
 static VALUE sym_params;
+static VALUE sym_YEAR_TO_MONTH;
 
 #define IDSIZE 30
 
@@ -1469,7 +1472,7 @@ alloc_output_slots(cursor_t *c)
 			p->loc_loctype = LOCMEMORY;
 			p->loc_bufsize = -1;
 		}
-		if (var->sqltype == SQLDTIME) {
+		if (var->sqltype == SQLDTIME || var->sqltype == SQLINTERVAL) {
 			var->sqllen = 0;
 		}
 	}
@@ -1669,6 +1672,26 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				*var->sqlind = 0;
 				break;
 			}
+			if (klass == rb_cInterval) {
+				intrvl_t *invl;
+				VALUE qual;
+
+				qual = rb_funcall(data, s_qual, 0);
+				data = rb_funcall(data, s_to_s, 0);
+
+				invl = ALLOC(intrvl_t);
+				if (qual == sym_YEAR_TO_MONTH)
+					invl->in_qual = TU_IENCODE(9, TU_YEAR, TU_MONTH);
+				else
+					invl->in_qual = TU_IENCODE(9, TU_DAY, TU_F5);
+				incvasc(RSTRING_PTR(data), invl);
+
+				var->sqldata = (char *)invl;
+				var->sqltype = CINVTYPE;
+				var->sqllen = sizeof(intrvl_t);
+				*var->sqlind = 0;
+				break;
+			}
 			if (rb_respond_to(data, s_read)) {
 				char *str;
 				loc_t *loc;
@@ -1821,6 +1844,74 @@ make_result(cursor_t *c, VALUE record)
 				INT2FIX(hour), INT2FIX(minute), INT2FIX(second),
 				INT2FIX(usec));
 
+			break;
+		}
+		case SQLINTERVAL: {
+			VALUE constructor, value;
+			intrvl_t *data, invl;
+			short sign;
+
+			data = (intrvl_t *)var->sqldata;
+			if (TU_START(data->in_qual) <= TU_MONTH) {
+				invl.in_qual = TU_IENCODE(9, TU_YEAR, TU_MONTH);
+				constructor = s_from_months;
+			}
+			else {
+				invl.in_qual = TU_IENCODE(9, TU_DAY, TU_F5);
+				constructor = s_from_seconds;
+			}
+
+			invextend(data, &invl);
+			sign = invl.in_dec.dec_pos == 0? -1 : 1;
+
+			if (TU_START(data->in_qual) <= TU_MONTH) {
+				int i, exp, years, months;
+				char *dgts;
+
+				exp = invl.in_dec.dec_exp;
+				dgts = invl.in_dec.dec_dgts;
+				months = years = 0;
+				for(i = 0; i < invl.in_dec.dec_ndgts; i++, exp--) {
+					if (exp > 5)
+						years = years*100 + dgts[i];
+					else
+						months += dgts[i];
+				}
+				value = INT2FIX(sign*(years*12 + months));
+			}
+			else {
+				int i, exp, days, usec, v;
+				char *dgts;
+
+				exp = invl.in_dec.dec_exp;
+				dgts = invl.in_dec.dec_dgts;
+				days = v = usec = 0;
+				for(i = 0; i < invl.in_dec.dec_ndgts; i++, exp--) {
+					if(exp > 3)
+						days = days*100 + dgts[i];
+					else if (exp == 3)
+						v += dgts[i]*60*60;
+					else if (exp == 2)
+						v += dgts[i]*60;
+					else if (exp == 1)
+						v += dgts[i];
+					else if (exp == 0)
+						usec += dgts[i]*10000;
+					else if (exp == -1)
+						usec += dgts[i]*100;
+					else if (exp == -2)
+						usec += dgts[i];
+				}
+
+				value = INT2FIX(sign*(days*24*60*60 + v));
+				if (usec != 0) {
+					VALUE argv[2] = { INT2FIX(sign*usec), LONG2FIX(1000000L) };
+					VALUE frac = rb_class_new_instance(2, argv, rb_cRational);
+					value = rb_funcall(frac, s_add, 1, value);
+				}
+			}
+
+			item = rb_funcall(rb_cInterval, constructor, 1, value);
 			break;
 		}
 		case SQLDECIMAL:
@@ -3874,6 +3965,8 @@ void Init_informixc(void)
 	rb_require("bigdecimal");
 	rb_cBigDecimal = rb_const_get(rb_cObject, rb_intern("BigDecimal"));
 
+	rb_cRational = rb_const_get(rb_cObject, rb_intern("Rational"));
+
 	rb_require("ifx_except");
 	rb_eError = rb_const_get(rb_mInformix, rb_intern("Error"));
 	rb_eWarning = rb_const_get(rb_mInformix, rb_intern("Warning"));
@@ -3882,6 +3975,9 @@ void Init_informixc(void)
 	rb_eOperationalError = rb_const_get(rb_mInformix, rb_intern("OperationalError"));
 	rb_eDatabaseError = rb_const_get(rb_mInformix, rb_intern("DatabaseError"));
 
+	rb_require("ifx_interval");
+	rb_cInterval = rb_const_get(rb_mInformix, rb_intern("Interval"));
+
 	/* Global symbols ----------------------------------------------------- */
 	#define INTERN(sym) s_##sym = rb_intern(#sym)
 	INTERN(read); INTERN(new);
@@ -3889,6 +3985,8 @@ void Init_informixc(void)
 	INTERN(hour); INTERN(min); INTERN(sec); INTERN(usec);
 	INTERN(to_s); INTERN(to_i);
 	INTERN(add_info);
+	INTERN(qual); INTERN(from_months); INTERN(from_seconds);
+	s_add = rb_intern("+");
 
 	sym_name = ID2SYM(rb_intern("name"));
 	sym_type = ID2SYM(rb_intern("type"));
@@ -3912,4 +4010,6 @@ void Init_informixc(void)
 	sym_maxbytes = ID2SYM(rb_intern("maxbytes"));
 
 	sym_params = ID2SYM(rb_intern("params"));
+
+	sym_YEAR_TO_MONTH = ID2SYM(rb_intern("YEAR_TO_MONTH"));
 }
