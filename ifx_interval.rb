@@ -1,4 +1,4 @@
-# $Id: ifx_interval.rb,v 1.1 2008/03/25 02:38:20 santana Exp $
+# $Id: ifx_interval.rb,v 1.2 2008/03/25 04:28:34 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -106,11 +106,11 @@ module Informix
       when DateTime
         @qual == :YEAR_TO_MONTH ? obj >> @val : obj + @val.to_r/86400
       when Date
-        raise ArgumentError, "Incompatible qualifiers" if @qual != :YEAR_TO_MONTH
-        obj >> @val
+        return obj >> @val if @qual == :YEAR_TO_MONTH
+        raise ArgumentError, "Incompatible qualifiers"
       when Time
-        raise ArgumentError, "Incompatible qualifiers" if @qual != :DAY_TO_FRACTION
-        obj + @val
+        return obj + @val if @qual == :DAY_TO_FRACTION
+        raise ArgumentError, "Incompatible qualifiers"
       else
         raise TypeError, "Expected Integer, Rational, Interval, Date, DateTime or Time"
       end
@@ -149,26 +149,22 @@ module Informix
     def to_s
       update
       if @qual == :YEAR_TO_MONTH # YYYY-MM
-        "#{@years}-#{@months}"
+        "#{"-" if @val < 0}#{@years.abs}-#{@months.abs}"
       else # DD HH:MM:SS.F
-        "#{@days} #{@hours}:#{@minutes}:#{@seconds+@fraction.to_f}"
+        "#{"-" if @val < 0}#{@days.abs} #{@hours.abs}:#{@minutes.abs}:#{(@seconds+@fraction).abs.to_f}"
       end
-=begin
-      if @qual == :YEAR_TO_MONTH
-        "#{@years} year#{"s" unless @years == 1}, #{@months} month#{"s" unless @months == 1}"
-      else
-        "#{@days} day#{"s" unless @days == 1}, #{@hours} hour#{"s" unless @hours == 1}, #{@minutes} minute#{"s" unless @minutes == 1}, #{(@seconds + @fraction).to_f} second#{"s" unless (@seconds + @fraction) == 1}"
-      end
-=end
     end
 
     private
     def update
       if @qual == :YEAR_TO_MONTH
-        @years, @months = @val.divmod 12
-        @months = -@months if @val < 0
+        @years, @months = @val.abs.divmod 12
+        if @val < 0
+          @years = -@years
+          @months = -@months
+        end
       else
-        @days, @hours = @val.divmod(60*60*24)
+        @days, @hours = @val.abs.divmod(60*60*24)
         @hours, @minutes = @hours.divmod(60*60)
         @minutes, @seconds = @minutes.divmod(60)
         @seconds, @fraction = @seconds.divmod(1)
