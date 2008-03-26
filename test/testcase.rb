@@ -22,11 +22,11 @@ module Informix
     DATE_TIME = '2006-04-07 01:40:55.000'
     BIGDECIMAL1 = BigDecimal.new('12456.78')
     BIGDECIMAL2 = BigDecimal.new('90123.45')
-    INTERVALYM1  = Informix::Interval.year_to_month(1, 1)
-    INTERVALDF1  = Informix::Interval.day_to_fraction(1, 1, 1, 1,
-                                                      Rational(1, 100000))
-    INTERVALYM2  = Informix::Interval.year_to_month(999999999, 11)
-    INTERVALDF2  = Informix::Interval.day_to_fraction(999999999, 23, 59, 59,
+    INTERVALYM1 = -Informix::Interval.year_to_month(999999999, 11)
+    INTERVALDF1 = -Informix::Interval.day_to_fraction(999999999, 23, 59, 59,
+                                                      Rational(99999, 100000))
+    INTERVALYM2 = Informix::Interval.year_to_month(999999999, 11)
+    INTERVALDF2 = Informix::Interval.day_to_fraction(999999999, 23, 59, 59,
                                                       Rational(99999, 100000))
     TEXT = StringIO.new(<<-end_text)
       This is a TEXT field. You can
