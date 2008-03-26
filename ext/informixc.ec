@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.2 2008/03/25 02:38:20 santana Exp $ */
+/* $Id: informixc.ec,v 1.3 2008/03/26 20:11:36 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.2 2008/03/25 02:38:20 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.3 2008/03/26 20:11:36 santana Exp $";
 
 #include "ruby.h"
 
@@ -57,7 +57,7 @@ static VALUE rb_eProgrammingError, rb_eOperationalError, rb_eDatabaseError;
 static ID s_read, s_new, s_utc, s_day, s_month, s_year;
 static ID s_hour, s_min, s_sec, s_usec, s_to_s, s_to_i;
 static ID s_add_info, s_qual, s_from_months, s_from_seconds;
-static ID s_add;
+static ID s_add, s_mul;
 
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
 static VALUE sym_precision, sym_scale, sym_default, sym_xid;
@@ -1865,36 +1865,42 @@ make_result(cursor_t *c, VALUE record)
 			sign = invl.in_dec.dec_pos == 0? -1 : 1;
 
 			if (TU_START(data->in_qual) <= TU_MONTH) {
-				int i, exp, years, months;
+				int i, exp, months;
+				long years;
 				char *dgts;
 
 				exp = invl.in_dec.dec_exp;
 				dgts = invl.in_dec.dec_dgts;
 				months = years = 0;
+
 				for(i = 0; i < invl.in_dec.dec_ndgts; i++, exp--) {
 					if (exp > 5)
 						years = years*100 + dgts[i];
 					else
 						months += dgts[i];
 				}
-				value = INT2FIX(sign*(years*12 + months));
+				for(i = exp - 5; i > 0; i--)
+					years *= 100;
+				value = LONG2NUM(sign*(years*12 + months));
 			}
 			else {
-				int i, exp, days, usec, v;
+				int i, exp, usec;
+				long days, seconds;
 				char *dgts;
 
 				exp = invl.in_dec.dec_exp;
 				dgts = invl.in_dec.dec_dgts;
-				days = v = usec = 0;
+				days = seconds = usec = 0;
+
 				for(i = 0; i < invl.in_dec.dec_ndgts; i++, exp--) {
 					if(exp > 3)
 						days = days*100 + dgts[i];
 					else if (exp == 3)
-						v += dgts[i]*60*60;
+						seconds += dgts[i]*60*60;
 					else if (exp == 2)
-						v += dgts[i]*60;
+						seconds += dgts[i]*60;
 					else if (exp == 1)
-						v += dgts[i];
+						seconds += dgts[i];
 					else if (exp == 0)
 						usec += dgts[i]*10000;
 					else if (exp == -1)
@@ -1903,7 +1909,13 @@ make_result(cursor_t *c, VALUE record)
 						usec += dgts[i];
 				}
 
-				value = INT2FIX(sign*(days*24*60*60 + v));
+				for(i = exp - 3; i > 0; i--)
+					days *= 100;
+
+				value = LONG2FIX(days);
+				value = rb_funcall(value, s_mul, 1, LONG2FIX(sign*24*60*60));
+				value = rb_funcall(value, s_add, 1, LONG2FIX(sign*seconds));
+
 				if (usec != 0) {
 					VALUE argv[2] = { INT2FIX(sign*usec), LONG2FIX(1000000L) };
 					VALUE frac = rb_class_new_instance(2, argv, rb_cRational);
@@ -3987,6 +3999,7 @@ void Init_informixc(void)
 	INTERN(add_info);
 	INTERN(qual); INTERN(from_months); INTERN(from_seconds);
 	s_add = rb_intern("+");
+	s_mul = rb_intern("*");
 
 	sym_name = ID2SYM(rb_intern("name"));
 	sym_type = ID2SYM(rb_intern("type"));
