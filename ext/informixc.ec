@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.3 2008/03/26 20:11:36 santana Exp $ */
+/* $Id: informixc.ec,v 1.4 2008/03/26 22:22:07 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.3 2008/03/26 20:11:36 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.4 2008/03/26 22:22:07 santana Exp $";
 
 #include "ruby.h"
 
@@ -100,13 +100,17 @@ do { \
 	char *c_str = StringValueCStr(str); \
 	mint ret = ifx_int8cvasc(c_str, strlen(c_str), (int8addr)); \
 	if (ret < 0) \
-		rb_raise(rb_eOperationalError, "Could not convert %s to int8", c_str); \
+		rb_raise(rb_eOperationalError, "Could not convert %s to INT8 [Error %d]", c_str, ret); \
 } while(0)
 
 #define INT82NUM(int8addr, num) \
 do { \
 	char str[21]; \
+	mint ret; \
 	ifx_int8toasc((int8addr), str, sizeof(str) - 1); \
+	if (ret < 0) \
+		rb_raise(rb_eOperationalError, \
+			"Unable to convert INT8 to Bignum [Error %d]", ret); \
 	str[sizeof(str) - 1] = 0; \
 	num = rb_cstr2inum(str, 10); \
 } while(0)
@@ -1626,6 +1630,7 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				char buffer[30];
 				short year, month, day, hour, minute, second;
 				int usec;
+				mint ret;
 				dtime_t *dt;
 
 				year = FIX2INT(rb_funcall(data, s_year, 0));
@@ -1641,7 +1646,11 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				dt->dt_qual = TU_DTENCODE(TU_YEAR, TU_F5);
 				snprintf(buffer, sizeof(buffer), "%d-%d-%d %d:%d:%d.%d",
 					year, month, day, hour, minute, second, usec/10);
-				dtcvasc(buffer, dt);
+				ret = dtcvasc(buffer, dt);
+				if (ret < 0)
+					rb_raise(rb_eOperationalError,
+						"Unable to convert '%s' to DATETIME [Error %d]",
+						RSTRING_PTR(data), ret);
 
 				var->sqldata = (char *)dt;
 				var->sqltype = CDTIMETYPE;
@@ -1663,10 +1672,15 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				break;
 			}
 			if (klass == rb_cBigDecimal) {
+				mint ret;
 				data = rb_funcall(data, s_to_s, 0);
 				var->sqldata = (char *)ALLOC(dec_t);
-				deccvasc(RSTRING_PTR(data), RSTRING_LEN(data),
+				ret = deccvasc(RSTRING_PTR(data), RSTRING_LEN(data),
 					(dec_t *)var->sqldata);
+				if (ret < 0)
+					rb_raise(rb_eOperationalError,
+						"Unable to convert '%s' to DECIMAL [Error %d]",
+						RSTRING_PTR(data), ret);
 				var->sqltype = CDECIMALTYPE;
 				var->sqllen = sizeof(dec_t);
 				*var->sqlind = 0;
@@ -1675,6 +1689,7 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			if (klass == rb_cInterval) {
 				intrvl_t *invl;
 				VALUE qual;
+				mint ret;
 
 				qual = rb_funcall(data, s_qual, 0);
 				data = rb_funcall(data, s_to_s, 0);
@@ -1684,7 +1699,11 @@ bind_input_params(cursor_t *c, VALUE *argv)
 					invl->in_qual = TU_IENCODE(9, TU_YEAR, TU_MONTH);
 				else
 					invl->in_qual = TU_IENCODE(9, TU_DAY, TU_F5);
-				incvasc(RSTRING_PTR(data), invl);
+				ret = incvasc(RSTRING_PTR(data), invl);
+				if (ret < 0)
+					rb_raise(rb_eOperationalError,
+						"Unable to convert '%s' to INTERVAL [Error %d]",
+						RSTRING_PTR(data), ret);
 
 				var->sqldata = (char *)invl;
 				var->sqltype = CINVTYPE;
@@ -1881,7 +1900,9 @@ make_result(cursor_t *c, VALUE record)
 				}
 				for(i = exp - 5; i > 0; i--)
 					years *= 100;
-				value = LONG2NUM(sign*(years*12 + months));
+				value = LONG2NUM(sign*years);
+				value = rb_funcall(value, s_mul, 1, INT2FIX(12));
+				value = rb_funcall(value, s_add, 1, INT2FIX(sign*months));
 			}
 			else {
 				int i, exp, usec;
@@ -1933,9 +1954,9 @@ make_result(cursor_t *c, VALUE record)
 
 			ret = dectoasc((dec_t *)var->sqldata, buffer,
 					sizeof(buffer) - 1, -1);
-			if (ret)
+			if (ret < 0)
 				rb_raise(rb_eOperationalError,
-					"Unable to convert DECIMAL to BigDecimal");
+					"Unable to convert DECIMAL to BigDecimal [Error %d]", ret);
 
 			buffer[sizeof(buffer) - 1] = 0;
 			item = rb_funcall(rb_cBigDecimal, s_new, 1, rb_str_new2(buffer));
