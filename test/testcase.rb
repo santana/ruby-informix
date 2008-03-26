@@ -22,6 +22,12 @@ module Informix
     DATE_TIME = '2006-04-07 01:40:55.000'
     BIGDECIMAL1 = BigDecimal.new('12456.78')
     BIGDECIMAL2 = BigDecimal.new('90123.45')
+    INTERVALYM1  = Informix::Interval.year_to_month(1, 1)
+    INTERVALDF1  = Informix::Interval.day_to_fraction(1, 1, 1, 1,
+                                                      Rational(1, 100000))
+    INTERVALYM2  = Informix::Interval.year_to_month(999999999, 11)
+    INTERVALDF2  = Informix::Interval.day_to_fraction(999999999, 23, 59, 59,
+                                                      Rational(99999, 100000))
     TEXT = StringIO.new(<<-end_text)
       This is a TEXT field. You can
       write them using IO/IO-like objects
@@ -60,6 +66,8 @@ module Informix
         ['float', 'float', '' ],
         ['date', 'date', '' ],
         ['datetime', 'datetime', 'year to fraction(5)' ],
+        ['intervalym', 'interval', 'year(9) to month' ],
+        ['intervaldf', 'interval', 'day(9) to fraction(5)' ],
         ['decimal', 'decimal', '(9, 2)' ],
         ['text', 'text', '' ]
       ]
@@ -125,12 +133,14 @@ module Informix
         @rows = [
           [
             1, 'char1'.ljust(30, ' '), 'varchar1', MIN_INT16,
-            MIN_INT32, E, PI, DATE, DATE_TIME, BIGDECIMAL1, nil
+            MIN_INT32, E, PI, DATE, DATE_TIME, INTERVALYM1, INTERVALDF1,
+            BIGDECIMAL1, nil
           ],
           [
             2, 'char2'.ljust(30, ' '), 'varchar2', MAX_INT16,
             MAX_INT32, 8.9, 8.9, TODAY.strftime("%m/%d/%Y"),
-            NOW.strftime("%Y-%m-%d %H:%M:%S.000"), BIGDECIMAL2, TEXT
+            NOW.strftime("%Y-%m-%d %H:%M:%S.000"), INTERVALYM2, INTERVALDF2,
+            BIGDECIMAL2, TEXT
           ]
         ]
 
