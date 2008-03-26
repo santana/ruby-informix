@@ -1,8 +1,19 @@
 0.7.0  --/--/2008
 ------------------
 New features:
-	* Database#each, Database#each_hash, which automatically declare and open
-	  a cursor for the given query
+	* Experimental support for the INTERVAL data type:
+		- year_to_month, day_to_fraction, from_months and from_seconds class
+		  methods for creating an Interval object
+		- +@ and -@ unary operators
+		- +, * and / operations available with Integer, Rational, Date, Time
+		  and DateTime objects
+		- to_a method for returning the fields of an Interval object (years,
+		  months, days, hours, minutes, seconds and fraction)
+		- to_s method for displaying an Interval object as an string according
+		  to ANSI SQL standards
+		- includes Comparable
+	* Database#each and Database#each_hash shortcut methods for declaring and
+	  opening a cursor in a single step.
 	  Contributed by Reid Morrison <reidmo at gmail>
 	* SequentialCursor includes Enumerable
 	* Ruby 1.9 compatible
