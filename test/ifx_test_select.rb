@@ -53,7 +53,7 @@ class IfxTestSelect < Informix::TestCase
       assert_equal(exp, obj, "datetime")
       
       assert_equal(exp_rows[i].shift, rows[i].shift, "interval year to month")
-      assert_equal(exp_rows[i].shift, rows[i].shift, "interval day to fraction")
+      assert_equal(exp_rows[i].shift, rows[i].shift, "interval day to second")
 
       assert_equal(exp_rows[i].shift, rows[i].shift, "decimal")
 
