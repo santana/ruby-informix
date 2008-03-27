@@ -1,4 +1,4 @@
-# $Id: ifx_interval.rb,v 1.4 2008/03/27 09:58:46 santana Exp $
+# $Id: ifx_interval.rb,v 1.5 2008/03/27 10:09:51 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -69,11 +69,12 @@ module Informix
     #
     # Creates an Interval object in the day-to-second scope.
     #
-    # Interval.day_to_second(5, 3)                      # => '5 3:00:00.00000'
-    # Interval.day_to_second(0, 2, 0, 30)               # => '0 2:00:30.00000'
-    # Interval.day_to_second(:hours=>2.5)               # => '0 2:30:00.00000'
-    # Interval.day_to_second(:seconds=> 10.16)          # => '0 0:00:10.16000'
-    # Interval.day_to_second(:days=>1.5, :hours=>2)     # => '1 14:00:0.00000'
+    # Interval.day_to_second(5, 3)                      # => '5 03:00:00.00000'
+    # Interval.day_to_second(0, 2, 0, 30)               # => '0 02:00:30.00000'
+    # Interval.day_to_second(:hours=>2.5)               # => '0 02:30:00.00000'
+    # Interval.day_to_second(:seconds=>Rational(151,10))# => '0 00:00:15.10000'
+    # Interval.day_to_second(:seconds=> 20.13)          # => '0 00:00:20.13000'
+    # Interval.day_to_second(:days=>1.5, :hours=>2)     # => '1 14:00:00.00000'
     def self.day_to_second(*args)
       if args.size == 1 && Hash === args[0]
         h = args[0]
