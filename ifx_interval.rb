@@ -1,4 +1,4 @@
-# $Id: ifx_interval.rb,v 1.2 2008/03/25 04:28:34 santana Exp $
+# $Id: ifx_interval.rb,v 1.3 2008/03/27 09:28:20 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -28,114 +28,136 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 module Informix
-  # Used for sending and retrieving INTERVAL values to/from Informix
+  # Used for sending and retrieving INTERVAL values to/from Informix.
+  # It can be used in some expressions with Numeric, Date, DateTime and Time.
   class Interval
     include Comparable
 
     attr_reader :qual, :val
 
-    # Interval.year_to_month(years, months)  =>  interval
+    # Interval.year_to_month(years = 0, months = 0)         =>  interval
+    # Interval.year_to_month(:years => yy, :months => mm)   =>  interval
     #
     # Creates an Interval object in the year-to-month scope.
-    def self.year_to_month(years, months = 0)
-      new(:YEAR_TO_MONTH, years*12 + months)
+    #
+    # Interval.year_to_month(5)                           =>  '5-00'
+    # Interval.year_to_month(0, 3)                        =>  '0-03'
+    # Interval.year_to_month(5, 3)                        =>  '5-03'
+    # Interval.year_to_month(:years => 5.5)               =>  '5-06'
+    # Interval.year_to_month(:months =>3)                 =>  '0-03'
+    # Interval.year_to_month(:years => 5.5, :months =>5)  =>  '5-11'
+    def self.year_to_month(*args)
+      if args.size == 1 && Hash === args[0]
+        years, months = args[0][:years], args[0][:months]
+      elsif args.size <= 2 && args.all? {|e| Numeric === e }
+        years, months = args
+      else
+        raise TypeError, "Expected Numerics or a Hash"
+      end
+      years ||= 0
+      from_months(years*12 + months.to_i)
     end
 
     def self.from_months(months)
       new(:YEAR_TO_MONTH, months)
     end
 
-    # Interval.day_to_fraction(days, hours, mins, secs, frac)  =>  interval
+    # Interval.day_to_second(days = 0, hours = 0,
+    #                        minutes = 0, seconds = 0)          => interval
+    # Interval.day_to_second(:days => dd, :hours => hh,
+    #                        :minutes => mm, :seconds => ss)    => interval
     #
-    # Creates an Interval in the day-to-fraction scope.
-    # Use a Rational if you want to specify fraction of seconds.
-    def self.day_to_fraction(days, hours = 0, minutes = 0,
-                             seconds = 0, fraction = 0)
-      new(:DAY_TO_FRACTION, days*24*60*60 + hours*60*60 + minutes*60 +
-                            seconds + fraction)
+    # Creates an Interval object in the day-to-second scope.
+    #
+    # Interval.day_to_second(5, 3)                      # => '5 3:00:00.00000'
+    # Interval.day_to_second(0, 2, 0, 30)               # => '0 2:00:30.00000'
+    # Interval.day_to_second(:hours=>2.5)               # => '0 2:30:00.00000'
+    # Interval.day_to_second(:seconds=> 10.16)          # => '0 0:00:10.16000'
+    # Interval.day_to_second(:days=>1.5, :hours=>2)     # => '1 14:00:0.00000'
+    def self.day_to_second(*args)
+      if args.size == 1 && Hash === args[0]
+        h = args[0]
+        days, hours, minutes, seconds = h[:days], h[:hours], h[:minutes],
+                                        h[:seconds]
+      elsif args.size <= 5 && args.all? {|e| Numeric === e || e.nil? }
+        days, hours, minutes, seconds = args
+      else
+        raise TypeError, "Expected Numerics or a Hash"
+      end
+
+      days ||= 0; hours ||= 0; minutes ||= 0; seconds ||= 0
+      from_seconds(days*24*60*60 + hours*60*60 + minutes*60 + seconds)
     end
 
     def self.from_seconds(seconds)
-      new(:DAY_TO_FRACTION, seconds)
+      new(:DAY_TO_SECOND, seconds)
     end
 
     # Interval.new(qual, val)  =>  interval
     #
     # Creates an Interval object with +qual+ as qualifier and +val+ as value.
     #
-    # +qual+ can be :YEAR_TO_MONTH or :DAY_TO_SECOND
-    # +val+ can be the number (Integer or Rational only) of months or seconds
+    # +qual+ must be either :YEAR_TO_MONTH or :DAY_TO_SECOND
+    # +val+ must be either the amount of months or seconds
     def initialize(qual, val)
-      if !(Integer === val || Rational === val)
-        raise TypeError, "Expected Integer or Rational"
-      end
-      case @qual = qual
-      when :YEAR_TO_MONTH
-        @val = Integer(val)
-      when :DAY_TO_FRACTION
-        @val = val.to_r
-      else
-        raise ArgumentError, "Invalid qualifier, it mus be :YEAR_TO_MONTH or :DAY_TO_FRACTION"
-      end
+      raise TypeError, "Expected Numeric" if !(Numeric === val)
+      @val = case @qual = qual
+             when :YEAR_TO_MONTH
+               val.to_i
+             when :DAY_TO_SECOND
+               val
+             else
+               raise ArgumentError,
+                "Invalid qualifier, it must be :YEAR_TO_MONTH or :DAY_TO_SECOND"
+             end
     end
 
     # interval.to_a     => array
     #
-    # Returns [ years, months, days, hours, minutes, seconds, fraction ]
-    # setting to nil the fields that don't apply
+    # Returns [ years, months, days, hours, minutes, seconds ]
+    # setting to nil the fields that do not apply
     def to_a
       update
-      [ @years, @months, @days, @hours, @minutes, @seconds, @fraction ]
+      [ @years, @months, @days, @hours, @minutes, @seconds ]
     end
 
     def +@() self end
     def -@() Interval.new(@qual, -@val) end
 
-    # interval + integer  => interval
-    # interval + rational => interval
+    # interval + numeric  => interval
     # interval + date     => date
     # interval + datetime => datetime
     # interval + time     => time
     def +(obj)
       case obj
-      when Integer, Rational
+      when Numeric
         Interval.new(@qual, @val + obj)
       when Interval
-        raise ArgumentError, "Incompatible qualifiers" if @qual != obj.qual
-        Interval.new(@qual, @val + obj.val)
+        return Interval.new(@qual, @val + obj.val) if @qual == obj.qual
+        raise ArgumentError, "Incompatible qualifiers"
       when DateTime
-        @qual == :YEAR_TO_MONTH ? obj >> @val : obj + @val.to_r/86400
+        @qual == :YEAR_TO_MONTH ? obj >> @val : obj + @val/86400
       when Date
         return obj >> @val if @qual == :YEAR_TO_MONTH
         raise ArgumentError, "Incompatible qualifiers"
       when Time
-        return obj + @val if @qual == :DAY_TO_FRACTION
+        return obj + @val if @qual == :DAY_TO_SECOND
         raise ArgumentError, "Incompatible qualifiers"
       else
-        raise TypeError, "Expected Integer, Rational, Interval, Date, DateTime or Time"
+        raise TypeError, "Expected Numeric, Interval, Date, DateTime or Time"
       end
     end
 
-    # interval * integer  => interval
-    # interval * rational => interval
+    # interval*numeric  => interval
     def *(n)
-      case n
-      when Integer, Rational
-        Interval.new(@qual, @val*n)
-      else
-        raise TypeError, "Expected Integer or Rational"
-      end
+      return Interval.new(@qual, @val*n) if Numeric === n
+      raise TypeError, "Expected Numeric"
     end
 
-    # interval / integer  => interval
-    # interval / rational => interval
+    # interval/numeric  => interval
     def /(n)
-      case n
-      when Integer, Rational
-        Interval.new(@qual, @val/n)
-      else
-        raise TypeError, "Expected Integer or Rational"
-      end
+      return Interval.new(@qual, @val/n) if Numeric === n
+      raise TypeError, "Expected Numeric"
     end
 
     # interval1 <=> interval2  => true or false
@@ -149,9 +171,9 @@ module Informix
     def to_s
       update
       if @qual == :YEAR_TO_MONTH # YYYY-MM
-        "#{"-" if @val < 0}#{@years.abs}-#{@months.abs}"
+        "%d-%02d" % [@years, @months.abs]
       else # DD HH:MM:SS.F
-        "#{"-" if @val < 0}#{@days.abs} #{@hours.abs}:#{@minutes.abs}:#{(@seconds+@fraction).abs.to_f}"
+        "%d %02d:%02d:%02.5f" % [@days, @hours.abs, @minutes.abs, @seconds.abs]
       end
     end
 
@@ -164,13 +186,12 @@ module Informix
           @months = -@months
         end
       else
-        @days, @hours = @val.abs.divmod(60*60*24)
+        @days, @hours = @val.abs.divmod(24*60*60)
         @hours, @minutes = @hours.divmod(60*60)
         @minutes, @seconds = @minutes.divmod(60)
-        @seconds, @fraction = @seconds.divmod(1)
         if @val < 0
-          @hours = -@hours; @minutes = -@minutes; @seconds = -@seconds
-          @fraction = -@fraction
+          @days = -@days; @hours = -@hours; @minutes = -@minutes;
+          @seconds = -@seconds
         end
       end
     end
