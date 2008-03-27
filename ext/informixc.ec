@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.4 2008/03/26 22:22:07 santana Exp $ */
+/* $Id: informixc.ec,v 1.5 2008/03/27 08:44:53 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.4 2008/03/26 22:22:07 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.5 2008/03/27 08:44:53 santana Exp $";
 
 #include "ruby.h"
 
@@ -543,7 +543,7 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 	if (!NIL_P(extsz)) {
 		ret = ifx_lo_specset_extsz(slob->spec, FIX2LONG(extsz));
 		if (ret == -1)
-			rb_raise(rb_eOperationalError, "Could not set extsz to %d", FIX2LONG(extsz));
+			rb_raise(rb_eOperationalError, "Could not set extsz to %ld", FIX2LONG(extsz));
 	}
 	if (!NIL_P(createflags)) {
 		ret = ifx_lo_specset_flags(slob->spec, FIX2LONG(createflags));
