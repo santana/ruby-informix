@@ -1,4 +1,4 @@
-# $Id: ifx_interval.rb,v 1.3 2008/03/27 09:28:20 santana Exp $
+# $Id: ifx_interval.rb,v 1.4 2008/03/27 09:58:46 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -101,23 +101,35 @@ module Informix
     # +val+ must be either the amount of months or seconds
     def initialize(qual, val)
       raise TypeError, "Expected Numeric" if !(Numeric === val)
-      @val = case @qual = qual
-             when :YEAR_TO_MONTH
-               val.to_i
-             when :DAY_TO_SECOND
-               val
-             else
-               raise ArgumentError,
-                "Invalid qualifier, it must be :YEAR_TO_MONTH or :DAY_TO_SECOND"
-             end
+      case @qual = qual
+      when :YEAR_TO_MONTH
+        @val = val.to_i
+        @years, @months = @val.abs.divmod 12
+        if @val < 0
+          @years = -@years
+          @months = -@months
+        end
+        @days = @hours = @minutes = @seconds = 0
+      when :DAY_TO_SECOND
+        @val = val
+        @days, @hours = @val.abs.divmod(24*60*60)
+        @hours, @minutes = @hours.divmod(60*60)
+        @minutes, @seconds = @minutes.divmod(60)
+        if @val < 0
+          @days = -@days; @hours = -@hours; @minutes = -@minutes;
+          @seconds = -@seconds
+        end
+        @years = @months = 0
+      else
+        raise ArgumentError,
+             "Invalid qualifier, it must be :YEAR_TO_MONTH or :DAY_TO_SECOND"
+      end
     end
 
     # interval.to_a     => array
     #
     # Returns [ years, months, days, hours, minutes, seconds ]
-    # setting to nil the fields that do not apply
     def to_a
-      update
       [ @years, @months, @days, @hours, @minutes, @seconds ]
     end
 
@@ -169,30 +181,10 @@ module Informix
     end
 
     def to_s
-      update
       if @qual == :YEAR_TO_MONTH # YYYY-MM
         "%d-%02d" % [@years, @months.abs]
       else # DD HH:MM:SS.F
-        "%d %02d:%02d:%02.5f" % [@days, @hours.abs, @minutes.abs, @seconds.abs]
-      end
-    end
-
-    private
-    def update
-      if @qual == :YEAR_TO_MONTH
-        @years, @months = @val.abs.divmod 12
-        if @val < 0
-          @years = -@years
-          @months = -@months
-        end
-      else
-        @days, @hours = @val.abs.divmod(24*60*60)
-        @hours, @minutes = @hours.divmod(60*60)
-        @minutes, @seconds = @minutes.divmod(60)
-        if @val < 0
-          @days = -@days; @hours = -@hours; @minutes = -@minutes;
-          @seconds = -@seconds
-        end
+        "%d %02d:%02d:%08.5f" % [@days, @hours.abs, @minutes.abs, @seconds.abs]
       end
     end
 
