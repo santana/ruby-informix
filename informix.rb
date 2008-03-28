@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.2 2008/03/22 21:34:59 santana Exp $
+# $Id: informix.rb,v 1.3 2008/03/28 08:38:06 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -32,8 +32,8 @@ require 'informixc'
 module Informix
   VERSION = "0.7.0".freeze
 
-  # Informix.connect(dbname,user=nil,password=nil)                   => database
-  # Informix.connect(dbname,user=nil,password=nil){|database| block} => obj
+  # Informix.connect(dbname,user=nil,password=nil)              => db
+  # Informix.connect(dbname,user=nil,password=nil){|db| block}  => obj
   #
   # Creates a <code>Database</code> object connected to <i>dbname</i> as
   # <i>user</i> with <i>password</i>. If these are not given, connects to
@@ -56,8 +56,8 @@ module Informix
 
   class Database
     private_class_method :new
-    # Database.open(dbname, user=nil, password=nil)                 => database
-    # Database.open(dbname,user=nil,password=nil){|database| block} => obj
+    # Database.open(dbname, user=nil, password=nil)            => db
+    # Database.open(dbname,user=nil,password=nil){|db| block}  => obj
     #
     # Creates a <code>Database</code> object connected to <i>dbname</i> as
     # <i>user</i> with <i>password</i>. If these are not given, connects to
@@ -138,11 +138,11 @@ module Informix
   end
 
   class Cursor
-    # Cursor.open(database, query, options)                    => cursor
-    # Cursor.open(database, query, options) {|cursor| block }  => obj
+    # Cursor.open(db, query, options)                    => cursor
+    # Cursor.open(db, query, options) {|cursor| block }  => obj
     #
     # Creates and opens a Cursor object based on <i>query</i> using
-    # <i>options</i> in the context of <i>database</i>.
+    # <i>options</i> in the context of the Database object <i>db</i>.
     # In the first form the Cursor object is returned.
     # In the second form the Cursor object is passed to the block and when it
     # terminates, the Cursor object is dropped, returning the value of the
@@ -154,14 +154,14 @@ module Informix
     #   :scroll => true or false
     #   :hold   => true or false
     #   :params => input parameters as an Array or nil
-    def self.open(database, query, options = nil, &block)
+    def self.open(db, query, options = nil, &block)
       params = nil
       if options
         Hash === options||raise(TypeError,"options must be supplied as a Hash")
         (params = options[:params]) && (Array === params ||
                    raise(TypeError,"params must be supplied as an Array"))
       end
-      cur = new(database, query, options)
+      cur = new(db, query, options)
       params ? cur.open(*params) : cur.open
       return cur unless block_given?
       begin yield cur ensure cur.drop end
