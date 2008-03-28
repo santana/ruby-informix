@@ -7,8 +7,8 @@ New features:
 		- +@ and -@ unary operators
 		- +, * and / operations available with Integer, Rational, Date, Time
 		  and DateTime objects
-		- methods for returning the fields of an Interval object individually
-		  (years, months, days, hours, minutes and seconds)
+		- methods for returning the respective fields of an Interval object
+		  individually (years, months, days, hours, minutes and seconds)
 		- to_a method for returning the fields of an Interval object as an array
 		- methods for converting the Interval object to the given unit, where
 		  apply (to_years, to_months, to_days, to_hours, to_minutes and
