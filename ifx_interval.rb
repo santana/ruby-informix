@@ -1,4 +1,4 @@
-# $Id: ifx_interval.rb,v 1.5 2008/03/27 10:09:51 santana Exp $
+# $Id: ifx_interval.rb,v 1.6 2008/03/28 05:15:12 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -34,6 +34,7 @@ module Informix
     include Comparable
 
     attr_reader :qual, :val
+    attr_reader :years, :months, :days, :hours, :minutes, :seconds
 
     # Interval.year_to_month(years = 0, months = 0)         =>  interval
     # Interval.year_to_month(:years => yy, :months => mm)   =>  interval
@@ -54,7 +55,10 @@ module Informix
       else
         raise TypeError, "Expected Numerics or a Hash"
       end
-      years ||= 0
+      years ||= 0; months ||= 0
+      if ![years, months].all? {|e| Numeric === e && e >= 0 }
+        raise ArgumentError, "Expected Numerics >= 0"
+      end
       from_months(years*12 + months.to_i)
     end
 
@@ -85,8 +89,10 @@ module Informix
       else
         raise TypeError, "Expected Numerics or a Hash"
       end
-
       days ||= 0; hours ||= 0; minutes ||= 0; seconds ||= 0
+      if ![days, hours, minutes, seconds].all? {|e| Numeric === e && e >= 0 }
+        raise ArgumentError, "Expected Numerics >= 0"
+      end
       from_seconds(days*24*60*60 + hours*60*60 + minutes*60 + seconds)
     end
 
@@ -181,12 +187,79 @@ module Informix
       @val <=> ivl.val
     end
 
+    # invl.to_s   => string
+    #
+    # Returns an ANSI SQL standards compliant string representation
     def to_s
       if @qual == :YEAR_TO_MONTH # YYYY-MM
         "%d-%02d" % [@years, @months.abs]
       else # DD HH:MM:SS.F
         "%d %02d:%02d:%08.5f" % [@days, @hours.abs, @minutes.abs, @seconds.abs]
       end
+    end
+
+    # invl.to_years  => numeric
+    #
+    # Converts a YEAR TO MONTH Interval object into years
+    def to_years
+      raise "Not applicable" if @qual != :YEAR_TO_MONTH
+      if Rational === @val
+        @val/12
+      else
+        @val/12.0
+      end
+    end
+
+    # invl.to_months  => numeric
+    #
+    # Converts a YEAR TO MONTH Interval object into months
+    def to_months
+      raise "Not applicable" if @qual != :YEAR_TO_MONTH
+      @val
+    end
+
+    # invl.to_days  => numeric
+    #
+    # Converts a DAY TO SECOND Interval object into days
+    def to_days
+      raise "Not applicable" if @qual != :DAY_TO_SECOND
+      if Rational === @val
+        @val/60/60/24
+      else
+        @val/60.0/60/24
+      end
+    end
+
+    # invl.to_hours  => numeric
+    #
+    # Converts a DAY TO SECOND Interval object into hours
+    def to_hours
+      raise "Not applicable" if @qual != :DAY_TO_SECOND
+      if Rational === @val
+        @val/60/60
+      else
+        @val/60.0/60
+      end
+    end
+
+    # invl.to_minutes  => numeric
+    #
+    # Converts a DAY TO SECOND Interval object into minutes
+    def to_minutes
+      raise "Not applicable" if @qual != :DAY_TO_SECOND
+      if Rational === @val
+        @val/60
+      else
+        @val/60.0
+      end
+    end
+
+    # invl.to_seconds  => numeric
+    #
+    # Converts a DAY TO SECOND Interval object into seconds
+    def to_seconds
+      raise "Not applicable" if @qual != :DAY_TO_SECOND
+      @val
     end
 
   end # class Interval
