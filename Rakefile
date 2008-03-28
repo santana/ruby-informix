@@ -1,4 +1,4 @@
-# $Id: Rakefile,v 1.5 2008/03/28 13:03:38 santana Exp $
+# $Id: Rakefile,v 1.6 2008/03/28 18:57:08 santana Exp $
 
 require 'rubygems'
 require 'rake'
@@ -18,7 +18,7 @@ spec = Gem::Specification.new do |s|
   s.require_path = '.'
   s.autorequire = 'informix'
   s.has_rdoc = true
-  s.rdoc_options << '--title' << 'Ruby/Informix -- Ruby extension for IBM Informix'
+  s.rdoc_options << '--title' << 'Ruby/Informix -- Ruby extension for IBM Informix' << '--exclude' << 'test'
   s.author = 'Gerardo Santana Gomez Garrido'
   s.email = 'gerardo.santana@gmail.com'
   s.homepage = 'http://santanatechnotes.blogspot.com'
