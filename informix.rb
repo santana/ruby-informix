@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.4 2008/03/28 13:03:39 santana Exp $
+# $Id: informix.rb,v 1.5 2008/03/28 20:33:14 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -78,6 +78,7 @@ module Informix
     # db.prepare(query) {|stmt| block }  => obj
     #
     # Creates a <code>Statement</code> object based on <i>query</i>.
+    #
     # In the first form the Statement object is returned.
     # In the second form the Statement object is passed to the block and when it
     # terminates, the Statement object is dropped, returning the value of the
@@ -135,12 +136,72 @@ module Informix
     end
   end # class Database
 
+  class Statement
+    class << self
+    alias _new new
+
+    # Statement.new(db, query)                 => statement
+    # Statement.new(db, query) {|stmt| block } => obj
+    #
+    # Creates a <code>Statement</code> object based on <i>query</i> in the
+    # context of the <i>db</i> <code>Database</code> object.
+    #
+    # In the first form the <code>Statement</code> object is returned.
+    # In the second form the Statement object is passed to the block and when it
+    # terminates, the Statement object is dropped, returning the value of the
+    # block.
+    #
+    # <i>query</i> may contain '?' placeholders for input parameters;
+    # it must not be a query returning more than one row
+    # (use <code>Cursor</code> instead.)
+    def new(dbname, query)
+      stmt = _new(dbname, query)
+      return stmt if !block_given?
+      begin yield stmt ensure stmt.drop end
+    end
+    end
+  end # class Statement
+
+  class Slob
+    class << self
+    alias _new new
+
+    # Slob.new(db, type = Slob::CLOB, options = nil)                  => slob
+    # Slob.new(db, type = Slob::CLOB, options = nil) {|slob| block }  => obj
+    #
+    # Creates a Smart Large Object of type <i>type</i> in the <i>db</i>
+    # <code>Database</code> object.
+    #
+    # Returns an <code>Slob</code> object pointing to it.
+    #
+    # <i>type</i> can be Slob::BLOB or Slob::CLOB
+    #
+    # <i>options</i> can be nil or a Hash object with the following possible
+    # keys:
+    #
+    #   :sbspace     => Sbspace name
+    #   :estbytes    => Estimated size, in bytes
+    #   :extsz       => Allocation extent size
+    #   :createflags => Create-time flags
+    #   :openflags   => Access mode
+    #   :maxbytes    => Maximum size
+    #   :col_info    => Get the previous values from the column-level storage
+    #                   characteristics for the specified database column
+    def new(dbname, query)
+      slob = _new(dbname, query)
+      return slob if !block_given?
+      begin yield slob ensure slob.close end
+    end
+    end
+  end # class Slob
+
   module Cursor
     # Cursor.new(database, query, options)                    => cursor
     # Cursor.new(database, query, options) {|cursor| block }  => obj
     #
     # Creates a Cursor object based on <i>query</i> using <i>options</i>
     # in the context of <i>database</i> but does not open it.
+    #
     # In the first form the Cursor object is returned.
     # In the second form the Cursor object is passed to the block and when it
     # terminates, the Cursor object is dropped, returning the value of the
@@ -165,6 +226,7 @@ module Informix
     #
     # Creates and opens a Cursor object based on <i>query</i> using
     # <i>options</i> in the context of the Database object <i>db</i>.
+    #
     # In the first form the Cursor object is returned.
     # In the second form the Cursor object is passed to the block and when it
     # terminates, the Cursor object is dropped, returning the value of the

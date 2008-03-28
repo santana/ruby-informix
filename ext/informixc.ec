@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.10 2008/03/28 18:56:41 santana Exp $ */
+/* $Id: informixc.ec,v 1.11 2008/03/28 20:33:14 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.10 2008/03/28 18:56:41 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.11 2008/03/28 20:33:14 santana Exp $";
 
 #include "ruby.h"
 
@@ -563,41 +563,6 @@ rb_slob_initialize(int argc, VALUE *argv, VALUE self)
 		raise_ifx_extended();
 
 	return self;
-}
-
-static VALUE rb_slob_close(VALUE self);
-/*
- * call-seq:
- * Slob.new(database, type = Slob::CLOB, options = nil)                  => slob
- * Slob.new(database, type = Slob::CLOB, options = nil) {|slob| block }  => obj
- *
- * Creates a Smart Large Object of type <i>type</i> in <i>database</i>.
- * Returns a <code>Slob</code> object pointing to it.
- *
- * <i>type</i> can be Slob::BLOB or Slob::CLOB
- *
- * <i>options</i> can be nil or a Hash object with the following possible keys:
- *
- *   :sbspace     => Sbspace name
- *   :estbytes    => Estimated size, in bytes
- *   :extsz       => Allocation extent size
- *   :createflags => Create-time flags
- *   :openflags   => Access mode
- *   :maxbytes    => Maximum size
- *   :col_info    => Get the previous values from the column-level storage
- *                   characteristics for the specified database column
- */
-static VALUE
-rb_slob_s_new(int argc, VALUE *argv, VALUE klass)
-{
-	VALUE slob;
-
-	slob = rb_class_new_instance(argc, argv, klass);
-
-	if (rb_block_given_p())
-		return rb_ensure(rb_yield, slob, rb_slob_close, slob);
-
-	return slob;
 }
 
 /*
@@ -2422,36 +2387,6 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 	return self;
 }
 
-static VALUE statement_drop(VALUE);
-/*
- * call-seq:
- * Statement.new(database, query)                 => statement
- * Statement.new(database, query) {|stmt| block } => obj
- *
- * Creates a <code>Statement</code> object based on <i>query</i> in the
- * context of <i>database</i>.
- * In the first form the <code>Statement</code> object is returned.
- * In the second form the Statement object is passed to the block and when it
- * terminates, the Statement object is dropped, returning the value of the
- * block.
- *
- * <i>query</i> may contain '?' placeholders for input parameters;
- * it must not be a query returning more than one row
- * (use <code>Cursor</code> instead.)
- */
-static VALUE
-statement_s_new(int argc, VALUE *argv, VALUE klass)
-{
-	VALUE stmt;
-
-	stmt = rb_class_new_instance(argc, argv, klass);
-
-	if (rb_block_given_p())
-		return rb_ensure(rb_yield, stmt, statement_drop, stmt);
-
-	return stmt;
-}
-
 /*
  * call-seq:
  * stmt[*params]  => fixnum or hash
@@ -3139,7 +3074,6 @@ void Init_informixc(void)
 	rb_cSlob = rb_define_class_under(rb_mInformix, "Slob", rb_cObject);
 	rb_define_alloc_func(rb_cSlob, slob_alloc);
 	rb_define_method(rb_cSlob, "initialize", rb_slob_initialize, -1);
-	rb_define_singleton_method(rb_cSlob, "new", rb_slob_s_new, -1);
 	rb_define_method(rb_cSlob, "open", rb_slob_open, -1);
 	rb_define_method(rb_cSlob, "close", rb_slob_close, 0);
 	rb_define_method(rb_cSlob, "read", rb_slob_read, 1);
@@ -3234,7 +3168,6 @@ void Init_informixc(void)
 	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement",rb_cObject);
 	rb_define_alloc_func(rb_cStatement, statement_alloc);
 	rb_define_method(rb_cStatement, "initialize", statement_initialize, 2);
-	rb_define_singleton_method(rb_cStatement, "new", statement_s_new, -1);
 	rb_define_method(rb_cStatement, "[]", statement_call, -1);
 	rb_define_alias(rb_cStatement, "call", "[]");
 	rb_define_alias(rb_cStatement, "execute", "[]");
