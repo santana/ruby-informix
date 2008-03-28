@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.5 2008/03/27 08:44:53 santana Exp $ */
+/* $Id: informixc.ec,v 1.6 2008/03/28 08:29:06 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.5 2008/03/27 08:44:53 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.6 2008/03/28 08:29:06 santana Exp $";
 
 #include "ruby.h"
 
@@ -39,6 +39,7 @@ static VALUE rb_cDate, rb_cBigDecimal, rb_cRational;
 
 /* Modules */
 static VALUE rb_mInformix;
+static VALUE rb_mInterval;
 static VALUE rb_mSequentialCursor;
 static VALUE rb_mScrollCursor;
 static VALUE rb_mInsertCursor;
@@ -48,7 +49,6 @@ static VALUE rb_cSlob, rb_cSlobStat;
 static VALUE rb_cDatabase;
 static VALUE rb_cStatement;
 static VALUE rb_cCursor;
-static VALUE rb_cInterval;
 
 /* Exceptions */
 static VALUE rb_eError, rb_eWarning, rb_eInternalError;
@@ -1610,22 +1610,6 @@ bind_input_params(cursor_t *c, VALUE *argv)
 			break;
 		default:
 			klass = rb_obj_class(data);
-			if (klass == rb_cDate) {
-				int2 mdy[3];
-				int4 date;
-
-				mdy[0] = FIX2INT(rb_funcall(data, s_month, 0));
-				mdy[1] = FIX2INT(rb_funcall(data, s_day, 0));
-				mdy[2] = FIX2INT(rb_funcall(data, s_year, 0));
-				rmdyjul(mdy, &date);
-
-				var->sqldata = (char *)ALLOC(int4);
-				*((int4 *)var->sqldata) = date;
-				var->sqltype = CDATETYPE;
-				var->sqllen = sizeof(int4);
-				*var->sqlind = 0;
-				break;
-			}
 			if (klass == rb_cTime) {
 				char buffer[30];
 				short year, month, day, hour, minute, second;
@@ -1668,46 +1652,6 @@ bind_input_params(cursor_t *c, VALUE *argv)
 				var->sqltype = SQLUDTFIXED;
 				var->sqlxid = slob->type;
 				var->sqllen = sizeof(ifx_lo_t);
-				*var->sqlind = 0;
-				break;
-			}
-			if (klass == rb_cBigDecimal) {
-				mint ret;
-				data = rb_funcall(data, s_to_s, 0);
-				var->sqldata = (char *)ALLOC(dec_t);
-				ret = deccvasc(RSTRING_PTR(data), RSTRING_LEN(data),
-					(dec_t *)var->sqldata);
-				if (ret < 0)
-					rb_raise(rb_eOperationalError,
-						"Unable to convert '%s' to DECIMAL [Error %d]",
-						RSTRING_PTR(data), ret);
-				var->sqltype = CDECIMALTYPE;
-				var->sqllen = sizeof(dec_t);
-				*var->sqlind = 0;
-				break;
-			}
-			if (klass == rb_cInterval) {
-				intrvl_t *invl;
-				VALUE qual;
-				mint ret;
-
-				qual = rb_funcall(data, s_qual, 0);
-				data = rb_funcall(data, s_to_s, 0);
-
-				invl = ALLOC(intrvl_t);
-				if (qual == sym_YEAR_TO_MONTH)
-					invl->in_qual = TU_IENCODE(9, TU_YEAR, TU_MONTH);
-				else
-					invl->in_qual = TU_IENCODE(9, TU_DAY, TU_F5);
-				ret = incvasc(RSTRING_PTR(data), invl);
-				if (ret < 0)
-					rb_raise(rb_eOperationalError,
-						"Unable to convert '%s' to INTERVAL [Error %d]",
-						RSTRING_PTR(data), ret);
-
-				var->sqldata = (char *)invl;
-				var->sqltype = CINVTYPE;
-				var->sqllen = sizeof(intrvl_t);
 				*var->sqlind = 0;
 				break;
 			}
@@ -1944,7 +1888,7 @@ make_result(cursor_t *c, VALUE record)
 				}
 			}
 
-			item = rb_funcall(rb_cInterval, constructor, 1, value);
+			item = rb_funcall(rb_mInterval, constructor, 1, value);
 			break;
 		}
 		case SQLDECIMAL:
@@ -4009,7 +3953,7 @@ void Init_informixc(void)
 	rb_eDatabaseError = rb_const_get(rb_mInformix, rb_intern("DatabaseError"));
 
 	rb_require("ifx_interval");
-	rb_cInterval = rb_const_get(rb_mInformix, rb_intern("Interval"));
+	rb_mInterval = rb_const_get(rb_mInformix, rb_intern("Interval"));
 
 	/* Global symbols ----------------------------------------------------- */
 	#define INTERN(sym) s_##sym = rb_intern(#sym)
