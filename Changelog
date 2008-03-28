@@ -27,7 +27,8 @@ Bugs fixed:
 
 Remarks:
 	* Database.new deprecated in favor of Database.open
-	* A portion of C code has been reimplemented in Ruby
+	* A lot of C code has been reimplemented in Ruby
+	* Modules and classes have been reorganized
 
 
 0.6.2  10/20/2007

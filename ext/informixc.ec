@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.7 2008/03/28 13:03:39 santana Exp $ */
+/* $Id: informixc.ec,v 1.8 2008/03/28 18:11:37 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.7 2008/03/28 13:03:39 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.8 2008/03/28 18:11:37 santana Exp $";
 
 #include "ruby.h"
 
@@ -3234,7 +3234,7 @@ void Init_informixc(void)
 	rb_define_method(rb_cDatabase, "columns", rb_database_columns, 1);
 
 	/* class Statement ---------------------------------------------------- */
-	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement", rb_cObject);
+	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement",rb_cObject);
 	rb_define_alloc_func(rb_cStatement, statement_alloc);
 	rb_define_method(rb_cStatement, "initialize", statement_initialize, 2);
 	rb_define_singleton_method(rb_cStatement, "new", statement_s_new, -1);
@@ -3254,7 +3254,7 @@ void Init_informixc(void)
 	/* class SequentialCursor --------------------------------------------- */
 	rb_cSequentialCursor = rb_define_class_under(rb_mInformix, "SequentialCursor", rb_cCursorBase);
 	rb_define_private_method(rb_cSequentialCursor, "fetch0", fetch, 2);
-	rb_define_private_method(rb_cSequentialCursor, "fetch_many0", fetch_many, 2);
+	rb_define_private_method(rb_cSequentialCursor, "fetch_many0", fetch_many,2);
 	rb_define_private_method(rb_cSequentialCursor, "each0", each, 2);
 	rb_define_private_method(rb_cSequentialCursor, "each_by0", each_by, 2);
 
