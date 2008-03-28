@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.8 2008/03/28 18:11:37 santana Exp $ */
+/* $Id: informixc.ec,v 1.9 2008/03/28 18:31:19 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.8 2008/03/28 18:11:37 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.9 2008/03/28 18:31:19 santana Exp $";
 
 #include "ruby.h"
 
@@ -3174,35 +3174,33 @@ void Init_informixc(void)
 	rb_define_const(rb_cSlob, "CLOB", INT2FIX(XID_CLOB));
 	rb_define_const(rb_cSlob, "BLOB", INT2FIX(XID_BLOB));
 
-	#define DEF_SLOB_CONST(k) rb_define_const(rb_cSlob, #k, INT2FIX(LO_##k))
-
-	/* Access modes */
-	DEF_SLOB_CONST(RDONLY);
-	DEF_SLOB_CONST(DIRTY_READ);
-	DEF_SLOB_CONST(WRONLY);
-	DEF_SLOB_CONST(APPEND);
-	DEF_SLOB_CONST(RDWR);
-	DEF_SLOB_CONST(BUFFER);
-	DEF_SLOB_CONST(NOBUFFER);
-	DEF_SLOB_CONST(LOCKALL);
-	DEF_SLOB_CONST(LOCKRANGE);
-	DEF_SLOB_CONST(SEEK_SET);
-	DEF_SLOB_CONST(SEEK_CUR);
-	DEF_SLOB_CONST(SEEK_END);
+    /* Access modes */
+	rb_define_const(rb_cSlob, "RDONLY", INT2FIX(LO_RDONLY));
+	rb_define_const(rb_cSlob, "DIRTY_READ", INT2FIX(LO_DIRTY_READ));
+	rb_define_const(rb_cSlob, "WRONLY", INT2FIX(LO_WRONLY));
+	rb_define_const(rb_cSlob, "APPEND", INT2FIX(LO_APPEND));
+	rb_define_const(rb_cSlob, "RDWR", INT2FIX(LO_RDWR));
+	rb_define_const(rb_cSlob, "BUFFER", INT2FIX(LO_BUFFER));
+	rb_define_const(rb_cSlob, "NOBUFFER", INT2FIX(LO_NOBUFFER));
+	rb_define_const(rb_cSlob, "LOCKALL", INT2FIX(LO_LOCKALL));
+	rb_define_const(rb_cSlob, "LOCKRANGE", INT2FIX(LO_LOCKRANGE));
+	rb_define_const(rb_cSlob, "SEEK_SET", INT2FIX(LO_SEEK_SET));
+	rb_define_const(rb_cSlob, "SEEK_CUR", INT2FIX(LO_SEEK_CUR));
+	rb_define_const(rb_cSlob, "SEEK_END", INT2FIX(LO_SEEK_END));
 
 	/* Creation-time flags */
-	DEF_SLOB_CONST(LOG);
-	DEF_SLOB_CONST(NOLOG);
-	DEF_SLOB_CONST(KEEP_LASTACCESS_TIME);
-	DEF_SLOB_CONST(NOKEEP_LASTACCESS_TIME);
+	rb_define_const(rb_cSlob, "LOG", INT2FIX(LO_LOG));
+	rb_define_const(rb_cSlob, "NOLOG", INT2FIX(LO_NOLOG));
+	rb_define_const(rb_cSlob, "KEEP_LASTACCESS_TIME", INT2FIX(LO_KEEP_LASTACCESS_TIME));
+	rb_define_const(rb_cSlob, "NOKEEP_LASTACCESS_TIME", INT2FIX(LO_NOKEEP_LASTACCESS_TIME));
 
 	/* Ranges */
-	DEF_SLOB_CONST(CURRENT_END);
-	DEF_SLOB_CONST(MAX_END);
+	rb_define_const(rb_cSlob, "CURRENT_END", INT2FIX(LO_CURRENT_END));
+	rb_define_const(rb_cSlob, "MAX_END", INT2FIX(LO_MAX_END));
 
 	/* Lock modes */
-	DEF_SLOB_CONST(SHARED_MODE);
-	DEF_SLOB_CONST(EXCLUSIVE_MODE);
+	rb_define_const(rb_cSlob, "SHARED_MODE", INT2FIX(LO_SHARED_MODE));
+	rb_define_const(rb_cSlob, "EXCLUSIVE_MODE", INT2FIX(LO_EXCLUSIVE_MODE));
 
 	/* class Slob::Stat --------------------------------------------------- */
 
