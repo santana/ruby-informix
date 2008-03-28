@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.9 2008/03/28 18:31:19 santana Exp $ */
+/* $Id: informixc.ec,v 1.10 2008/03/28 18:56:41 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.9 2008/03/28 18:31:19 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.10 2008/03/28 18:56:41 santana Exp $";
 
 #include "ruby.h"
 
@@ -56,7 +56,7 @@ static VALUE rb_eProgrammingError, rb_eOperationalError, rb_eDatabaseError;
 
 static ID s_read, s_new, s_utc, s_day, s_month, s_year;
 static ID s_hour, s_min, s_sec, s_usec, s_to_s, s_to_i;
-static ID s_add_info, s_qual, s_from_months, s_from_seconds;
+static ID s_add_info, s_from_months, s_from_seconds;
 static ID s_add, s_mul;
 
 static VALUE sym_name, sym_type, sym_nullable, sym_stype, sym_length;
@@ -65,7 +65,6 @@ static VALUE sym_scroll, sym_hold;
 static VALUE sym_col_info, sym_sbspace, sym_estbytes, sym_extsz;
 static VALUE sym_createflags, sym_openflags, sym_maxbytes;
 static VALUE sym_params;
-static VALUE sym_YEAR_TO_MONTH;
 
 #define IDSIZE 30
 
@@ -3299,7 +3298,7 @@ void Init_informixc(void)
 	INTERN(hour); INTERN(min); INTERN(sec); INTERN(usec);
 	INTERN(to_s); INTERN(to_i);
 	INTERN(add_info);
-	INTERN(qual); INTERN(from_months); INTERN(from_seconds);
+	INTERN(from_months); INTERN(from_seconds);
 	s_add = rb_intern("+");
 	s_mul = rb_intern("*");
 
@@ -3325,6 +3324,4 @@ void Init_informixc(void)
 	sym_maxbytes = ID2SYM(rb_intern("maxbytes"));
 
 	sym_params = ID2SYM(rb_intern("params"));
-
-	sym_YEAR_TO_MONTH = ID2SYM(rb_intern("YEAR_TO_MONTH"));
 }
