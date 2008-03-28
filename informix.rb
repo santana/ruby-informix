@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.3 2008/03/28 08:38:06 santana Exp $
+# $Id: informix.rb,v 1.4 2008/03/28 13:03:39 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -28,6 +28,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 require 'informixc'
+require 'informix/seqcursor'
+require 'informix/scrollcursor'
 
 module Informix
   VERSION = "0.7.0".freeze
@@ -133,11 +135,31 @@ module Informix
     end
   end # class Database
 
-  module SequentialCursor
-    include Enumerable
-  end
+  module Cursor
+    # Cursor.new(database, query, options)                    => cursor
+    # Cursor.new(database, query, options) {|cursor| block }  => obj
+    #
+    # Creates a Cursor object based on <i>query</i> using <i>options</i>
+    # in the context of <i>database</i> but does not open it.
+    # In the first form the Cursor object is returned.
+    # In the second form the Cursor object is passed to the block and when it
+    # terminates, the Cursor object is dropped, returning the value of the
+    # block.
+    #
+    # <i>options</i> can be nil or a Hash object with the following possible
+    # keys:
+    #
+    #   :scroll => true or false
+    #   :hold   => true or false
+    def self.new(db, query, options = nil, &block)
+      if options
+        Hash === options||raise(TypeError,"options must be supplied as a Hash")
+      end
+      cur = new0(db, query, options, &block)
+      return cur unless block_given?
+      begin yield cur ensure cur.drop end
+    end
 
-  class Cursor
     # Cursor.open(db, query, options)                    => cursor
     # Cursor.open(db, query, options) {|cursor| block }  => obj
     #
@@ -166,6 +188,6 @@ module Informix
       return cur unless block_given?
       begin yield cur ensure cur.drop end
     end
-  end # class Cursor
+  end # module Cursor
 
 end # module Informix

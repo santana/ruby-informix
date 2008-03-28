@@ -1,4 +1,4 @@
-# $Id: ifx_interval.rb,v 1.7 2008/03/28 08:25:09 santana Exp $
+# $Id: interval.rb,v 1.1 2008/03/28 13:03:39 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.

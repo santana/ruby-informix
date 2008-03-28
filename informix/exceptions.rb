@@ -1,4 +1,4 @@
-# $Id: ifx_except.rb,v 1.3 2008/03/16 15:06:19 santana Exp $
+# $Id: exceptions.rb,v 1.1 2008/03/28 13:03:39 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.

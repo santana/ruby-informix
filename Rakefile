@@ -1,4 +1,4 @@
-# $Id: Rakefile,v 1.4 2008/03/25 02:38:20 santana Exp $
+# $Id: Rakefile,v 1.5 2008/03/28 13:03:38 santana Exp $
 
 require 'rubygems'
 require 'rake'
@@ -6,7 +6,7 @@ require 'rake/gempackagetask'
 
 PKG_NAME = 'ruby-informix'
 PKG_VERSION = '0.7.0'
-PKG_FILES = %w{ext/informixc.ec ifx_except.rb ifx_interval.rb informix.rb} +
+PKG_FILES = %w{ext/informixc.ec informix.rb} + Dir["informix/*"] +
             Dir["test/*rb"] + %w{INSTALL COPYRIGHT Changelog README}
 
 spec = Gem::Specification.new do |s|

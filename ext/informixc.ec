@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.6 2008/03/28 08:29:06 santana Exp $ */
+/* $Id: informixc.ec,v 1.7 2008/03/28 13:03:39 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.6 2008/03/28 08:29:06 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.7 2008/03/28 13:03:39 santana Exp $";
 
 #include "ruby.h"
 
@@ -40,15 +40,15 @@ static VALUE rb_cDate, rb_cBigDecimal, rb_cRational;
 /* Modules */
 static VALUE rb_mInformix;
 static VALUE rb_mInterval;
-static VALUE rb_mSequentialCursor;
-static VALUE rb_mScrollCursor;
-static VALUE rb_mInsertCursor;
+static VALUE rb_mCursor;
 
 /* Classes */
 static VALUE rb_cSlob, rb_cSlobStat;
 static VALUE rb_cDatabase;
-static VALUE rb_cStatement;
-static VALUE rb_cCursor;
+static VALUE rb_cStatement, rb_cCursorBase;
+static VALUE rb_cSequentialCursor, rb_cScrollCursor, rb_cInsertCursor;
+
+static VALUE rb_cArray;
 
 /* Exceptions */
 static VALUE rb_eError, rb_eWarning, rb_eInternalError;
@@ -2547,14 +2547,14 @@ statement_drop(VALUE self)
 	return Qnil;
 }
 
-/* module SequentialCursor ----------------------------------------------- */
+/* class SequentialCursor ------------------------------------------------ */
 
 /* Decides whether to use an Array or a Hash, and instantiate a new
  * object or reuse an existing one.
  */
 #define RECORD(c, type, bang, record) \
 do {\
-	if (type == T_ARRAY) {\
+	if (type == rb_cArray) {\
 		if (bang) {\
 			if (!c->array)\
 				c->array = rb_ary_new2(c->daOutput->sqld);\
@@ -2578,11 +2578,12 @@ do {\
  * Base function for fetch* methods, except *_many
  */
 static VALUE
-fetch(VALUE self, VALUE type, int bang)
+fetch(VALUE self, VALUE type, VALUE bang)
 {
 	EXEC SQL begin declare section;
 		char *cid, *did;
 	EXEC SQL end   declare section;
+	short c_bang;
 	cursor_t *c;
 	struct sqlda *output;
 	VALUE record;
@@ -2606,70 +2607,9 @@ fetch(VALUE self, VALUE type, int bang)
 	if (SQLCODE == SQLNOTFOUND)
 		return Qnil;
 
-	RECORD(c, type, bang, record);
+	c_bang = RTEST(bang);
+	RECORD(c, type, c_bang, record);
 	return make_result(c, record);
-}
-
-/*
- * call-seq:
- * cursor.fetch  => array or nil
- *
- * Fetches the next record.
- *
- * Returns the record fetched as an array, or nil if there are no
- * records left.
- */
-static VALUE
-seqcur_fetch(VALUE self)
-{
-	return fetch(self, T_ARRAY, 0);
-}
-
-/*
- * call-seq:
- * cursor.fetch!  => array or nil
- *
- * Fetches the next record, storing it in the same Array object every time
- * it is called.
- * 
- * Returns the record fetched as an array, or nil if there are no
- * records left.
- */
-static VALUE
-seqcur_fetch_bang(VALUE self)
-{
-	return fetch(self, T_ARRAY, 1);
-}
-
-/*
- * call-seq:
- * cursor.fetch_hash  => hash or nil
- *
- * Fetches the next record.
- *
- * Returns the record fetched as a hash, or nil if there are no
- * records left.
- */
-static VALUE
-seqcur_fetch_hash(VALUE self)
-{
-	return fetch(self, T_HASH, 0);
-}
-
-/*
- * call-seq:
- * cursor.fetch_hash!  => hash or nil
- *
- * Fetches the next record, storing it in the same Hash object every time
- * it is called.
- * 
- * Returns the record fetched as a hash, or nil if there are no
- * records left.
- */
-static VALUE
-seqcur_fetch_hash_bang(VALUE self)
-{
-	return fetch(self, T_HASH, 1);
 }
 
 /*
@@ -2715,7 +2655,7 @@ fetch_many(VALUE self, VALUE n, VALUE type)
 		if (SQLCODE == SQLNOTFOUND)
 			break;
 
-		if (type == T_ARRAY)
+		if (type == rb_cArray)
 			record = rb_ary_new2(c->daOutput->sqld);
 		else
 			record = rb_hash_new();
@@ -2725,67 +2665,18 @@ fetch_many(VALUE self, VALUE n, VALUE type)
 	return records;
 }
 
-/*
- * call-seq:
- * cursor.fetch_many(n)  => array
- *
- * Reads at most <i>n</i> records.
- *
- * Returns the records read as an array of arrays
- */
-static VALUE
-seqcur_fetch_many(VALUE self, VALUE n)
-{
-	return fetch_many(self, n, T_ARRAY);
-}
-
-/*
- * call-seq:
- * cursor.fetch_hash_many(n)  => array
- *
- * Reads at most <i>n</i> records.
- * Returns the records read as an array of hashes.
- */
-static VALUE
-seqcur_fetch_hash_many(VALUE self, VALUE n)
-{
-	return fetch_many(self, n, T_HASH);
-}
-
-/*
- * call-seq:
- * cursor.fetch_all  => array
- *
- * Returns all the records left as an array of arrays
- */
-static VALUE
-seqcur_fetch_all(VALUE self)
-{
-	return fetch_many(self, Qnil, T_ARRAY);
-}
-
-/*
- * call-seq:
- * cursor.fetch_hash_all  => array
- *
- * Returns all the records left as an array of hashes
- */
-static VALUE
-seqcur_fetch_hash_all(VALUE self)
-{
-	return fetch_many(self, Qnil, T_HASH);
-}
 
 /*
  * Base function for each* methods, except each*_by
  */
 static VALUE
-each(VALUE self, VALUE type, int bang)
+each(VALUE self, VALUE type, VALUE bang)
 {
 	cursor_t *c;
 	EXEC SQL begin declare section;
 		char *cid, *did;
 	EXEC SQL end   declare section;
+	short c_bang;
 	struct sqlda *output;
 	VALUE record;
 
@@ -2808,7 +2699,8 @@ each(VALUE self, VALUE type, int bang)
 
 		if (SQLCODE == SQLNOTFOUND)
 			return self;
-		RECORD(c, type, bang, record);
+		c_bang = RTEST(bang);
+		RECORD(c, type, c_bang, record);
 		rb_yield(make_result(c, record));
 	}
 }
@@ -2829,99 +2721,7 @@ each_by(VALUE self, VALUE n, VALUE type)
 	}
 }
 
-/*
- * call-seq:
- * cursor.each {|record| block } => cursor
- *
- * Iterates over the remaining records, passing each <i>record</i> to the
- * <i>block</i> as an array.
- *
- * Returns __self__.
- */
-static VALUE
-seqcur_each(VALUE self)
-{
-	return each(self, T_ARRAY, 0);
-}
-
-/*
- * call-seq:
- * cursor.each! {|record| block } => cursor
- *
- * Iterates over the remaining records, passing each <i>record</i> to the
- * <i>block</i> as an array. No new Array objects are created for each record.
- * The same Array object is reused in each call.
- *
- * Returns __self__.
- */
-static VALUE
-seqcur_each_bang(VALUE self)
-{
-	return each(self, T_ARRAY, 1);
-}
-
-/*
- * call-seq:
- * cursor.each_hash {|record| block } => cursor
- *
- * Iterates over the remaining records, passing each <i>record</i> to the
- * <i>block</i> as a hash.
- *
- * Returns __self__.
- */
-static VALUE
-seqcur_each_hash(VALUE self)
-{
-	return each(self, T_HASH, 0);
-}
-
-/*
- * call-seq:
- * cursor.each_hash! {|record| block } => cursor
- *
- * Iterates over the remaining records, passing each <i>record</i> to the
- * <i>block</i> as a hash. No new Hash objects are created for each record.
- * The same Hash object is reused in each call.
- *
- * Returns __self__.
- */
-static VALUE
-seqcur_each_hash_bang(VALUE self)
-{
-	return each(self, T_HASH, 1);
-}
-
-/*
- * call-seq:
- * cursor.each_by(n) {|records| block } => cursor
- *
- * Iterates over the remaining records, passing at most <i>n</i> <i>records</i>
- * to the <i>block</i> as arrays.
- *
- * Returns __self__.
- */
-static VALUE
-seqcur_each_by(VALUE self, VALUE n)
-{
-	return each_by(self, n, T_ARRAY);
-}
-
-/*
- * call-seq:
- * cursor.each_hash_by(n) {|records| block } => cursor
- *
- * Iterates over the remaining records, passing at most <i>n</i> <i>records</i>
- * to the <i>block</i> as hashes.
- *
- * Returns __self__.
- */
-static VALUE
-seqcur_each_hash_by(VALUE self, VALUE n)
-{
-	return each_by(self, n, T_HASH);
-}
-
-/* module InsertCursor --------------------------------------------------- */
+/* class InsertCursor ---------------------------------------------------- */
 
 /*
  * call-seq:
@@ -2997,18 +2797,19 @@ inscur_flush(VALUE self)
 	return self;
 }
 
-/* module ScrollCursor --------------------------------------------------- */
+/* class ScrollCursor --------------------------------------------------- */
 
 /*
  * Provides the Array-like functionality for scroll cursors when using the
  * cursor[index] syntax
  */
 static VALUE
-scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
+scrollcur_entry(VALUE self, VALUE index, VALUE type, VALUE bang)
 {
 	cursor_t *c;
 	struct sqlda *output;
 	VALUE record;
+	short c_bang;
 	EXEC SQL begin declare section;
 		char *cid, *did;
 		long pos;
@@ -3041,148 +2842,21 @@ scrollcur_entry(VALUE self, VALUE index, VALUE type, int bang)
 	if (SQLCODE < 0)
 		raise_ifx_extended();
 
-	RECORD(c, type, bang, record);
+	c_bang = RTEST(bang);
+	RECORD(c, type, c_bang, record);
 	return make_result(c, record);
-}
-
-/*
- * Provides the Array-like functionality for scroll cursors when using the
- * cursor[start, length] syntax
- */
-static VALUE
-scrollcur_subseq(VALUE self, VALUE start, VALUE length, VALUE type)
-{
-	VALUE first, records;
-	EXEC SQL begin declare section;
-		long pos;
-	EXEC SQL end   declare section;
-
-	first = scrollcur_entry(self, start, type, 0);
-	if (NIL_P(first))
-		return Qnil;
-
-	pos = NUM2LONG(length) - 1;
-
-	if (pos > 0) {
-		length = LONG2NUM(pos);
-		records = fetch_many(self, length, type);
-	}
-	else
-		records = rb_ary_new();
-
-	rb_ary_unshift(records, first);
-
-	return records;
-}
-
-/*
- * Base function for slice and slice_hash methods
- */
-static VALUE
-slice(int argc, VALUE *argv, VALUE self, VALUE type)
-{
-	if (argc == 2) {
-		if (NUM2LONG(argv[1]) <= 0)
-			rb_raise(rb_eArgError, "length must be positive");
-		return scrollcur_subseq(self, argv[0], argv[1], type);
-	}
-	if (argc != 1)
-		rb_scan_args(argc, argv, "11", 0, 0);
-
-	return scrollcur_entry(self, argv[0], type, 0);
-}
-
-/*
- * call-seq:
- *    cursor[index]  => array or nil
- *    cursor[start, length]  => array or nil
- *    cursor.slice(index)  => array or nil
- *    cursor.slice(start, length)  => array or nil
- *
- * Returns the record at _index_, or returns a subarray starting at _start_
- * and continuing for _length_ records. Negative indices count backward from
- * the end of the cursor (-1 is the last element). Returns nil if the
- * (starting) index is out of range.
- *
- * <b>Warning</b>: if the (starting) index is negative and out of range, the
- * position in the cursor is set to the last record. Otherwise the current
- * position in the cursor is preserved.
- */
-static VALUE
-scrollcur_slice(int argc, VALUE *argv, VALUE self)
-{
-	return slice(argc, argv, self, T_ARRAY);
-}
-
-/*
- * call-seq:
- * cursor.slice!(index)  => array or nil
- *
- * Returns the record at _index_. Negative indices count backward from
- * the end of the cursor (-1 is the last element). Returns nil if the index
- * is out of range.
- *
- * Stores the record fetched always in the same Array object.
- *
- * <b>Warning</b>: if the index is negative and out of range, the
- * position in the cursor is set to the last record. Otherwise the current
- * position in the cursor is preserved.
- */
-static VALUE
-scrollcur_slice_bang(VALUE self, VALUE index)
-{
-	return scrollcur_entry(self, index, T_ARRAY, 1);
-}
-
-/*
- * call-seq:
- *    cursor.slice_hash(index)  => hash or nil
- *    cursor.slice_hash(start, length)  => array or nil
- *
- * Returns the record at _index_, or returns a subarray starting at _start_
- * and continuing for _length_ records. Negative indices count backward from
- * the end of the cursor (-1 is the last element). Returns nil if the
- * (starting) index is out of range.
- *
- * <b>Warning</b>: if the (starting) index is negative and out of range, the
- * position in the cursor is set to the last record. Otherwise the current
- * position in the cursor is preserved.
- */
-static VALUE
-scrollcur_slice_hash(int argc, VALUE *argv, VALUE self)
-{
-	return slice(argc, argv, self, T_HASH);
-}
-
-/*
- * call-seq:
- * cursor.slice_hash!(index)  => hash or nil
- *
- * Returns the record at _index_. Negative indices count backward from
- * the end of the cursor (-1 is the last element). Returns nil if the index
- * is out of range.
- *
- * Stores the record fetched always in the same Hash object.
- *
- * <b>Warning</b>: if the index is negative and out of range, the
- * position in the cursor is set to the last record. Otherwise the current
- * position in the cursor is preserved.
- */
-static VALUE
-scrollcur_slice_hash_bang(VALUE self, VALUE index)
-{
-	return scrollcur_entry(self, index, T_HASH, 1);
 }
 
 /*
  * Base function for prev* and next* methods
  */
 static VALUE
-scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
+scrollcur_rel(VALUE self, VALUE offset, VALUE type, VALUE bang)
 {
+	short c_bang;
 	cursor_t *c;
 	struct sqlda *output;
-	VALUE offset, record;
+	VALUE record;
 	EXEC SQL begin declare section;
 		char *cid, *did;
 		long pos;
@@ -3197,8 +2871,7 @@ scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
 	if (SQLCODE < 0)
 		return Qnil;
 
-	rb_scan_args(argc, argv, "01", &offset);
-	pos = dir*(NIL_P(offset)? 1: NUM2LONG(offset));
+	pos = NUM2LONG(offset);
 
 	output = c->daOutput;
 	cid = c->cursor_id;
@@ -3210,293 +2883,15 @@ scrollcur_rel(int argc, VALUE *argv, VALUE self, int dir, VALUE type, int bang)
 	if (SQLCODE < 0)
 		raise_ifx_extended();
 
-	RECORD(c, type, bang, record);
+	c_bang = RTEST(bang);
+	RECORD(c, type, c_bang, record);
 	return make_result(c, record);
 }
 
-/* call-seq:
- * cursor.prev(offset = 1)  => array or nil
- *
- * Returns the previous _offset_ th record. Negative indices count
- * forward from the current position. Returns nil if the _offset_ is out of
- * range.
- */
-static VALUE
-scrollcur_prev(int argc, VALUE *argv, VALUE self)
-{
-	return scrollcur_rel(argc, argv, self, -1, T_ARRAY, 0);
-}
+/* class CursorBase ------------------------------------------------------ */
 
-/* call-seq:
- * cursor.prev!(offset = 1)  => array or nil
- *
- * Returns the previous _offset_ th record. Negative indices count
- * forward from the current position. Returns nil if the _offset_ is out of
- * range.
- *
- * Stores the record fetched always in the same Array object.
- */
-static VALUE
-scrollcur_prev_bang(int argc, VALUE *argv, VALUE self)
-{
-	return scrollcur_rel(argc, argv, self, -1, T_ARRAY, 1);
-}
-
-/* call-seq:
- * cursor.prev_hash(offset = 1)  => hash or nil
- *
- * Returns the previous _offset_ th record. Negative indices count
- * forward from the current position. Returns nil if the _offset_ is out of
- * range.
- */
-static VALUE
-scrollcur_prev_hash(int argc, VALUE *argv, VALUE self)
-{
-	return scrollcur_rel(argc, argv, self, -1, T_HASH, 0);
-}
-
-/* call-seq:
- * cursor.prev_hash!(offset = 1)  => hash or nil
- *
- * Returns the previous _offset_ th record. Negative indices count
- * forward from the current position. Returns nil if the _offset_ is out of
- * range.
- *
- * Stores the record fetched always in the same Hash object.
- */
-static VALUE
-scrollcur_prev_hash_bang(int argc, VALUE *argv, VALUE self)
-{
-	return scrollcur_rel(argc, argv, self, -1, T_HASH, 1);
-}
-
-/* call-seq:
- * cursor.next(offset = 1)  => array or nil
- *
- * Returns the next _offset_ th record. Negative indices count
- * backward from the current position. Returns nil if the _offset_ is out of
- * range.
- */
-static VALUE
-scrollcur_next(int argc, VALUE *argv, VALUE self)
-{
-	return scrollcur_rel(argc, argv, self, 1, T_ARRAY, 0);
-}
-
-/* call-seq:
- * cursor.next!(offset = 1)  => array or nil
- *
- * Returns the next _offset_ th record. Negative indices count
- * backward from the current position. Returns nil if the _offset_ is out of
- * range.
- *
- * Stores the record fetched always in the same Array object.
- */
-static VALUE
-scrollcur_next_bang(int argc, VALUE *argv, VALUE self)
-{
-	return scrollcur_rel(argc, argv, self, 1, T_ARRAY, 1);
-}
-
-/* call-seq:
- * cursor.next_hash(offset = 1)  => hash or nil
- *
- * Returns the next _offset_ th record. Negative indices count
- * backward from the current position. Returns nil if the _offset_ is out of
- * range.
- */
-static VALUE
-scrollcur_next_hash(int argc, VALUE *argv, VALUE self)
-{
-	return scrollcur_rel(argc, argv, self, 1, T_HASH, 0);
-}
-
-/* call-seq:
- * cursor.next_hash!(offset = 1)  => hash or nil
- *
- * Returns the next _offset_ th record. Negative indices count
- * backward from the current position. Returns nil if the _offset_ is out of
- * range.
- *
- * Stores the record fetched always in the same Hash object.
- */
-static VALUE
-scrollcur_next_hash_bang(int argc, VALUE *argv, VALUE self)
-{
-	return scrollcur_rel(argc, argv, self, 1, T_HASH, 1);
-}
-
-/*
- * call-seq:
- * cursor.first  => array or nil
- *
- * Returns the first record of the cursor. If the cursor is empty,
- * returns nil.
- */
-static VALUE
-scrollcur_first(VALUE self)
-{
-	return scrollcur_entry(self, INT2FIX(0), T_ARRAY, 0);
-}
-
-/*
- * call-seq:
- * cursor.first!  => array or nil
- *
- * Returns the first record of the cursor. If the cursor is empty,
- * returns nil.
- *
- * Stores the record fetched always in the same Array object.
- */
-static VALUE
-scrollcur_first_bang(VALUE self)
-{
-	return scrollcur_entry(self, INT2FIX(0), T_ARRAY, 1);
-}
-
-/*
- * call-seq:
- * cursor.first_hash  => hash or nil
- *
- * Returns the first record of the cursor. If the cursor is empty,
- * returns nil.
- */
-static VALUE
-scrollcur_first_hash(VALUE self)
-{
-	return scrollcur_entry(self, INT2FIX(0), T_HASH, 0);
-}
-
-/*
- * call-seq:
- * cursor.first_hash!  => hash or nil
- *
- * Returns the first record of the cursor. If the cursor is empty,
- * returns nil.
- *
- * Stores the record fetched always in the same Hash object.
- */
-static VALUE
-scrollcur_first_hash_bang(VALUE self)
-{
-	return scrollcur_entry(self, INT2FIX(0), T_HASH, 1);
-}
-
-/*
- * call-seq:
- * cursor.last  => array or nil
- *
- * Returns the last record of the cursor. If the cursor is empty,
- * returns nil.
- */
-static VALUE
-scrollcur_last(VALUE self)
-{
-	return scrollcur_entry(self, INT2FIX(-1), T_ARRAY, 0);
-}
-
-/*
- * call-seq:
- * cursor.last!  => array or nil
- *
- * Returns the last record of the cursor. If the cursor is empty,
- * returns nil.
- *
- * Stores the record fetched always in the same Array object.
- */
-static VALUE
-scrollcur_last_bang(VALUE self)
-{
-	return scrollcur_entry(self, INT2FIX(-1), T_ARRAY, 1);
-}
-
-/*
- * call-seq:
- * cursor.last_hash  => hash or nil
- *
- * Returns the last record of the cursor. If the cursor is empty,
- * returns nil.
- */
-static VALUE
-scrollcur_last_hash(VALUE self)
-{
-	return scrollcur_entry(self, INT2FIX(-1), T_HASH, 0);
-}
-
-/*
- * call-seq:
- * cursor.last_hash!  => hash or nil
- *
- * Returns the last record of the cursor. If the cursor is empty,
- * returns nil.
- *
- * Stores the record fetched always in the same Hash object.
- */
-static VALUE
-scrollcur_last_hash_bang(VALUE self)
-{
-	return scrollcur_entry(self, INT2FIX(-1), T_HASH, 1);
-}
-
-/*
- * call-seq:
- * cursor.current  => array or nil
- *
- * Returns the current record of the cursor. If the cursor is empty,
- * returns nil.
- */
-static VALUE
-scrollcur_current(VALUE self)
-{
-	return scrollcur_entry(self, Qnil, T_ARRAY, 0);
-}
-
-/*
- * call-seq:
- * cursor.current!  => array or nil
- *
- * Returns the current record of the cursor. If the cursor is empty,
- * returns nil.
- *
- * Stores the record fetched always in the same Array object.
- */
-static VALUE
-scrollcur_current_bang(VALUE self)
-{
-	return scrollcur_entry(self, Qnil, T_ARRAY, 1);
-}
-
-/*
- * call-seq:
- * cursor.current_hash  => hash or nil
- *
- * Returns the current record of the cursor. If the cursor is empty,
- * returns nil.
- */
-static VALUE
-scrollcur_current_hash(VALUE self)
-{
-	return scrollcur_entry(self, Qnil, T_HASH, 0);
-}
-
-/*
- * call-seq:
- * cursor.current_hash!  => hash or nil
- *
- * Returns the current record of the cursor. If the cursor is empty,
- * returns nil.
- *
- * Stores the record fetched always in the same Hash object.
- */
-static VALUE
-scrollcur_current_hash_bang(VALUE self)
-{
-	return scrollcur_entry(self, Qnil, T_HASH, 1);
-}
-
-/* class Cursor ---------------------------------------------------------- */
 static void
-cursor_close_or_free(cursor_t *c, short op)
+cursorbase_close_or_free(cursor_t *c, short op)
 {
 	EXEC SQL begin declare section;
 		char *cid, *sid, *did;
@@ -3528,7 +2923,7 @@ cursor_close_or_free(cursor_t *c, short op)
 }
 
 static void
-cursor_mark(cursor_t *c)
+cursorbase_mark(cursor_t *c)
 {
 	rb_gc_mark(c->db);
 	if (c->array)
@@ -3540,121 +2935,20 @@ cursor_mark(cursor_t *c)
 }
 
 static void
-cursor_free(void *p)
+cursorbase_free(void *p)
 {
-	cursor_close_or_free(p, 2);
+	cursorbase_close_or_free(p, 2);
 	xfree(p);
 }
 
 static VALUE
-cursor_alloc(VALUE klass)
+cursorbase_alloc(VALUE klass)
 {
 	cursor_t *c;
 
 	c = ALLOC(cursor_t);
 	memset(c, 0, sizeof(cursor_t));
-	return Data_Wrap_Struct(klass, cursor_mark, cursor_free, c);
-}
-
-/* :nodoc: */
-static VALUE
-cursor_initialize(int argc, VALUE *argv, VALUE self)
-{
-	VALUE db, query, options;
-	VALUE scroll, hold;
-	struct sqlda *output;
-	cursor_t *c;
-	EXEC SQL begin declare section;
-		char *c_query;
-		char *cid, *sid, *did;
-	EXEC SQL end   declare section;
-
-	rb_scan_args(argc, argv, "21", &db, &query, &options);
-	Data_Get_Struct(db, char, did);
-
-	EXEC SQL set connection :did;
-	if (SQLCODE < 0)
-		raise_ifx_extended();
-
-	Data_Get_Struct(self, cursor_t, c);
-	c->db = db;
-	c->database_id = did;
-	scroll = hold = Qfalse;
-	snprintf(c->cursor_id, sizeof(c->cursor_id), "CUR%lX", self);
-	snprintf(c->stmt_id, sizeof(c->stmt_id), "STMT%lX", self);
-	cid = c->cursor_id; sid = c->stmt_id;
-	c_query = StringValueCStr(query);
-
-	if (!NIL_P(options)) {
-		Check_Type(options, T_HASH);
-		scroll = rb_hash_aref(options, sym_scroll);
-		hold = rb_hash_aref(options, sym_hold);
-	}
-
-	EXEC SQL prepare :sid from :c_query;
-	if (SQLCODE < 0)
-		raise_ifx_extended();
-
-	if (RTEST(scroll) && RTEST(hold))
-		EXEC SQL declare :cid scroll cursor with hold for :sid;
-	else if (RTEST(hold))
-		EXEC SQL declare :cid cursor with hold for :sid;
-	else if (RTEST(scroll))
-		EXEC SQL declare :cid scroll cursor for :sid;
-	else
-		EXEC SQL declare :cid cursor for :sid;
-
-	if (SQLCODE < 0)
-		raise_ifx_extended();
-
-	alloc_input_slots(c, c_query);
-	EXEC SQL describe :sid into output;
-	c->daOutput = output;
-
-	c->is_select = (SQLCODE == 0 || SQLCODE == SQ_EXECPROC);
-
-	if (c->is_select) {
-		alloc_output_slots(c);
-		rb_extend_object(self, rb_mSequentialCursor);
-		if (scroll)
-			rb_extend_object(self, rb_mScrollCursor);
-	}
-	else {
-		xfree(c->daOutput);
-		c->daOutput = NULL;
-		rb_extend_object(self, rb_mInsertCursor);
-	}
-	return self;
-}
-
-static VALUE cursor_drop(VALUE self);
-/*
- * call-seq:
- * Cursor.new(database, query, options)                    => cursor
- * Cursor.new(database, query, options) {|cursor| block }  => obj
- *
- * Creates a Cursor object based on <i>query</i> using <i>options</i>
- * in the context of <i>database</i> but does not open it.
- * In the first form the Cursor object is returned.
- * In the second form the Cursor object is passed to the block and when it
- * terminates, the Cursor object is dropped, returning the value of the block.
- * 
- * <i>options</i> can be nil or a Hash object with the following possible keys:
- * 
- *   :scroll => true or false
- *   :hold   => true or false
- */
-static VALUE
-rb_cursor_s_new(int argc, VALUE *argv, VALUE klass)
-{
-	VALUE cursor;
-
-	cursor = rb_class_new_instance(argc, argv, klass);
-
-	if (rb_block_given_p())
-		return rb_ensure(rb_yield, cursor, cursor_drop, cursor);
-
-	return cursor;
+	return Data_Wrap_Struct(klass, cursorbase_mark, cursorbase_free, c);
 }
 
 /*
@@ -3664,7 +2958,7 @@ rb_cursor_s_new(int argc, VALUE *argv, VALUE klass)
  * Returns the cursor ID
  */
 static VALUE
-cursor_id(VALUE self)
+rb_cursorbase_id(VALUE self)
 {
 	cursor_t *c;
 
@@ -3682,7 +2976,7 @@ cursor_id(VALUE self)
  * Returns __self__.
  */
 static VALUE
-cursor_open(int argc, VALUE *argv, VALUE self)
+rb_cursorbase_open(int argc, VALUE *argv, VALUE self)
 {
 	struct sqlda *input;
 	cursor_t *c;
@@ -3734,12 +3028,12 @@ cursor_open(int argc, VALUE *argv, VALUE self)
  * Closes the cursor and returns __self__.
  */
 static VALUE
-cursor_close(VALUE self)
+rb_cursorbase_close(VALUE self)
 {
 	cursor_t *c;
 
 	Data_Get_Struct(self, cursor_t, c);
-	cursor_close_or_free(c, 1);
+	cursorbase_close_or_free(c, 1);
 	return self;
 }
 
@@ -3751,24 +3045,96 @@ cursor_close(VALUE self)
  * cannot be opened again.
  */
 static VALUE
-cursor_drop(VALUE self)
+rb_cursorbase_drop(VALUE self)
 {
 	cursor_t *c;
 
 	Data_Get_Struct(self, cursor_t, c);
-	cursor_close_or_free(c, 2);
+	cursorbase_close_or_free(c, 2);
 
 	return Qnil;
 }
 
-/* Entry point ------------------------------------------------------------ */
+/* module Cursor --------------------------------------------------------- */
+
+static VALUE
+rb_cursor_s_new0(int argc, VALUE *argv, VALUE self)
+{
+	VALUE db, query, options, ret;
+	VALUE scroll, hold;
+	struct sqlda *output;
+	cursor_t c, *cur;
+	EXEC SQL begin declare section;
+		char *c_query;
+		char *cid, *sid, *did;
+	EXEC SQL end   declare section;
+
+	memset(&c, 0, sizeof(c));
+	rb_scan_args(argc, argv, "21", &db, &query, &options);
+	Data_Get_Struct(db, char, did);
+
+	EXEC SQL set connection :did;
+	if (SQLCODE < 0)
+		raise_ifx_extended();
+
+	c.db = db;
+	c.database_id = did;
+	scroll = hold = Qfalse;
+	snprintf(c.cursor_id, sizeof(c.cursor_id), "CUR%lX", self);
+	snprintf(c.stmt_id, sizeof(c.stmt_id), "STMT%lX", self);
+	cid = c.cursor_id; sid = c.stmt_id;
+	c_query = StringValueCStr(query);
+
+	if (!NIL_P(options)) {
+		Check_Type(options, T_HASH);
+		scroll = rb_hash_aref(options, sym_scroll);
+		hold = rb_hash_aref(options, sym_hold);
+	}
+
+	EXEC SQL prepare :sid from :c_query;
+	if (SQLCODE < 0)
+		raise_ifx_extended();
+
+	if (RTEST(scroll) && RTEST(hold))
+		EXEC SQL declare :cid scroll cursor with hold for :sid;
+	else if (RTEST(hold))
+		EXEC SQL declare :cid cursor with hold for :sid;
+	else if (RTEST(scroll))
+		EXEC SQL declare :cid scroll cursor for :sid;
+	else
+		EXEC SQL declare :cid cursor for :sid;
+
+	if (SQLCODE < 0)
+		raise_ifx_extended();
+
+	alloc_input_slots(&c, c_query);
+	EXEC SQL describe :sid into output;
+	c.daOutput = output;
+
+	c.is_select = (SQLCODE == 0 || SQLCODE == SQ_EXECPROC);
+
+	if (c.is_select) {
+		alloc_output_slots(&c);
+		if (scroll)
+			ret = cursorbase_alloc(rb_cScrollCursor);
+		else
+			ret = cursorbase_alloc(rb_cSequentialCursor);
+	}
+	else {
+		xfree(c.daOutput);
+		c.daOutput = NULL;
+		ret = cursorbase_alloc(rb_cInsertCursor);
+	}
+	Data_Get_Struct(ret, cursor_t, cur);
+	memcpy(cur, &c, sizeof(cursor_t));
+
+	return ret;
+}
 
 void Init_informixc(void)
 {
 	/* module Informix ---------------------------------------------------- */
 	rb_mInformix = rb_define_module("Informix");
-	rb_mScrollCursor = rb_define_module_under(rb_mInformix, "ScrollCursor");
-	rb_mInsertCursor = rb_define_module_under(rb_mInformix, "InsertCursor");
 
 	/* class Slob --------------------------------------------------------- */
 	rb_cSlob = rb_define_class_under(rb_mInformix, "Slob", rb_cObject);
@@ -3877,65 +3243,38 @@ void Init_informixc(void)
 	rb_define_alias(rb_cStatement, "execute", "[]");
 	rb_define_method(rb_cStatement, "drop", statement_drop, 0);
 
-	/* module SequentialCursor -------------------------------------------- */
-	rb_mSequentialCursor = rb_define_module_under(rb_mInformix, "SequentialCursor");
-	rb_define_method(rb_mSequentialCursor, "fetch", seqcur_fetch, 0);
-	rb_define_method(rb_mSequentialCursor, "fetch!", seqcur_fetch_bang, 0);
-	rb_define_method(rb_mSequentialCursor, "fetch_hash", seqcur_fetch_hash, 0);
-	rb_define_method(rb_mSequentialCursor, "fetch_hash!", seqcur_fetch_hash_bang, 0);
-	rb_define_method(rb_mSequentialCursor, "fetch_many", seqcur_fetch_many, 1);
-	rb_define_method(rb_mSequentialCursor, "fetch_hash_many", seqcur_fetch_hash_many, 1);
-	rb_define_method(rb_mSequentialCursor, "fetch_all", seqcur_fetch_all, 0);
-	rb_define_method(rb_mSequentialCursor, "fetch_hash_all", seqcur_fetch_hash_all, 0);
-	rb_define_method(rb_mSequentialCursor, "each", seqcur_each, 0);
-	rb_define_method(rb_mSequentialCursor, "each!", seqcur_each_bang, 0);
-	rb_define_method(rb_mSequentialCursor, "each_hash", seqcur_each_hash, 0);
-	rb_define_method(rb_mSequentialCursor, "each_hash!", seqcur_each_hash_bang, 0);
-	rb_define_method(rb_mSequentialCursor, "each_by", seqcur_each_by, 1);
-	rb_define_method(rb_mSequentialCursor, "each_hash_by", seqcur_each_hash_by, 1);
+	/* class CursorBase --------------------------------------------------- */
+	rb_cCursorBase=rb_define_class_under(rb_mInformix,"CursorBase",rb_cObject);
+	rb_define_alloc_func(rb_cCursorBase, cursorbase_alloc);
+	rb_define_method(rb_cCursorBase, "id", rb_cursorbase_id, 0);
+	rb_define_method(rb_cCursorBase, "open", rb_cursorbase_open, -1);
+	rb_define_method(rb_cCursorBase, "close", rb_cursorbase_close, 0);
+	rb_define_method(rb_cCursorBase, "drop", rb_cursorbase_drop, 0);
 
-	/* InsertCursor ------------------------------------------------------- */
-	rb_define_method(rb_mInsertCursor, "put", inscur_put, -1);
-	rb_define_method(rb_mInsertCursor, "flush", inscur_flush, 0);
+	/* class SequentialCursor --------------------------------------------- */
+	rb_cSequentialCursor = rb_define_class_under(rb_mInformix, "SequentialCursor", rb_cCursorBase);
+	rb_define_private_method(rb_cSequentialCursor, "fetch0", fetch, 2);
+	rb_define_private_method(rb_cSequentialCursor, "fetch_many0", fetch_many, 2);
+	rb_define_private_method(rb_cSequentialCursor, "each0", each, 2);
+	rb_define_private_method(rb_cSequentialCursor, "each_by0", each_by, 2);
 
-	/* ScrollCursor ------------------------------------------------------- */
-	rb_define_method(rb_mScrollCursor, "[]", scrollcur_slice, -1);
-	rb_define_alias(rb_mScrollCursor, "slice", "[]");
-	rb_define_method(rb_mScrollCursor, "slice!", scrollcur_slice_bang, 1);
-	rb_define_method(rb_mScrollCursor, "slice_hash", scrollcur_slice_hash, -1);
-	rb_define_method(rb_mScrollCursor, "slice_hash!", scrollcur_slice_hash_bang, 1);
-	rb_define_method(rb_mScrollCursor, "prev", scrollcur_prev, -1);
-	rb_define_method(rb_mScrollCursor, "prev!", scrollcur_prev_bang, -1);
-	rb_define_method(rb_mScrollCursor, "prev_hash", scrollcur_prev_hash, -1);
-	rb_define_method(rb_mScrollCursor, "prev_hash!", scrollcur_prev_hash_bang, -1);
-	rb_define_method(rb_mScrollCursor, "next", scrollcur_next, -1);
-	rb_define_method(rb_mScrollCursor, "next!", scrollcur_next_bang, -1);
-	rb_define_method(rb_mScrollCursor, "next_hash", scrollcur_next_hash, -1);
-	rb_define_method(rb_mScrollCursor, "next_hash!", scrollcur_next_hash_bang, -1);
-	rb_define_method(rb_mScrollCursor, "first", scrollcur_first, 0);
-	rb_define_method(rb_mScrollCursor, "first!", scrollcur_first_bang, 0);
-	rb_define_method(rb_mScrollCursor, "first_hash", scrollcur_first_hash, 0);
-	rb_define_method(rb_mScrollCursor, "first_hash!", scrollcur_first_hash_bang, 0);
-	rb_define_method(rb_mScrollCursor, "last", scrollcur_last, 0);
-	rb_define_method(rb_mScrollCursor, "last!", scrollcur_last_bang, 0);
-	rb_define_method(rb_mScrollCursor, "last_hash", scrollcur_last_hash, 0);
-	rb_define_method(rb_mScrollCursor, "last_hash!", scrollcur_last_hash_bang, 0);
-	rb_define_method(rb_mScrollCursor, "current", scrollcur_current, 0);
-	rb_define_method(rb_mScrollCursor, "current!", scrollcur_current_bang, 0);
-	rb_define_method(rb_mScrollCursor, "current_hash", scrollcur_current_hash, 0);
-	rb_define_method(rb_mScrollCursor, "current_hash!", scrollcur_current_hash_bang, 0);
+	/* class InsertCursor ------------------------------------------------- */
+	rb_cInsertCursor = rb_define_class_under(rb_mInformix, "InsertCursor", rb_cCursorBase);
+	rb_define_method(rb_cInsertCursor, "put", inscur_put, -1);
+	rb_define_method(rb_cInsertCursor, "flush", inscur_flush, 0);
 
-	/* class Cursor ------------------------------------------------------- */
-	rb_cCursor = rb_define_class_under(rb_mInformix, "Cursor", rb_cObject);
-	rb_define_alloc_func(rb_cCursor, cursor_alloc);
-	rb_define_method(rb_cCursor, "initialize", cursor_initialize, -1);
-	rb_define_singleton_method(rb_cCursor, "new", rb_cursor_s_new, -1);
-	rb_define_method(rb_cCursor, "id", cursor_id, 0);
-	rb_define_method(rb_cCursor, "open", cursor_open, -1);
-	rb_define_method(rb_cCursor, "close", cursor_close, 0);
-	rb_define_method(rb_cCursor, "drop", cursor_drop, 0);
+	/* class ScrollCursor ------------------------------------------------- */
+	rb_cScrollCursor = rb_define_class_under(rb_mInformix, "ScrollCursor", rb_cSequentialCursor);
+	rb_define_private_method(rb_cScrollCursor, "entry", scrollcur_entry, 3);
+	rb_define_private_method(rb_cScrollCursor, "rel", scrollcur_rel, 3);
+
+	/* module Cursor ------------------------------------------------------ */
+	rb_mCursor = rb_define_module_under(rb_mInformix, "Cursor");
+	rb_define_singleton_method(rb_mCursor, "new0", rb_cursor_s_new0, -1);
 
 	/* Global constants --------------------------------------------------- */
+	rb_cArray = rb_const_get(rb_cObject, rb_intern("Array"));
+
 	rb_require("date");
 	rb_cDate = rb_const_get(rb_cObject, rb_intern("Date"));
 
@@ -3944,7 +3283,7 @@ void Init_informixc(void)
 
 	rb_cRational = rb_const_get(rb_cObject, rb_intern("Rational"));
 
-	rb_require("ifx_except");
+	rb_require("informix/exceptions");
 	rb_eError = rb_const_get(rb_mInformix, rb_intern("Error"));
 	rb_eWarning = rb_const_get(rb_mInformix, rb_intern("Warning"));
 	rb_eInternalError = rb_const_get(rb_mInformix, rb_intern("InternalError"));
@@ -3952,7 +3291,7 @@ void Init_informixc(void)
 	rb_eOperationalError = rb_const_get(rb_mInformix, rb_intern("OperationalError"));
 	rb_eDatabaseError = rb_const_get(rb_mInformix, rb_intern("DatabaseError"));
 
-	rb_require("ifx_interval");
+	rb_require("informix/interval");
 	rb_mInterval = rb_const_get(rb_mInformix, rb_intern("Interval"));
 
 	/* Global symbols ----------------------------------------------------- */
