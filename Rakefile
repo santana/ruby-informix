@@ -1,4 +1,4 @@
-# $Id: Rakefile,v 1.6 2008/03/28 18:57:08 santana Exp $
+# $Id: Rakefile,v 1.7 2008/03/29 00:22:22 santana Exp $
 
 require 'rubygems'
 require 'rake'
@@ -7,7 +7,7 @@ require 'rake/gempackagetask'
 PKG_NAME = 'ruby-informix'
 PKG_VERSION = '0.7.0'
 PKG_FILES = %w{ext/informixc.ec informix.rb} + Dir["informix/*"] +
-            Dir["test/*rb"] + %w{INSTALL COPYRIGHT Changelog README}
+            Dir["test/*rb"] + %w{COPYRIGHT Changelog README}
 
 spec = Gem::Specification.new do |s|
   s.name = PKG_NAME
@@ -18,7 +18,12 @@ spec = Gem::Specification.new do |s|
   s.require_path = '.'
   s.autorequire = 'informix'
   s.has_rdoc = true
-  s.rdoc_options << '--title' << 'Ruby/Informix -- Ruby extension for IBM Informix' << '--exclude' << 'test'
+  s.rdoc_options << '--title' <<
+                    'Ruby/Informix -- Ruby extension for IBM Informix' <<
+                    '--exclude' << 'test' << '--exclude' << 'extconf.rb' <<
+                    '--inline-source' << '--line-numbers' <<
+                    '--main' << 'README'
+  s.extra_rdoc_files << 'README'
   s.author = 'Gerardo Santana Gomez Garrido'
   s.email = 'gerardo.santana@gmail.com'
   s.homepage = 'http://santanatechnotes.blogspot.com'
