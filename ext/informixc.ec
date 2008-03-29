@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.19 2008/03/29 19:46:11 santana Exp $ */
+/* $Id: informixc.ec,v 1.20 2008/03/29 20:20:17 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.19 2008/03/29 19:46:11 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.20 2008/03/29 20:20:17 santana Exp $";
 
 #include "ruby.h"
 
@@ -2413,13 +2413,26 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
 
 /*
  * call-seq:
- * stmt[*params]  => fixnum or hash
+ * st[*params]  => fixnum or hash
  *
  * Executes the previously prepared statement, binding <i>params</i> as
  * input parameters.
  *
  * Returns the record retrieved, in the case of a singleton select, or the
  * number of rows affected, in the case of any other statement.
+ *
+ * Examples:
+ *
+ * Inserting records:
+ *   db.prepare('insert into state values(?, ?)') do |st|
+ *     st.execute('CA', 'California')
+ *     st.call('AZ', 'Arizona')
+ *     st['TX', 'Texas')
+ *   end
+ * Selecting one record (returns a hash):
+ * cust = db.prepare('select * from customer where num = 101') do |st|
+ *          st.execute
+ *        end
  */
 static VALUE
 statement_call(int argc, VALUE *argv, VALUE self)
@@ -2479,7 +2492,7 @@ statement_call(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
- * stmt.drop
+ * st.drop
  *
  * Frees the statement and the memory associated with it.
  */
@@ -3029,6 +3042,10 @@ rb_cursorbase_drop(VALUE self)
 
 /* module Cursor --------------------------------------------------------- */
 
+/*
+ * The underlying class method that prepares a cursor and creates
+ * the respective cursor object.
+ */
 static VALUE
 rb_cursor_s_new0(int argc, VALUE *argv, VALUE self)
 {
@@ -3215,7 +3232,8 @@ void Init_informixc(void)
 	rb_define_const(rb_cSlob, "EXCLUSIVE_MODE", INT2FIX(LO_EXCLUSIVE_MODE));
 
 	/*
-	 * The +Slob+::+Stat+ class
+	 * An instance of the <tt>Slob::Stat</tt> class is returned when an Slob
+	 * is queried about its status information (<tt>Slob#stat</tt>).
 	 */
 	rb_cSlobStat = rb_define_class_under(rb_cSlob, "Stat", rb_cObject);
 	rb_define_alloc_func(rb_cSlobStat, slobstat_alloc);
