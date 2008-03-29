@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.4 2008/03/29 06:03:27 santana Exp $
+# $Id: informix.rb,v 1.5 2008/03/29 06:10:25 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -213,7 +213,11 @@ module Informix
     def self.new(dbname, query)
       slob = _new(dbname, query)
       return slob if !block_given?
-      begin yield slob ensure slob.close end
+      begin
+        yield slob
+      ensure
+        slob.close
+      end
     end
   end # class Slob
 
