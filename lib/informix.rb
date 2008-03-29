@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.3 2008/03/29 05:19:00 santana Exp $
+# $Id: informix.rb,v 1.4 2008/03/29 06:03:27 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -31,21 +31,6 @@ require 'informixc'
 require 'informix/seqcursor'
 require 'informix/scrollcursor'
 
-# The +Informix+ module contains the mechanisms for connecting to and
-# taking advantage of an existing Informix database by means of a
-# simple model, similar to the one used in ESQL/C.
-#
-# The interaction with an Informix database is made basically through three
-# classes: +Database+, +Statement+ and +Cursor+.
-#
-# +Cursor+ is actually a module that works as a shortcut for creating three
-# kinds of cursors: +SequentialCursor+, +ScrollCursor+ and +InsertCursor+.
-#
-# There are other classes for supporting some data types not available in
-# Ruby: +Slob+, +SlobStat+ and +Interval+.
-#
-# Interval is actually a module that works as a shortcut for creating two
-# kinds of intervals: +IntervalYTM+ and +IntervalDTS+.
 module Informix
   VERSION = "0.7.0"
   VERSION.freeze

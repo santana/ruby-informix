@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.12 2008/03/29 05:19:00 santana Exp $ */
+/* $Id: informixc.ec,v 1.13 2008/03/29 06:03:26 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.12 2008/03/29 05:19:00 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.13 2008/03/29 06:03:26 santana Exp $";
 
 #include "ruby.h"
 
@@ -3067,7 +3067,23 @@ rb_cursor_s_new0(int argc, VALUE *argv, VALUE self)
 
 void Init_informixc(void)
 {
-	/* module Informix ---------------------------------------------------- */
+	/*
+	 * The +Informix+ module contains the mechanisms for connecting to and
+	 * taking advantage of an existing Informix database by means of a
+	 * simple model, similar to the one used in ESQL/C.
+	 *
+	 * The interaction with an Informix database is made basically through three
+	 * classes: +Database+, +Statement+ and +Cursor+.
+	 *
+	 * +Cursor+ is actually a module that works as a shortcut for creating three
+	 * kinds of cursors: +SequentialCursor+, +ScrollCursor+ and +InsertCursor+.
+	 *
+	 * There are other classes for supporting some data types not available in
+	 * Ruby: +Slob+, +SlobStat+ and +Interval+.
+	 *
+	 * Again, +Interval+ is actually a module that works as a shortcut for
+	 * creating two kinds of intervals: +IntervalYTM+ and +IntervalDTS+.
+	 */
 	rb_mInformix = rb_define_module("Informix");
 
 	/* class Slob --------------------------------------------------------- */
