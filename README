@@ -45,32 +45,32 @@ http://ruby-informix.rubyforge.org/doc
 
 == Examples
 
-* Connecting to a database
+=== Connecting to a database
 
     db = Informix.connect('stores')
 
-* Fetching all records from a table
+=== Fetching all records from a table
 
     cur = db.cursor('select * from stock')
     cur.open
     records = cur.fetch_all
     cur.drop # or close, if you want to reopen it later
 
-* Same thing, with blocks
+=== Same thing, with blocks
 
     records = db.cursor('select * from stock') do |cur|
       cur.open
       cur.fetch_all
     end
 
-* Inserting records
+=== Inserting records
 
     stmt = db.prepare('insert into state values(?, ?)')
     stmt.execute('CA', 'California')
     stmt.call('NM', 'New Mexico')
     stmt['TX', 'Texas']
 
-* Iterating over a table using a hash (shortcut)
+=== Iterating over a table using a hash (shortcut)
 
     db.each_hash('select * from customers') do |cust|
       puts "#{cust['firstname']} #{cust['lastname']}"
