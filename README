@@ -47,31 +47,33 @@ http://ruby-informix.rubyforge.org/doc
 
 * Connecting to a database
 
-    db = Informix.connect(dbname)
+    db = Informix.connect('stores')
 
 * Fetching all records from a table
 
-    cur = db.cursor('select * from stores')
+    cur = db.cursor('select * from stock')
     cur.open
     records = cur.fetch_all
+    cur.drop # or close, if you want to reopen it later
 
 * Same thing, with blocks
 
-    records = db.cursor('select * from stores') do |cur|
+    records = db.cursor('select * from stock') do |cur|
       cur.open
       cur.fetch_all
     end
 
 * Inserting records
 
-    stmt = db.prepare('insert into states values(?, ?)')
+    stmt = db.prepare('insert into state values(?, ?)')
     stmt.execute('CA', 'California')
+    stmt.call('NM', 'New Mexico')
     stmt['TX', 'Texas']
 
 * Iterating over a table using a hash (shortcut)
 
     db.each_hash('select * from customers') do |cust|
-      puts "#{cust[:firstname]} #{cust[:lastname]}"
+      puts "#{cust['firstname']} #{cust['lastname']}"
     end
 
 More examples can be found at:
