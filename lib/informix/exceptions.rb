@@ -1,4 +1,4 @@
-# $Id: exceptions.rb,v 1.1 2008/03/29 00:31:32 santana Exp $
+# $Id: exceptions.rb,v 1.2 2008/03/29 01:38:35 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -36,12 +36,14 @@ module Informix
   ExcInfo = Struct.new(:sql_code, :sql_state, :class_origin, :subclass_origin,
                        :message, :server_name, :connection_name)
 
+  # The +ExcInfo+ class works as an object representation of an Informix
+  # error state
   class ExcInfo
     FORMAT = "%-15s: %s\n".freeze
 
     # excinfo.to_s => string
     #
-    # Returns a string representation of self.
+    # Returns a string representation of the error.
     def to_s
       ret = "\n"
       each_pair do |member, value|
@@ -51,6 +53,9 @@ module Informix
     end
   end # class ExcInfo
 
+  # The +Error+ class is the base class for the rest of the exception classes
+  # used in this extension. It works as a collection of +ExcInfo+ objects
+  # when an error condition occurs.
   class Error < StandardError
     include Enumerable
 
@@ -71,9 +76,8 @@ module Informix
         @info = []
         super
       when Array
-        raise(TypeError, "Array may contain only Informix::ExcInfo structs") \
-          if v.any? {|e| !(ExcInfo === e) }
-        @info = v
+        return @info = v if v.all? {|e| ExcInfo === e}
+        raise(TypeError, "Array may contain only Informix::ExcInfo structs")
       else
         raise(TypeError,
                  "Expected string, or array of Informix::ExcInfo, as argument")
@@ -142,7 +146,6 @@ module Informix
     def sql_code
       @info.size > 0 ? @info[0].sql_code : 0
     end
-
   end # class Error
 
   class Warning < StandardError; end  

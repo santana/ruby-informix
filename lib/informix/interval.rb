@@ -1,4 +1,4 @@
-# $Id: interval.rb,v 1.1 2008/03/29 00:31:33 santana Exp $
+# $Id: interval.rb,v 1.2 2008/03/29 01:38:35 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -28,8 +28,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 module Informix
-  # Used for sending and retrieving INTERVAL values to/from Informix.
-  # It can be used in some expressions with Numeric, Date, DateTime and Time.
+  # The +IntervalBase+ class is used for sending and retrieving INTERVAL
+  # values to/from Informix.
+  #
+  # It can be used in some expressions with +Numeric+, +Date+, +DateTime+ and
+  # +Time+.
   class IntervalBase
     include Comparable
 
@@ -37,7 +40,7 @@ module Informix
 
     # IntervalBase.new(val)  =>  interval
     #
-    # Creates an IntervalBase object with +val+ as value.
+    # Creates an +Interval+ object with +val+ as value.
     def initialize(val)
       return @val = val if Numeric === val
       raise TypeError, "Expected Numeric" 
@@ -46,8 +49,10 @@ module Informix
     def +@; self end
     def -@; self.class.new(-@val) end
 
-    # interval + numeric  => interval
-    # interval + interval  => interval
+    # Adds an +Interval+ object to a +Numeric+ or another compatible +Interval+
+    #
+    #   interval + numeric  => interval
+    #   interval + interval => interval
     def +(obj)
       case obj
       when Numeric
@@ -59,39 +64,45 @@ module Informix
       end
     end
 
-    # interval*numeric  => interval
+    # Multiplies an +Interval+ object by a +Numeric+
+    #
+    #   interval*numeric  => interval
     def *(n)
       return self.class.new(@val*n) if Numeric === n
       raise TypeError, "Expected Numeric"
     end
 
-    # interval/numeric  => interval
+    # Divides an +Interval+ object by a +Numeric+
+    #
+    #   interval/numeric  => interval
     def /(n)
       return self.class.new(@val/n) if Numeric === n
       raise TypeError, "Expected Numeric"
     end
 
-    # interval1 <=> interval2  => true or false
+    # Compares two compatible +Interval+ objects.
     #
-    # Compares two compatible Interval objects.
+    #   interval1 <=> interval2  => true or false
     def <=>(ivl)
       return @val <=> ivl.val if self.class === ivl
       raise ArgumentError, "Incompatible qualifiers"
     end
 
-    # invl.to_a   => array
+    # Returns the fields of an +Interval+ object as an +Array+
     #
-    # Returns the fields of invl as an Array
+    #   invl.to_a   => array
     def to_a; @fields end
 
   end # class IntervalBase
 
+  # The +IntervalYTM+ class is an Interval class dedicated only to
+  # represent intervals in the scope YEAR TO MONTH.
   class IntervalYTM < IntervalBase
     attr_reader :years, :months
 
-    # IntervalYTM.new(val)  =>  interval
-    #
     # Creates an IntervalYTM object with +val+ as value.
+    #
+    #   IntervalYTM.new(val)  =>  interval
     def initialize(val)
       super
       @val = val.to_i
@@ -103,8 +114,8 @@ module Informix
       @fields = [ @years, @months ]
     end
 
-    # interval + date     => date
-    # interval + datetime => datetime
+    #   interval + date     => date
+    #   interval + datetime => datetime
     def +(obj)
       case obj
       when Date, DateTime
@@ -114,28 +125,30 @@ module Informix
       end
     end
 
-    # invl.to_s   => string
-    #
     # Returns an ANSI SQL standards compliant string representation
+    #
+    #   invl.to_s   => string
     def to_s; "%d-%02d" % [@years, @months.abs] end
 
-    # invl.to_years  => numeric
-    #
     # Converts a invl to years
+    #
+    #   invl.to_years  => numeric
     def to_years; Rational === @val ? @val/12 : @val/12.0 end
 
-    # invl.to_months  => numeric
-    #
     # Converts invl to months
+    #
+    #   invl.to_months  => numeric
     def to_months; @val end
   end # class IntervalYTM
 
+  # The +IntervalDTS+ class is an Interval class dedicated only to
+  # represent intervals in the scope DAY TO SECOND.
   class IntervalDTS < IntervalBase
     attr_reader :days, :hours, :minutes, :seconds
 
-    # IntervalDTS.new(val)  =>  interval
-    #
     # Creates an IntervalDTS object with +val+ as value.
+    #
+    #   IntervalDTS.new(val)  =>  interval
     def initialize(val)
       super
       @days, @hours = @val.abs.divmod(24*60*60)
@@ -148,8 +161,8 @@ module Informix
       @fields = [ @days, @hours, @minutes, @seconds ]
     end
 
-    # interval + datetime => datetime
-    # interval + time     => time
+    #   interval + datetime => datetime
+    #   interval + time     => time
     def +(obj)
       case obj
       when DateTime
@@ -161,46 +174,46 @@ module Informix
       end
     end
 
-    # invl.to_s   => string
-    #
     # Returns an ANSI SQL standards compliant string representation
+    #
+    #   invl.to_s   => string
     def to_s
       "%d %02d:%02d:%08.5f" % [@days, @hours.abs, @minutes.abs, @seconds.abs]
     end
 
-    # invl.to_days  => numeric
-    #
     # Converts invl to days
+    #
+    #   invl.to_days  => numeric
     def to_days; Rational === @val ? @val/60/60/24 : @val/60.0/60/24 end
 
-    # invl.to_hours  => numeric
-    #
     # Converts invl to hours
+    #
+    #   invl.to_hours  => numeric
     def to_hours; Rational === @val ? @val/60/60 : @val/60.0/60 end
 
-    # invl.to_minutes  => numeric
-    #
     # Converts invl to minutes
+    #
+    #   invl.to_minutes  => numeric
     def to_minutes; Rational === @val ? @val/60 : @val/60.0 end
 
-    # invl.to_seconds  => numeric
-    #
     # Converts invl to seconds
+    #
+    #   invl.to_seconds  => numeric
     def to_seconds; @val end
   end # class IntervalDTS
 
   module Interval
-    # Interval.year_to_month(years = 0, months = 0)         =>  interval
-    # Interval.year_to_month(:years => yy, :months => mm)   =>  interval
-    #
     # Creates an Interval object in the year-to-month scope.
     #
-    # Interval.year_to_month(5)                           =>  '5-00'
-    # Interval.year_to_month(0, 3)                        =>  '0-03'
-    # Interval.year_to_month(5, 3)                        =>  '5-03'
-    # Interval.year_to_month(:years => 5.5)               =>  '5-06'
-    # Interval.year_to_month(:months => 3)                =>  '0-03'
-    # Interval.year_to_month(:years => 5.5, :months => 5) =>  '5-11'
+    #   Interval.year_to_month(years = 0, months = 0)         =>  interval
+    #   Interval.year_to_month(:years => yy, :months => mm)   =>  interval
+    #
+    #   Interval.year_to_month(5)                           =>  '5-00'
+    #   Interval.year_to_month(0, 3)                        =>  '0-03'
+    #   Interval.year_to_month(5, 3)                        =>  '5-03'
+    #   Interval.year_to_month(:years => 5.5)               =>  '5-06'
+    #   Interval.year_to_month(:months => 3)                =>  '0-03'
+    #   Interval.year_to_month(:years => 5.5, :months => 5) =>  '5-11'
     def self.year_to_month(*args)
       if args.size == 1 && Hash === args[0]
         years, months = args[0][:years], args[0][:months]
@@ -220,19 +233,19 @@ module Informix
       IntervalYTM.new(months)
     end
 
-    # Interval.day_to_second(days = 0, hours = 0,
-    #                        minutes = 0, seconds = 0)          => interval
-    # Interval.day_to_second(:days => dd, :hours => hh,
-    #                        :minutes => mm, :seconds => ss)    => interval
-    #
     # Creates an Interval object in the day-to-second scope.
     #
-    # Interval.day_to_second(5, 3)                      # => '5 03:00:00.00000'
-    # Interval.day_to_second(0, 2, 0, 30)               # => '0 02:00:30.00000'
-    # Interval.day_to_second(:hours=>2.5)               # => '0 02:30:00.00000'
-    # Interval.day_to_second(:seconds=>Rational(151,10))# => '0 00:00:15.10000'
-    # Interval.day_to_second(:seconds=> 20.13)          # => '0 00:00:20.13000'
-    # Interval.day_to_second(:days=>1.5, :hours=>2)     # => '1 14:00:00.00000'
+    #   Interval.day_to_second(days = 0, hours = 0,
+    #                        minutes = 0, seconds = 0)          => interval
+    #   Interval.day_to_second(:days => dd, :hours => hh,
+    #                        :minutes => mm, :seconds => ss)    => interval
+    #
+    #   Interval.day_to_second(5, 3)                      # => '5 03:00:00.00000'
+    #   Interval.day_to_second(0, 2, 0, 30)               # => '0 02:00:30.00000'
+    #   Interval.day_to_second(:hours=>2.5)               # => '0 02:30:00.00000'
+    #   Interval.day_to_second(:seconds=>Rational(151,10))# => '0 00:00:15.10000'
+    #   Interval.day_to_second(:seconds=> 20.13)          # => '0 00:00:20.13000'
+    #   Interval.day_to_second(:days=>1.5, :hours=>2)     # => '1 14:00:00.00000'
     def self.day_to_second(*args)
       if args.size == 1 && Hash === args[0]
         h = args[0]

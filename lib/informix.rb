@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.1 2008/03/29 00:31:32 santana Exp $
+# $Id: informix.rb,v 1.2 2008/03/29 01:38:34 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -33,14 +33,23 @@ require 'informix/scrollcursor'
 
 # The +Informix+ module contains the mechanisms for connecting to and
 # taking advantage of an existing Informix database by means of a
-# simple model, similar to the one found in ESQL/C
+# simple model, similar to the one used in ESQL/C.
+#
+# The interaction with an Informix database is made basically through three
+# classes: +Database+, +Statement+ and +Cursor+.
+#
+# +Cursor+ is actually a module that works as a shortcut for creating three
+# kinds of cursors: +SequentialCursor+, +ScrollCursor+ and +InsertCursor+.
+#
+# There are other classes for supporting some data types not available in
+# Ruby: +Slob+, +SlobStat+ and +Interval+.
+#
+# Interval is actually a module that works as a shortcut for creating two
+# kinds of intervals: +IntervalYTM+ and +IntervalDTS+.
 module Informix
   VERSION = "0.7.0"
   VERSION.freeze
 
-  # Informix.connect(dbname,user=nil,password=nil)              => db
-  # Informix.connect(dbname,user=nil,password=nil){|db| block}  => obj
-  #
   # Creates a <code>Database</code> object connected to <i>dbname</i> as
   # <i>user</i> with <i>password</i>. If these are not given, connects to
   # <i>dbname</i> as the current user.
@@ -48,14 +57,17 @@ module Informix
   # The Database object is passed to the block if it's given, and automatically
   # closes the connection when the block terminates, returning the value of
   # the block.
+  #
+  #   Informix.connect(dbname,user=nil,password=nil)              => db
+  #   Informix.connect(dbname,user=nil,password=nil){|db| block}  => obj
   def self.connect(dbname, user = nil, password = nil, &block)
     Database.open(dbname, user, password, &block)
   end
 
-  # Informix.version => string
-  #
   # Returns the version of this Ruby/Informix driver.
   # Note that this is NOT the Informix database version.
+  #
+  #   Informix.version => string
   def self.version
     VERSION
   end
@@ -63,9 +75,6 @@ module Informix
   class Database
     private_class_method :new
 
-    # Database.open(dbname, user=nil, password=nil)            => db
-    # Database.open(dbname,user=nil,password=nil){|db| block}  => obj
-    #
     # Creates a <code>Database</code> object connected to <i>dbname</i> as
     # <i>user</i> with <i>password</i>. If these are not given, connects to
     # <i>dbname</i> as the current user.
@@ -73,15 +82,15 @@ module Informix
     # The Database object is passed to the block if it's given, and
     # automatically closes the connection when the block terminates, returning
     # the value of the block.
+    #
+    #   Database.open(dbname, user=nil, password=nil)            => db
+    #   Database.open(dbname,user=nil,password=nil){|db| block}  => obj
     def self.open(dbname, user=nil, password=nil)
       db = new(dbname, user, password)
       return db unless block_given?
       begin yield db ensure db.close end
     end
 
-    # db.prepare(query)                  => statement
-    # db.prepare(query) {|stmt| block }  => obj
-    #
     # Creates a <code>Statement</code> object based on <i>query</i>.
     #
     # In the first form the Statement object is returned.
@@ -92,12 +101,13 @@ module Informix
     # <i>query</i> may contain '?' placeholders for input parameters;
     # it must NOT be a query returning more than one row
     # (use <code>Database#cursor</code> instead.)
+    #
+    #   db.prepare(query)                  => statement
+    #   db.prepare(query) {|stmt| block }  => obj
     def prepare(query, &block)
       Statement.new(self, query, &block)
     end
 
-    # db.cursor(query, options = nil) => cursor
-    #
     # Returns a <code>Cursor</code> object based on <i>query</i>.
     # <i>query</i> may contain '?' placeholders for input parameters.
     #
@@ -105,6 +115,8 @@ module Informix
     #
     #   :scroll => true or false
     #   :hold   => true or false
+    #
+    #   db.cursor(query, options = nil) => cursor
     def cursor(query, options = nil, &block)
       Cursor.new(self, query, options, &block)
     end
@@ -117,9 +129,6 @@ module Informix
       Cursor.open(self, query, options) {|cur| cur.each_hash(&block)}
     end
 
-    # db.slob(type = Slob::CLOB, options = nil)                  => slob
-    # db.slob(type = Slob::CLOB, options = nil) {|slob| block }  => obj
-    #
     # Creates a Smart Large Object of type <i>type</i>.
     # Returns a <code>Slob</code> object pointing to it.
     #
@@ -136,6 +145,9 @@ module Informix
     #   :maxbytes    => Maximum size
     #   :col_info    => Get the previous values from the column-level storage
     #                   characteristics for the specified database column
+    #
+    #   db.slob(type = Slob::CLOB, options = nil)                  => slob
+    #   db.slob(type = Slob::CLOB, options = nil) {|slob| block }  => obj
     def slob(type = Slob::CLOB, options = nil, &block)
       Slob.new(self, type, options, &block)
     end
@@ -145,9 +157,6 @@ module Informix
     class << self
     alias _new new
 
-    # Statement.new(db, query)                 => statement
-    # Statement.new(db, query) {|stmt| block } => obj
-    #
     # Creates a <code>Statement</code> object based on <i>query</i> in the
     # context of the <i>db</i> <code>Database</code> object.
     #
@@ -159,6 +168,9 @@ module Informix
     # <i>query</i> may contain '?' placeholders for input parameters;
     # it must not be a query returning more than one row
     # (use <code>Cursor</code> instead.)
+    #
+    #   Statement.new(db, query)                 => statement
+    #   Statement.new(db, query) {|stmt| block } => obj
     def new(dbname, query)
       stmt = _new(dbname, query)
       return stmt if !block_given?
@@ -171,9 +183,6 @@ module Informix
     class << self
     alias _new new
 
-    # Slob.new(db, type = Slob::CLOB, options = nil)                  => slob
-    # Slob.new(db, type = Slob::CLOB, options = nil) {|slob| block }  => obj
-    #
     # Creates a Smart Large Object of type <i>type</i> in the <i>db</i>
     # <code>Database</code> object.
     #
@@ -192,6 +201,9 @@ module Informix
     #   :maxbytes    => Maximum size
     #   :col_info    => Get the previous values from the column-level storage
     #                   characteristics for the specified database column
+    #
+    #   Slob.new(db, type = Slob::CLOB, options = nil)                  => slob
+    #   Slob.new(db, type = Slob::CLOB, options = nil) {|slob| block }  => obj
     def new(dbname, query)
       slob = _new(dbname, query)
       return slob if !block_given?
@@ -201,9 +213,6 @@ module Informix
   end # class Slob
 
   module Cursor
-    # Cursor.new(database, query, options)                    => cursor
-    # Cursor.new(database, query, options) {|cursor| block }  => obj
-    #
     # Creates a Cursor object based on <i>query</i> using <i>options</i>
     # in the context of <i>database</i> but does not open it.
     #
@@ -217,6 +226,9 @@ module Informix
     #
     #   :scroll => true or false
     #   :hold   => true or false
+    #
+    #   Cursor.new(database, query, options)                    => cursor
+    #   Cursor.new(database, query, options) {|cursor| block }  => obj
     def self.new(db, query, options = nil, &block)
       if options
         Hash === options||raise(TypeError,"options must be supplied as a Hash")
@@ -226,9 +238,6 @@ module Informix
       begin yield cur ensure cur.drop end
     end
 
-    # Cursor.open(db, query, options)                    => cursor
-    # Cursor.open(db, query, options) {|cursor| block }  => obj
-    #
     # Creates and opens a Cursor object based on <i>query</i> using
     # <i>options</i> in the context of the Database object <i>db</i>.
     #
@@ -243,6 +252,9 @@ module Informix
     #   :scroll => true or false
     #   :hold   => true or false
     #   :params => input parameters as an Array or nil
+    #
+    #   Cursor.open(db, query, options)                    => cursor
+    #   Cursor.open(db, query, options) {|cursor| block }  => obj
     def self.open(db, query, options = nil, &block)
       params = nil
       if options
@@ -256,5 +268,4 @@ module Informix
       begin yield cur ensure cur.drop end
     end
   end # module Cursor
-
 end # module Informix

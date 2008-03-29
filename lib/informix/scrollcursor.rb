@@ -1,4 +1,4 @@
-# $Id: scrollcursor.rb,v 1.1 2008/03/29 00:31:33 santana Exp $
+# $Id: scrollcursor.rb,v 1.2 2008/03/29 01:38:35 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -30,10 +30,14 @@
 require 'informixc'
 
 module Informix
+  # The +ScrollCursor+ class adds +Array+-like capabilities to the
+  # +SequentialCursor+ class
   class ScrollCursor < SequentialCursor
+    private :subseq, :slice0
+
     # Provides the Array-like functionality for scroll cursors when using the
     # cursor[start, length] syntax
-    def subseq(start, length, type)
+    def subseq(start, length, type) #:nodoc:
       first = entry(start, type, false)
       return if first.nil?
 
@@ -42,7 +46,7 @@ module Informix
     end
 
     # Base function for slice and slice_hash methods
-    def slice0(args, type)
+    def slice0(args, type) #:nodoc:
       return entry(args[0], type, false) if args.size == 1
       if args.size == 2
         return subseq(args[0], args[1], type) unless args[1] < 0
@@ -51,11 +55,6 @@ module Informix
       raise(ArgumentError, "wrong number of arguments (%d for 2)", args.size)
     end
 
-    # cursor[index]  => array or nil
-    # cursor[start, length]  => array or nil
-    # cursor.slice(index)  => array or nil
-    # cursor.slice(start, length)  => array or nil
-    #
     # Returns the record at _index_, or returns a subarray starting at _start_
     # and continuing for _length_ records. Negative indices count backward from
     # the end of the cursor (-1 is the last element). Returns nil if the
@@ -64,14 +63,17 @@ module Informix
     # <b>Warning</b>: if the (starting) index is negative and out of range, the
     # position in the cursor is set to the last record. Otherwise the current
     # position in the cursor is preserved.
+    #
+    #   cursor[index]                => array or nil
+    #   cursor[start, length]        => array or nil
+    #   cursor.slice(index)          => array or nil
+    #   cursor.slice(start, length)  => array or nil
     def slice(*args)
       slice0(args, Array)
     end
 
     alias [] slice
 
-    # cursor.slice!(index)  => array or nil
-    #
     # Returns the record at _index_. Negative indices count backward from
     # the end of the cursor (-1 is the last element). Returns nil if the index
     # is out of range.
@@ -81,13 +83,12 @@ module Informix
     # <b>Warning</b>: if the index is negative and out of range, the
     # position in the cursor is set to the last record. Otherwise the current
     # position in the cursor is preserved.
+    #
+    #   cursor.slice!(index)  => array or nil
     def slice!(index)
       entry(index, Array, true)
     end
 
-    # cursor.slice_hash(index)  => hash or nil
-    # cursor.slice_hash(start, length)  => array or nil
-    #
     # Returns the record at _index_, or returns a subarray starting at _start_
     # and continuing for _length_ records. Negative indices count backward from
     # the end of the cursor (-1 is the last element). Returns nil if the
@@ -96,12 +97,13 @@ module Informix
     # <b>Warning</b>: if the (starting) index is negative and out of range, the
     # position in the cursor is set to the last record. Otherwise the current
     # position in the cursor is preserved.
+    #
+    #   cursor.slice_hash(index)          => hash or nil
+    #   cursor.slice_hash(start, length)  => array or nil
     def slice_hash(*args)
       slice0(args, Hash)
     end
 
-    # cursor.slice_hash!(index)  => hash or nil
-    #
     # Returns the record at _index_. Negative indices count backward from
     # the end of the cursor (-1 is the last element). Returns nil if the index
     # is out of range.
@@ -111,192 +113,194 @@ module Informix
     # <b>Warning</b>: if the index is negative and out of range, the
     # position in the cursor is set to the last record. Otherwise the current
     # position in the cursor is preserved.
+    #
+    #   cursor.slice_hash!(index)  => hash or nil
     def slice_hash!(index)
       entry(index, Hash, true)
     end
 
-    # cursor.prev(offset = 1)  => array or nil
-    #
     # Returns the previous _offset_ th record. Negative indices count
     # forward from the current position. Returns nil if the _offset_ is out of
     # range.
+    #
+    #   cursor.prev(offset = 1)  => array or nil
     def prev(offset = 1)
       rel(-offset, Array, false)
     end
 
-    # cursor.prev!(offset = 1)  => array or nil
-    #
     # Returns the previous _offset_ th record. Negative indices count
     # forward from the current position. Returns nil if the _offset_ is out of
     # range.
     #
     # Stores the record fetched always in the same Array object.
+    #
+    #   cursor.prev!(offset = 1)  => array or nil
     def prev!(offset = 1)
       rel(-offset, Array, true)
     end
 
-    # cursor.prev_hash(offset = 1)  => hash or nil
-    #
     # Returns the previous _offset_ th record. Negative indices count
     # forward from the current position. Returns nil if the _offset_ is out of
     # range.
+    #
+    #   cursor.prev_hash(offset = 1)  => hash or nil
     def prev_hash(offset = 1)
       rel(-offset, Hash, false)
     end
 
-    # cursor.prev_hash!(offset = 1)  => hash or nil
-    #
     # Returns the previous _offset_ th record. Negative indices count
     # forward from the current position. Returns nil if the _offset_ is out of
     # range.
     #
     # Stores the record fetched always in the same Hash object.
+    #
+    #   cursor.prev_hash!(offset = 1)  => hash or nil
     def prev_hash!(offset = 1)
       rel(-offset, Hash, true)
     end
 
-    # cursor.next(offset = 1)  => array or nil
-    #
     # Returns the next _offset_ th record. Negative indices count
     # backward from the current position. Returns nil if the _offset_ is out of
     # range.
+    #
+    #   cursor.next(offset = 1)  => array or nil
     def next(offset = 1)
       rel(offset, Array, false)
     end
 
-    # cursor.next!(offset = 1)  => array or nil
-    #
     # Returns the next _offset_ th record. Negative indices count
     # backward from the current position. Returns nil if the _offset_ is out of
     # range.
     #
     # Stores the record fetched always in the same Array object.
+    #
+    #   cursor.next!(offset = 1)  => array or nil
     def next!(offset = 1)
       rel(offset, Array, true)
     end
 
-    # cursor.next_hash(offset = 1)  => hash or nil
-    #
     # Returns the next _offset_ th record. Negative indices count
     # backward from the current position. Returns nil if the _offset_ is out of
     # range.
+    #
+    #   cursor.next_hash(offset = 1)  => hash or nil
     def next_hash(offset = 1)
       rel(offset, Hash, false)
     end
 
-    # cursor.next_hash!(offset = 1)  => hash or nil
-    #
     # Returns the next _offset_ th record. Negative indices count
     # backward from the current position. Returns nil if the _offset_ is out of
     # range.
+    #
+    #   cursor.next_hash!(offset = 1)  => hash or nil
     def next_hash!(offset = 1)
       rel(offset, Hash, true)
     end
 
-    # cursor.first  => array or nil
-    #
     # Returns the first record of the cursor. If the cursor is empty,
     # returns nil.
+    #
+    #   cursor.first  => array or nil
     def first
       entry(0, Array, false)
     end
 
-    # cursor.first!  => array or nil
-    #
     # Returns the first record of the cursor. If the cursor is empty,
     # returns nil.
     #
     # Stores the record fetched always in the same Array object.
+    #
+    #   cursor.first!  => array or nil
     def first!
       entry(0, Array, true)
     end
 
-    # cursor.first_hash  => hash or nil
-    #
     # Returns the first record of the cursor. If the cursor is empty,
     # returns nil.
+    #
+    #   cursor.first_hash  => hash or nil
     def first_hash
       entry(0, Hash, false)
     end
 
-    # cursor.first_hash!  => hash or nil
-    #
     # Returns the first record of the cursor. If the cursor is empty,
     # returns nil.
     #
     # Stores the record fetched always in the same Hash object.
+    #
+    #   cursor.first_hash!  => hash or nil
     def first_hash!
       entry(0, Hash, true)
     end
 
-    # cursor.last  => array or nil
-    #
     # Returns the last record of the cursor. If the cursor is empty,
     # returns nil.
+    #
+    #   cursor.last  => array or nil
     def last
       entry(-1, Array, false)
     end
 
-    # cursor.last!  => array or nil
-    #
     # Returns the last record of the cursor. If the cursor is empty,
     # returns nil.
     #
     # Stores the record fetched always in the same Array object.
+    #
+    #   cursor.last!  => array or nil
     def last!
       entry(-1, Array, true)
     end
 
-    # cursor.last_hash  => hash or nil
-    #
     # Returns the last record of the cursor. If the cursor is empty,
     # returns nil.
+    #
+    #   cursor.last_hash  => hash or nil
     def last_hash
       entry(-1, Hash, false)
     end
 
-    # cursor.last_hash!  => hash or nil
-    #
     # Returns the last record of the cursor. If the cursor is empty,
     # returns nil.
     #
     # Stores the record fetched always in the same Hash object.
+    #
+    #   cursor.last_hash!  => hash or nil
     def last_hash!
       entry(-1, Hash, true)
     end
 
-    # cursor.current  => array or nil
-    #
     # Returns the current record of the cursor. If the cursor is empty,
     # returns nil.
+    #
+    #   cursor.current  => array or nil
     def current
       entry(nil, Array, false)
     end
 
-    # cursor.current!  => array or nil
-    #
     # Returns the current record of the cursor. If the cursor is empty,
     # returns nil.
     #
     # Stores the record fetched always in the same Array object.
+    #
+    #   cursor.current!  => array or nil
     def current!
       entry(nil, Array, true)
     end
 
-    # cursor.current_hash  => hash or nil
-    #
     # Returns the current record of the cursor. If the cursor is empty,
     # returns nil.
+    #
+    #   cursor.current_hash  => hash or nil
     def current_hash
       entry(nil, Hash, false)
     end
 
-    # cursor.current_hash!  => hash or nil
-    #
     # Returns the current record of the cursor. If the cursor is empty,
     # returns nil.
     #
     # Stores the record fetched always in the same Hash object.
+    #
+    #   cursor.current_hash!  => hash or nil
     def current_hash!
       entry(nil, Hash, true)
     end
