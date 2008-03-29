@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.7 2008/03/29 18:19:22 santana Exp $
+# $Id: informix.rb,v 1.8 2008/03/29 18:20:10 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -283,6 +283,8 @@ module Informix
   end # class Slob
 
   module Cursor
+    private_class_method :new0
+
     # Shortcut to create a cursor object based on +query+ using +options+.
     #
     # The cursor object is passed to the block if it's given, and
