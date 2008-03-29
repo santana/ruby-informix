@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.16 2008/03/29 07:04:35 santana Exp $ */
+/* $Id: informixc.ec,v 1.17 2008/03/29 18:19:21 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.16 2008/03/29 07:04:35 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.17 2008/03/29 18:19:21 santana Exp $";
 
 #include "ruby.h"
 
@@ -3177,7 +3177,7 @@ void Init_informixc(void)
 	rb_define_const(rb_cSlob, "EXCLUSIVE_MODE", INT2FIX(LO_EXCLUSIVE_MODE));
 
 	/*
-	 * The +Slob::Stat+ class
+	 * The +Slob+::+Stat+ class
 	 */
 	rb_cSlobStat = rb_define_class_under(rb_cSlob, "Stat", rb_cObject);
 	rb_define_alloc_func(rb_cSlobStat, slobstat_alloc);
@@ -3193,7 +3193,10 @@ void Init_informixc(void)
 	rb_define_method(rb_cSlobStat, "size", rb_slobstat_size, 0);
 
 	/*
-	 * The +Database+ class
+	 * The +Database+ class lets you open a connection to an existing database
+	 * (usually done with +Informix+.+connect+) and provides shortcuts for
+	 * creating +Cursor+, +Statement+ and +Slob+ objects, among other database
+	 * actions.
 	 */
 	rb_cDatabase = rb_define_class_under(rb_mInformix, "Database", rb_cObject);
 	rb_define_alloc_func(rb_cDatabase, database_alloc);
@@ -3206,7 +3209,14 @@ void Init_informixc(void)
 	rb_define_method(rb_cDatabase, "columns", rb_database_columns, 1);
 
 	/*
-	 * The +Statement+ class
+	 * The +Statement+ class lets you prepare and execute any SQL statement,
+	 * (usually done with +Database#prepare+)
+	 * paremeterized or not, that does not return records. This includes
+	 * DDL (CREATE, DROP, ALTER), DCL (GRANT, REVOKE) and DML (INSERT, UPDATE,
+	 * DELETE) statements, and SELECTs that return <b>only one</b> record at
+	 * most.
+	 *
+	 * To retrieve more than one record, use a +Cursor+ instead.
 	 */
 	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement",rb_cObject);
 	rb_define_alloc_func(rb_cStatement, statement_alloc);
@@ -3215,7 +3225,7 @@ void Init_informixc(void)
 	rb_define_method(rb_cStatement, "drop", statement_drop, 0);
 
 	/*
-	 * The +CursorBase+ class
+	 * The +CursorBase+ class provides the basic functionality for any cursor.
 	 */
 	rb_cCursorBase=rb_define_class_under(rb_mInformix,"CursorBase",rb_cObject);
 	rb_define_alloc_func(rb_cCursorBase, cursorbase_alloc);
@@ -3235,7 +3245,8 @@ void Init_informixc(void)
 	rb_define_private_method(rb_cSequentialCursor, "each_by0", each_by, 2);
 
 	/*
-	 * The +InsertCursor+ class
+	 * The +InsertCursor+ class adds insertion capabilities to the +CursorBase+
+	 * class.
 	 */
 	rb_cInsertCursor = rb_define_class_under(rb_mInformix, "InsertCursor", rb_cCursorBase);
 	rb_define_method(rb_cInsertCursor, "put", inscur_put, -1);
@@ -3250,7 +3261,12 @@ void Init_informixc(void)
 	rb_define_private_method(rb_cScrollCursor, "rel", scrollcur_rel, 3);
 
 	/*
-	 * The +Cursor+ module
+	 * The +Cursor+ module provides shortcuts for creating cursor objects that
+	 * lets you retrieve, update and insert records.
+	 * 
+	 * Depending on the query and options given, one of three classes of
+	 * cursors is returned: +SequentialCursor+, +ScrollCursor+ or
+	 * +InsertCursor+.
 	 */
 	rb_mCursor = rb_define_module_under(rb_mInformix, "Cursor");
 	rb_define_singleton_method(rb_mCursor, "new0", rb_cursor_s_new0, -1);

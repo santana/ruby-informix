@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.6 2008/03/29 07:35:03 santana Exp $
+# $Id: informix.rb,v 1.7 2008/03/29 18:19:22 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -35,16 +35,25 @@ module Informix
   VERSION = "0.7.0"
   VERSION.freeze
 
-  # Creates a <code>Database</code> object connected to <i>dbname</i> as
-  # <i>user</i> with <i>password</i>. If these are not given, connects to
-  # <i>dbname</i> as the current user.
+  # Shortcut to create a +Database+ object connected to +dbname+ as
+  # +user+ with +password+. If these are not given, connects to
+  # +dbname+ as the current user.
   #
-  # The Database object is passed to the block if it's given, and automatically
-  # closes the connection when the block terminates, returning the value of
-  # the block.
+  # The +Database+ object is passed to the block if it's given, and
+  # automatically closes the connection when the block terminates,
+  # returning the value of the block.
   #
-  #   Informix.connect(dbname,user = nil, password = nil)              => db
-  #   Informix.connect(dbname,user = nil,password = nil) {|db| block}  => obj
+  # Examples:
+  #
+  # Connecting to stores with our current credentials:
+  #   db = Informix.connect('stores')
+  #
+  # Same thing, using a block and using a different server. The connection is
+  # closed automatically when the block terminates.
+  #   result = Informix.connect('stores@server_shm') do |db|
+  #     # do something with db
+  #     # the last expression evaluated will be returned
+  #   done
   def self.connect(dbname, user = nil, password = nil, &block)
     Database.open(dbname, user, password, &block)
   end
@@ -57,7 +66,6 @@ module Informix
     VERSION
   end
 
-  # The +Database+ class
   class Database
     private_class_method :new
 
@@ -65,16 +73,13 @@ module Informix
     alias do immediate
     alias execute immediate
 
-    # Creates a <code>Database</code> object connected to <i>dbname</i> as
-    # <i>user</i> with <i>password</i>. If these are not given, connects to
-    # <i>dbname</i> as the current user.
+    # Creates a +Database+ object connected to +dbname+ as
+    # +user+ with +password+. If these are not given, connects to
+    # +dbname+ as the current user.
     #
-    # The Database object is passed to the block if it's given, and
+    # The +Database+ object is passed to the block if it's given, and
     # automatically closes the connection when the block terminates, returning
     # the value of the block.
-    #
-    #   Database.open(dbname, user = nil, password = nil)               => db
-    #   Database.open(dbname, user = nil, password = nil) {|db| block}  => obj
     def self.open(dbname, user=nil, password=nil)
       db = new(dbname, user, password)
       return db unless block_given?
@@ -85,42 +90,100 @@ module Informix
       end
     end
 
-    # Creates a <code>Statement</code> object based on <i>query</i>.
+    # Shortcut to create a +Statement+ object from +query+.
     #
-    # In the first form the Statement object is returned.
-    # In the second form the Statement object is passed to the block and when it
-    # terminates, the Statement object is dropped, returning the value of the
-    # block.
+    # The +Statement+ object is passed to the block if it's given, and
+    # automatically dropped when the block terminates, returning
+    # the value of the block.
     #
-    # <i>query</i> may contain '?' placeholders for input parameters;
-    # it must NOT be a query returning more than one row
-    # (use <code>Database#cursor</code> instead.)
+    # +query+ may contain '?' placeholders for input parameters;
+    # it must <b>NOT</b> be a query returning more than one row
+    # (use +Database#cursor+ instead.)
     #
-    #   db.prepare(query)                  => statement
-    #   db.prepare(query) {|stmt| block }  => obj
+    # Examples:
+    #
+    # Preparing a statement:
+    #   st = db.prepare('delete from orders where order_date = ?')
+    #
+    # Using a block:
+    #   query 'update items set quantity = ? where item_num = ?'
+    #   db.prepare(query) do |st|
+    #     # do something with st
+    #     # the last expression evaluated will be returned
+    #   end
     def prepare(query, &block)
       Statement.new(self, query, &block)
     end
 
-    # Returns a <code>Cursor</code> object based on <i>query</i>.
-    # <i>query</i> may contain '?' placeholders for input parameters.
+    # Shortcut to create a cursor object based on +query+ using +options+.
     #
-    # <i>options</i> must be a hash with the following possible keys:
+    # The cursor object is passed to the block if it's given, and
+    # automatically dropped when the block terminates, returning
+    # the value of the block.
+    #
+    # +query+ may contain '?' placeholders for input parameters.
+    #
+    # +options+ can be a Hash object with the following possible keys:
     #
     #   :scroll => true or false
     #   :hold   => true or false
     #
-    #   db.cursor(query, options = nil) => cursor
+    # Examples:
+    #
+    # This creates a +SequentialCursor+
+    #   cur = db.cursor('select * from orders where order_date > ?')
+    # This creates a +ScrollCursor+
+    #   cur = db.cursor('select * from customer', :scroll => true)
+    # This creates an +InsertCursor+
+    #   cur = db.cursor('insert into stock values(?, ?, ?, ?, ?, ?)')
     def cursor(query, options = nil, &block)
       Cursor.new(self, query, options, &block)
     end
 
+    # Shortcut to create, <b>open and iterate</b> a cursor object based on
+    # +query+ using +options+. The records are retrieved as arrays.
+    #
+    # The cursor object is passed to the block and
+    # automatically dropped when the block terminates. Returns __self__.
+    #
+    # +query+ may contain '?' placeholders for input parameters.
+    #
+    # +options+ can be a Hash object with the following possible keys:
+    #
+    #   :scroll => true or false
+    #   :hold   => true or false
+    #   :params => input parameters as an Array or nil
+    #
+    # Examples:
+    #
+    # Iterating over a table:
+    #   db.each('select * from customer') do |cust|
+    #     # do something with cust
+    #     puts "#{cust[0] cust[1]}"
+    #   end
+    # Same thing, using input parameters:
+    #   query = 'select * from orders where order_date = ?'
+    #   db.each(query, :params => [Date.today]) do |order|
+    #     # do something with order
+    #   end
     def each(query, options = nil, &block)
       Cursor.open(self, query, options) {|cur| cur.each(&block)}
+      self
     end
  
+    # Similar to +Database#each+, except that retrieves records as hashes
+    # instead of arrays.
+    #
+    # Examples:
+    #
+    # Iterating over a table:
+    #   db.each_hash('select * from customer') do |cust|
+    #     # do something with cust
+    #     puts "#{cust['fname'] cust['lname']}"
+    #   end
     def each_hash(query, options = nil, &block)
       Cursor.open(self, query, options) {|cur| cur.each_hash(&block)}
+      self
     end
 
     # Creates a Smart Large Object of type <i>type</i>.
@@ -220,22 +283,16 @@ module Informix
   end # class Slob
 
   module Cursor
-    # Creates a Cursor object based on <i>query</i> using <i>options</i>
-    # in the context of <i>database</i> but does not open it.
+    # Shortcut to create a cursor object based on +query+ using +options+.
     #
-    # In the first form the Cursor object is returned.
-    # In the second form the Cursor object is passed to the block and when it
-    # terminates, the Cursor object is dropped, returning the value of the
-    # block.
+    # The cursor object is passed to the block if it's given, and
+    # automatically dropped when the block terminates, returning
+    # the value of the block.
     #
-    # <i>options</i> can be nil or a Hash object with the following possible
-    # keys:
+    # +options+ can be a Hash object with the following possible keys:
     #
     #   :scroll => true or false
     #   :hold   => true or false
-    #
-    #   Cursor.new(database, query, options)                    => cursor
-    #   Cursor.new(database, query, options) {|cursor| block }  => obj
     def self.new(db, query, options = nil, &block)
       if options
         Hash === options||raise(TypeError,"options must be supplied as a Hash")
@@ -245,23 +302,18 @@ module Informix
       begin yield cur ensure cur.drop end
     end
 
-    # Creates and opens a Cursor object based on <i>query</i> using
-    # <i>options</i> in the context of the Database object <i>db</i>.
+    # Shortcut to create <b>and open</b> a cursor object based on +query+
+    # using +options+ in a single step.
     #
-    # In the first form the Cursor object is returned.
-    # In the second form the Cursor object is passed to the block and when it
-    # terminates, the Cursor object is dropped, returning the value of the
-    # block.
+    # The cursor object is passed to the block if it's given, and
+    # automatically dropped when the block terminates, returning
+    # the value of the block.
     #
-    # <i>options</i> can be nil or a Hash object with the following possible
-    # keys:
+    # +options+ can be a Hash object with the following possible keys:
     #
     #   :scroll => true or false
     #   :hold   => true or false
     #   :params => input parameters as an Array or nil
-    #
-    #   Cursor.open(db, query, options)                    => cursor
-    #   Cursor.open(db, query, options) {|cursor| block }  => obj
     def self.open(db, query, options = nil, &block)
       params = nil
       if options
