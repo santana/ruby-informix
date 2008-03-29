@@ -1,4 +1,4 @@
-# $Id: interval.rb,v 1.2 2008/03/29 01:38:35 santana Exp $
+# $Id: interval.rb,v 1.3 2008/03/29 20:32:57 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -202,18 +202,20 @@ module Informix
     def to_seconds; @val end
   end # class IntervalDTS
 
+  # The +Interval+ module provides shortcuts for creating +IntervalYTM+ and
+  # +IntervalDTS+ objects
   module Interval
-    # Creates an Interval object in the year-to-month scope.
+    # Shortcut to create an IntervalYTM object.
     #
-    #   Interval.year_to_month(years = 0, months = 0)         =>  interval
-    #   Interval.year_to_month(:years => yy, :months => mm)   =>  interval
+    #   Interval.year_to_month(years = 0, months = 0)       =>  interval
+    #   Interval.year_to_month(:years => yy, :months => mm) =>  interval
     #
-    #   Interval.year_to_month(5)                           =>  '5-00'
-    #   Interval.year_to_month(0, 3)                        =>  '0-03'
-    #   Interval.year_to_month(5, 3)                        =>  '5-03'
-    #   Interval.year_to_month(:years => 5.5)               =>  '5-06'
-    #   Interval.year_to_month(:months => 3)                =>  '0-03'
-    #   Interval.year_to_month(:years => 5.5, :months => 5) =>  '5-11'
+    #   Interval.year_to_month(5)                           #=>  '5-00'
+    #   Interval.year_to_month(0, 3)                        #=>  '0-03'
+    #   Interval.year_to_month(5, 3)                        #=>  '5-03'
+    #   Interval.year_to_month(:years => 5.5)               #=>  '5-06'
+    #   Interval.year_to_month(:months => 3)                #=>  '0-03'
+    #   Interval.year_to_month(:years => 5.5, :months => 5) #=>  '5-11'
     def self.year_to_month(*args)
       if args.size == 1 && Hash === args[0]
         years, months = args[0][:years], args[0][:months]
@@ -229,16 +231,20 @@ module Informix
       from_months(years*12 + months.to_i)
     end
 
+    # Shortcut to create an IntervalYTM object.
+    #
+    #   Interval.from_months(3)   #=>  '0-03'
+    #   Interval.from_months(71)  #=>  '5-11'
     def self.from_months(months)
       IntervalYTM.new(months)
     end
 
-    # Creates an Interval object in the day-to-second scope.
+    # Shortcut to create an IntervalDTS object.
     #
     #   Interval.day_to_second(days = 0, hours = 0,
-    #                        minutes = 0, seconds = 0)          => interval
+    #                          minutes = 0, seconds = 0)          => interval
     #   Interval.day_to_second(:days => dd, :hours => hh,
-    #                        :minutes => mm, :seconds => ss)    => interval
+    #                          :minutes => mm, :seconds => ss)    => interval
     #
     #   Interval.day_to_second(5, 3)                      # => '5 03:00:00.00000'
     #   Interval.day_to_second(0, 2, 0, 30)               # => '0 02:00:30.00000'
@@ -263,6 +269,10 @@ module Informix
       from_seconds(days*24*60*60 + hours*60*60 + minutes*60 + seconds)
     end
 
+    # Shortcut to create an IntervalDTS object.
+    #
+    #   Interval.from_seconds(9000)               #=> '0 02:30:00.00000'
+    #   Interval.from_seconds(Rational(151, 10))  #=> '0 00:00:15.10000'
     def self.from_seconds(seconds)
       IntervalDTS.new(seconds)
     end
