@@ -1,4 +1,4 @@
-# $Id: scrollcursor.rb,v 1.2 2008/03/29 01:38:35 santana Exp $
+# $Id: scrollcursor.rb,v 1.3 2008/03/29 05:19:15 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -33,28 +33,6 @@ module Informix
   # The +ScrollCursor+ class adds +Array+-like capabilities to the
   # +SequentialCursor+ class
   class ScrollCursor < SequentialCursor
-    private :subseq, :slice0
-
-    # Provides the Array-like functionality for scroll cursors when using the
-    # cursor[start, length] syntax
-    def subseq(start, length, type) #:nodoc:
-      first = entry(start, type, false)
-      return if first.nil?
-
-      records = length > 1 ? fetch_many0(length - 1, type) : []
-      records.unshift(first)
-    end
-
-    # Base function for slice and slice_hash methods
-    def slice0(args, type) #:nodoc:
-      return entry(args[0], type, false) if args.size == 1
-      if args.size == 2
-        return subseq(args[0], args[1], type) unless args[1] < 0
-        raise(ArgumentError, "length must be positive")
-      end
-      raise(ArgumentError, "wrong number of arguments (%d for 2)", args.size)
-    end
-
     # Returns the record at _index_, or returns a subarray starting at _start_
     # and continuing for _length_ records. Negative indices count backward from
     # the end of the cursor (-1 is the last element). Returns nil if the
@@ -303,6 +281,28 @@ module Informix
     #   cursor.current_hash!  => hash or nil
     def current_hash!
       entry(nil, Hash, true)
+    end
+
+    private
+
+    # Provides the Array-like functionality for scroll cursors when using the
+    # cursor[start, length] syntax
+    def subseq(start, length, type) #:nodoc:
+      first = entry(start, type, false)
+      return if first.nil?
+
+      records = length > 1 ? fetch_many0(length - 1, type) : []
+      records.unshift(first)
+    end
+
+    # Base function for slice and slice_hash methods
+    def slice0(args, type) #:nodoc:
+      return entry(args[0], type, false) if args.size == 1
+      if args.size == 2
+        return subseq(args[0], args[1], type) unless args[1] < 0
+        raise(ArgumentError, "length must be positive")
+      end
+      raise(ArgumentError, "wrong number of arguments (%d for 2)", args.size)
     end
   end # class ScrollCursor
 end # module Informix
