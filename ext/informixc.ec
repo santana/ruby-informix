@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.13 2008/03/29 06:03:26 santana Exp $ */
+/* $Id: informixc.ec,v 1.14 2008/03/29 06:29:08 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.13 2008/03/29 06:03:26 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.14 2008/03/29 06:29:08 santana Exp $";
 
 #include "ruby.h"
 
@@ -3086,7 +3086,33 @@ void Init_informixc(void)
 	 */
 	rb_mInformix = rb_define_module("Informix");
 
-	/* class Slob --------------------------------------------------------- */
+	/*
+	 * The +Slob+ class is the Ruby interface for handling Smart Large Objects.
+	 * It provides methods for every action applicable to an SLOB.
+	 *
+	 * Examples:
+	 *
+	 *   # Storing a BLOB
+	 *   Slob = Informix::Slob
+	 *   db.execute("create table album (filename varchar(30), picture blob)")
+	 *   stmt_insert = db.prepare("insert into album values(?, ?)")
+	 *   Dir.glob("*jpg") do |filename|
+	 *      slob = db.slob(Slob::BLOB)
+	 *      slob.write(File.read(filename)) # same as slob <<File.read(filename)
+	 *      slob.close
+	 *      stmt_insert.execute(filename, slob)
+	 *    end
+	 *
+	 *
+	 *   # Retrieving a BLOB
+	 *   db.each_hash("select filename, picture from album") do |r|
+	 *     slob = r['picture'].open
+	 *     File.open(r['filename'], "w") do |f|
+	 *       f.write r['picture'].read(r['picture'].size)
+	 *     end
+	 *     slob.close
+	 *   end
+	 */
 	rb_cSlob = rb_define_class_under(rb_mInformix, "Slob", rb_cObject);
 	rb_define_alloc_func(rb_cSlob, slob_alloc);
 	rb_define_method(rb_cSlob, "initialize", rb_slob_initialize, -1);
