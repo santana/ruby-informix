@@ -1,84 +1,137 @@
-Ruby/Informix
----------------
-Ruby extension for connecting to IBM Informix.
+= Ruby/Informix -- Ruby extension for connecting to IBM Informix 7.x and above.
 
-For installation instructions please read INSTALL.
+== Download
 
-1. Supported platforms
-2. Documentation
-3. Data types
-4. Recommendations
-5. Caveats
-6. Support
+The latest version of Ruby/Informix can be found at:
 
+http://rubyforge.org/projects/ruby-informix
 
-1. Supported platforms
+== Supported platforms
 
 Ruby/Informix has been tested succesfully on the following platforms:
 
-Operating System    Architecture       Informix	      CSDK
--------------------------------------------------------------
-Solaris 10             SPARC64        11.10.UC1      3.00UC2
-Solaris 10             SPARC64         9.40FC6       3.00UC2
-Solaris 9              SPARC64         9.40FC6       2.90UC3
-Fedora Core 5            x86          10.00.UC3R1    2.90UC4
-Fedora Core 4            x86          10.00.UC3R1    2.90UC4
-SuSE Linux 9.3           x86           9.30TC1       2.90UC4
-Gentoo Linux             x86-64        7.32.HC1      2.90UC4
-Windows XP Pro SP        x86           9.40TC3       2.90TC1
-Windows XP               x86           9.30TC1       2.90TC4
-HP-UX 11.11            PA-RISC 2.0    10.00.FC3R1TL  2.81
-                       64-bit
+  Operating System     Platform
+  -----------------------------------------
+  Solaris              SPARC64      
+  GNU/Linux            x86, x86-64
+  Windows XP/2000      x86
+  HP-UX 11.11          PA-RISC 2.0 64-bit
 
 Send me an e-mail if you have [un]succesfully tested Ruby/Informix on another
 platform.
 
+== Installation
 
-2. Documentation
+=== Requirements
 
-Documentation generated with RDoc for each class, module and method can be found
-under the doc/ directory in this distribution and at the following web address:
+* Informix CSDK 2.81 or above
 
-http://ruby-informix.rubyforge.org/doc/
+If you want to build Ruby/Informix instead of installing a precompiled gem,
+you will also need:
 
-Examples of use can be found at:
+* Microsoft Visual Studio 6.0, for Windows or
+* an ANSI C compiler, for UNIX and Linux
+
+=== Rubygem installation
+
+gem install ruby-informix
+
+== Documentation
+
+RDoc and ri documentation is automatically installed. It can also be found
+online at:
+
+http://ruby-informix.rubyforge.org/doc
+
+== Examples
+
+* Connecting to a database
+
+    db = Informix.connect(dbname)
+
+* Fetching all records from a table
+
+    cur = db.cursor('select * from stores')
+    cur.open
+    records = cur.fetch_all
+
+* Same thing, with blocks
+
+    records = db.cursor('select * from stores') do |cur|
+      cur.open
+      cur.fetch_all
+    end
+
+* Inserting records
+
+    stmt = db.prepare('insert into states values(?, ?)')
+    stmt.execute('CA', 'California')
+    stmt['TX', 'Texas']
+
+* Iterating over a table using a hash (shortcut)
+
+    db.each_hash('select * from customers') do |cust|
+      puts "#{cust[:firstname]} #{cust[:lastname]}"
+    end
+
+More examples can be found at:
 
 http://ruby-informix.rubyforge.org/examples.html
 
 
-3. Data types
+== Data types supported
 
-All built-in data types are supported, except interval. As you would expect,
-numeric, string and boolean data types are mapped to their respective objects
-in Ruby; DECIMAL/MONEY, DATE, DATETIME and NULL are mapped to BigDecimal, Date,
-Time and nil respectively.
+  Informix                          Ruby
+  -----------------------------------------------------------------------------
+  SMALLINT, INT, INT8, FLOAT,      Numeric
+  SERIAL, SERIAL8
+  CHAR, NCHAR, VARCHAR, NVARCHAR   String
+  DATE                             Date
+  DATETIME                         Time
+  INTERVAL                         Informix::IntervalYTM, Informix::IntervalDTS
+  DECIMAL, MONEY                   BigDecimal
+  BOOL                             TrueClass, FalseClass
+  BYTE, TEXT                       StringIO, String
+  CLOB, BLOB                       Informix::Slob
 
-The notable exception is TEXT/BYTE columns, where Ruby/Informix expects an
-IO-based (File) or IO-like (StringIO) object as input, and returns an String
-object as output.
 
-An Slob class exists in the Informix module for working with Smart Large
-Objects (CLOB/BLOB).
+NULL values can be inserted and are retrieved as +nil+.
+
+BYTE and TEXT are retrieved as Srings, but for supplying them as input
+parameters, a StringIO object, or a anyother IO-like object that provides
+a #read method must be used.
+
+Strings can be used in the cases where Informix accepts them for non-character
+data types, like DATE, DATETIME, INTERVAL, BOOL, DECIMAL and MONEY
 
 
-4. Recommendations
+== Recommendations
 
-* use #drop for prepared statements and cursors or use them with blocks,
-  to release Informix resources.
+* use blocks to release Informix resources automatically as soon as possible,
+  or use #drop
 * you can optimize cursor execution by changing the size of fetch and insert
   buffers, setting the environment variable FET_BUF_SIZE to up to 32767.
 
 
-5. Caveats
-
-* INTERVAL not implemented yet
-
-6. Support
+== Support
 
 Feel free to send me bug reports, feature requests, comments, patches or
 questions to my mailbox or Ruby/Informix's forums and mailing list at
 Rubyforge (http://rubyforge.org/projects/ruby-informix/)
 
+
+== Presentations and articles about Ruby/Informix
+
+* "Talking with Perl, PHP, Python, Ruby to IDS" [link][http://www.informix-zone.com/informix-script-dbapi], The Informix Zone.
+* "Informix on Rails" [link][http://www.ibm.com/developerworks/blogs/page/gbowerman?entry=informix_on_rails], Guy Bowerman, IDS Architect, IBM.
+* "Ruby/Informix, and the Ruby Common client" [link][http://www.ibm.com/developerworks/blogs/page/gbowerman?entry=ruby_informix_and_the_ruby], Guy Bowerman, IDS Architect, IBM.
+* "Using IBM Informix Dynamic Server on Microsoft Windows, Part 6" [link][http://www.ibm.com/developerworks/offers/lp/demos/summary/usingids6.html], Akmal B. Chaudhri, Senior IT Specialist, IBM.
+
+== License
+
+Ruby/Informix is available under the three-clause BSD license
+
+:include: COPYRIGHT
 
 -----------------------------------------
 Gerardo Santana <gerardo.santana gmail>
