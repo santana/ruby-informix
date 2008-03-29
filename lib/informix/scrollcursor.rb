@@ -1,4 +1,4 @@
-# $Id: scrollcursor.rb,v 1.3 2008/03/29 05:19:15 santana Exp $
+# $Id: scrollcursor.rb,v 1.4 2008/03/29 07:35:03 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -30,8 +30,6 @@
 require 'informixc'
 
 module Informix
-  # The +ScrollCursor+ class adds +Array+-like capabilities to the
-  # +SequentialCursor+ class
   class ScrollCursor < SequentialCursor
     # Returns the record at _index_, or returns a subarray starting at _start_
     # and continuing for _length_ records. Negative indices count backward from

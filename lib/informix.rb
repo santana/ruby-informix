@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.5 2008/03/29 06:10:25 santana Exp $
+# $Id: informix.rb,v 1.6 2008/03/29 07:35:03 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -147,7 +147,6 @@ module Informix
     end
   end # class Database
 
-  # The +Statement+ class
   class Statement
     alias call []
     alias execute []
@@ -181,7 +180,6 @@ module Informix
     end
   end # class Statement
 
-  # The +Slob+ class
   class Slob
     alias pos tell
 

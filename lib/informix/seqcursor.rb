@@ -1,4 +1,4 @@
-# $Id: seqcursor.rb,v 1.2 2008/03/29 01:38:35 santana Exp $
+# $Id: seqcursor.rb,v 1.3 2008/03/29 07:35:03 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -30,8 +30,6 @@
 require 'informixc'
 
 module Informix
-  # The +SequentialCursor+ class adds fetching capabilities to the
-  # +CursorBase+ class. It also provides iterators
   class SequentialCursor < CursorBase
     include Enumerable
 
