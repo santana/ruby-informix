@@ -1,4 +1,4 @@
-# $Id: Rakefile,v 1.7 2008/03/29 00:22:22 santana Exp $
+# $Id: Rakefile,v 1.8 2008/03/29 00:31:32 santana Exp $
 
 require 'rubygems'
 require 'rake'
@@ -6,7 +6,7 @@ require 'rake/gempackagetask'
 
 PKG_NAME = 'ruby-informix'
 PKG_VERSION = '0.7.0'
-PKG_FILES = %w{ext/informixc.ec informix.rb} + Dir["informix/*"] +
+PKG_FILES = %w{ext/informixc.ec lib/informix.rb} + Dir["lib/informix/*"] +
             Dir["test/*rb"] + %w{COPYRIGHT Changelog README}
 
 spec = Gem::Specification.new do |s|
@@ -15,7 +15,7 @@ spec = Gem::Specification.new do |s|
   s.summary = 'Ruby extension for IBM Informix'
   s.description = 'Ruby extension for connecting to IBM Informix 7.x and above'
   s.files = PKG_FILES
-  s.require_path = '.'
+  s.require_path = 'lib'
   s.autorequire = 'informix'
   s.has_rdoc = true
   s.rdoc_options << '--title' <<
