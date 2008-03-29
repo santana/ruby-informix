@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.18 2008/03/29 19:43:03 santana Exp $ */
+/* $Id: informixc.ec,v 1.19 2008/03/29 19:46:11 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.18 2008/03/29 19:43:03 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.19 2008/03/29 19:46:11 santana Exp $";
 
 #include "ruby.h"
 
@@ -2018,7 +2018,7 @@ rb_database_close(VALUE self)
  * Examples:
  *
  * Granting CONNECT to user:
- *   db.immediate 'grant connect to #{user}'
+ *   db.immediate "grant connect to #{user}"
  * Creating a table:
  *   db.immediate 'create table test(id serial, code char(2), desc varchar(30))'
  * Deleting records:
