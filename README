@@ -1,5 +1,7 @@
-= Ruby/Informix -- Ruby extension for connecting to IBM Informix 7.x and above.
+= Ruby/Informix -- Ruby extension for connecting to IBM Informix.
 
+== Motivation
+The situation that started it all [link][http://santanatechnotes.blogspot.com/2006/03/informix-driver-for-ruby.html].
 == Download
 
 The latest version of Ruby/Informix can be found at:
@@ -8,9 +10,10 @@ http://rubyforge.org/projects/ruby-informix
 
 == Supported platforms
 
-Ruby/Informix has been tested succesfully on the following platforms:
+Ruby/Informix has been tested succesfully with Informix 7 and above, and
+Informix CSDK 2.81 and above, on the following platforms:
 
-  Operating System     Platform
+  Operating System     Architecture
   -----------------------------------------
   Solaris              SPARC64      
   GNU/Linux            x86, x86-64
@@ -118,16 +121,18 @@ data types, like DATE, DATETIME, INTERVAL, BOOL, DECIMAL and MONEY
 == Support
 
 Feel free to send me bug reports, feature requests, comments, patches or
-questions to my mailbox or Ruby/Informix's forums and mailing list at
-Rubyforge (http://rubyforge.org/projects/ruby-informix/)
+questions directly to my mailbox or the following forums:
+
+* Online forums at Rubyforge [link][http://rubyforge.org/forum/?group_id=1378]
+* Mailing list [link][http://rubyforge.org/mailman/listinfo/ruby-informix-misc]
 
 
 == Presentations and articles about Ruby/Informix
 
-* "Talking with Perl, PHP, Python, Ruby to IDS" [link][http://www.informix-zone.com/informix-script-dbapi], The Informix Zone.
-* "Informix on Rails" [link][http://www.ibm.com/developerworks/blogs/page/gbowerman?entry=informix_on_rails], Guy Bowerman, IDS Architect, IBM.
-* "Ruby/Informix, and the Ruby Common client" [link][http://www.ibm.com/developerworks/blogs/page/gbowerman?entry=ruby_informix_and_the_ruby], Guy Bowerman, IDS Architect, IBM.
-* "Using IBM Informix Dynamic Server on Microsoft Windows, Part 6" [link][http://www.ibm.com/developerworks/offers/lp/demos/summary/usingids6.html], Akmal B. Chaudhri, Senior IT Specialist, IBM.
+* "Talking with Perl, PHP, Python, Ruby to IDS" [link][http://www.informix-zone.com/informix-script-dbapi], Eric Herber, The Informix Zone.
+* "Informix on Rails" [link][http://www.ibm.com/developerworks/blogs/page/gbowerman?entry=informix_on_rails], Guy Bowerman, IBM developerWorks Blogs: Informix Application Development.
+* "Ruby/Informix, and the Ruby Common client" [link][http://www.ibm.com/developerworks/blogs/page/gbowerman?entry=ruby_informix_and_the_ruby], Guy Bowerman, IBM developerWorks Blogs: Informix Application Development.
+* "Using IBM Informix Dynamic Server on Microsoft Windows, Part 6" [link][http://www.ibm.com/developerworks/offers/lp/demos/summary/usingids6.html], Akmal B. Chaudhri, IBM developerWorks: On demand demos.
 
 == License
 
