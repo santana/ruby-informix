@@ -1,4 +1,4 @@
-# $Id: Rakefile,v 1.8 2008/03/29 00:31:32 santana Exp $
+# $Id: Rakefile,v 1.9 2008/03/29 06:02:48 santana Exp $
 
 require 'rubygems'
 require 'rake'
@@ -23,7 +23,7 @@ spec = Gem::Specification.new do |s|
                     '--exclude' << 'test' << '--exclude' << 'extconf.rb' <<
                     '--inline-source' << '--line-numbers' <<
                     '--main' << 'README'
-  s.extra_rdoc_files << 'README'
+  s.extra_rdoc_files << 'README' << 'ext/informixc.c'
   s.author = 'Gerardo Santana Gomez Garrido'
   s.email = 'gerardo.santana@gmail.com'
   s.homepage = 'http://santanatechnotes.blogspot.com'
