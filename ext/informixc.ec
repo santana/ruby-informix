@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.14 2008/03/29 06:29:08 santana Exp $ */
+/* $Id: informixc.ec,v 1.15 2008/03/29 06:34:48 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.14 2008/03/29 06:29:08 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.15 2008/03/29 06:34:48 santana Exp $";
 
 #include "ruby.h"
 
@@ -3217,7 +3217,10 @@ void Init_informixc(void)
 	rb_define_method(rb_cCursorBase, "close", rb_cursorbase_close, 0);
 	rb_define_method(rb_cCursorBase, "drop", rb_cursorbase_drop, 0);
 
-	/* class SequentialCursor --------------------------------------------- */
+	/*
+	 * The +SequentialCursor+ class adds fetching capabilities and iterators
+	 * to the +CursorBase+ class.
+	 */
 	rb_cSequentialCursor = rb_define_class_under(rb_mInformix, "SequentialCursor", rb_cCursorBase);
 	rb_define_private_method(rb_cSequentialCursor, "fetch0", fetch, 2);
 	rb_define_private_method(rb_cSequentialCursor, "fetch_many0", fetch_many,2);
@@ -3229,7 +3232,10 @@ void Init_informixc(void)
 	rb_define_method(rb_cInsertCursor, "put", inscur_put, -1);
 	rb_define_method(rb_cInsertCursor, "flush", inscur_flush, 0);
 
-	/* class ScrollCursor ------------------------------------------------- */
+	/*
+	 * The +ScrollCursor+ class adds +Array+-like capabilities to the
+	 * +SequentialCursor+ class
+	 */
 	rb_cScrollCursor = rb_define_class_under(rb_mInformix, "ScrollCursor", rb_cSequentialCursor);
 	rb_define_private_method(rb_cScrollCursor, "entry", scrollcur_entry, 3);
 	rb_define_private_method(rb_cScrollCursor, "rel", scrollcur_rel, 3);
