@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.15 2008/03/29 06:34:48 santana Exp $ */
+/* $Id: informixc.ec,v 1.16 2008/03/29 07:04:35 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.15 2008/03/29 06:34:48 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.16 2008/03/29 07:04:35 santana Exp $";
 
 #include "ruby.h"
 
@@ -3176,8 +3176,9 @@ void Init_informixc(void)
 	rb_define_const(rb_cSlob, "SHARED_MODE", INT2FIX(LO_SHARED_MODE));
 	rb_define_const(rb_cSlob, "EXCLUSIVE_MODE", INT2FIX(LO_EXCLUSIVE_MODE));
 
-	/* class Slob::Stat --------------------------------------------------- */
-
+	/*
+	 * The +Slob::Stat+ class
+	 */
 	rb_cSlobStat = rb_define_class_under(rb_cSlob, "Stat", rb_cObject);
 	rb_define_alloc_func(rb_cSlobStat, slobstat_alloc);
 	rb_define_method(rb_cSlobStat, "initialize", rb_slobstat_initialize, 1);
@@ -3191,7 +3192,9 @@ void Init_informixc(void)
 	rb_define_method(rb_cSlobStat, "refcnt", rb_slobstat_refcnt, 0);
 	rb_define_method(rb_cSlobStat, "size", rb_slobstat_size, 0);
 
-	/* class Database ----------------------------------------------------- */
+	/*
+	 * The +Database+ class
+	 */
 	rb_cDatabase = rb_define_class_under(rb_mInformix, "Database", rb_cObject);
 	rb_define_alloc_func(rb_cDatabase, database_alloc);
 	rb_define_method(rb_cDatabase, "initialize", rb_database_initialize, -1);
@@ -3202,14 +3205,18 @@ void Init_informixc(void)
 	rb_define_method(rb_cDatabase, "transaction", rb_database_transaction, 0);
 	rb_define_method(rb_cDatabase, "columns", rb_database_columns, 1);
 
-	/* class Statement ---------------------------------------------------- */
+	/*
+	 * The +Statement+ class
+	 */
 	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement",rb_cObject);
 	rb_define_alloc_func(rb_cStatement, statement_alloc);
 	rb_define_method(rb_cStatement, "initialize", statement_initialize, 2);
 	rb_define_method(rb_cStatement, "[]", statement_call, -1);
 	rb_define_method(rb_cStatement, "drop", statement_drop, 0);
 
-	/* class CursorBase --------------------------------------------------- */
+	/*
+	 * The +CursorBase+ class
+	 */
 	rb_cCursorBase=rb_define_class_under(rb_mInformix,"CursorBase",rb_cObject);
 	rb_define_alloc_func(rb_cCursorBase, cursorbase_alloc);
 	rb_define_method(rb_cCursorBase, "id", rb_cursorbase_id, 0);
@@ -3227,7 +3234,9 @@ void Init_informixc(void)
 	rb_define_private_method(rb_cSequentialCursor, "each0", each, 2);
 	rb_define_private_method(rb_cSequentialCursor, "each_by0", each_by, 2);
 
-	/* class InsertCursor ------------------------------------------------- */
+	/*
+	 * The +InsertCursor+ class
+	 */
 	rb_cInsertCursor = rb_define_class_under(rb_mInformix, "InsertCursor", rb_cCursorBase);
 	rb_define_method(rb_cInsertCursor, "put", inscur_put, -1);
 	rb_define_method(rb_cInsertCursor, "flush", inscur_flush, 0);
@@ -3240,7 +3249,9 @@ void Init_informixc(void)
 	rb_define_private_method(rb_cScrollCursor, "entry", scrollcur_entry, 3);
 	rb_define_private_method(rb_cScrollCursor, "rel", scrollcur_rel, 3);
 
-	/* module Cursor ------------------------------------------------------ */
+	/*
+	 * The +Cursor+ module
+	 */
 	rb_mCursor = rb_define_module_under(rb_mInformix, "Cursor");
 	rb_define_singleton_method(rb_mCursor, "new0", rb_cursor_s_new0, -1);
 
