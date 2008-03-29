@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.2 2008/03/29 01:38:34 santana Exp $
+# $Id: informix.rb,v 1.3 2008/03/29 05:19:00 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -58,8 +58,8 @@ module Informix
   # closes the connection when the block terminates, returning the value of
   # the block.
   #
-  #   Informix.connect(dbname,user=nil,password=nil)              => db
-  #   Informix.connect(dbname,user=nil,password=nil){|db| block}  => obj
+  #   Informix.connect(dbname,user = nil, password = nil)              => db
+  #   Informix.connect(dbname,user = nil,password = nil) {|db| block}  => obj
   def self.connect(dbname, user = nil, password = nil, &block)
     Database.open(dbname, user, password, &block)
   end
@@ -72,8 +72,13 @@ module Informix
     VERSION
   end
 
+  # The +Database+ class
   class Database
     private_class_method :new
+
+    alias disconnect close
+    alias do immediate
+    alias execute immediate
 
     # Creates a <code>Database</code> object connected to <i>dbname</i> as
     # <i>user</i> with <i>password</i>. If these are not given, connects to
@@ -83,12 +88,16 @@ module Informix
     # automatically closes the connection when the block terminates, returning
     # the value of the block.
     #
-    #   Database.open(dbname, user=nil, password=nil)            => db
-    #   Database.open(dbname,user=nil,password=nil){|db| block}  => obj
+    #   Database.open(dbname, user = nil, password = nil)               => db
+    #   Database.open(dbname, user = nil, password = nil) {|db| block}  => obj
     def self.open(dbname, user=nil, password=nil)
       db = new(dbname, user, password)
       return db unless block_given?
-      begin yield db ensure db.close end
+      begin
+        yield db
+      ensure
+        db.close
+      end
     end
 
     # Creates a <code>Statement</code> object based on <i>query</i>.
@@ -153,9 +162,14 @@ module Informix
     end
   end # class Database
 
+  # The +Statement+ class
   class Statement
+    alias call []
+    alias execute []
+
     class << self
-    alias _new new
+      alias _new new
+    end
 
     # Creates a <code>Statement</code> object based on <i>query</i> in the
     # context of the <i>db</i> <code>Database</code> object.
@@ -171,17 +185,24 @@ module Informix
     #
     #   Statement.new(db, query)                 => statement
     #   Statement.new(db, query) {|stmt| block } => obj
-    def new(dbname, query)
+    def self.new(dbname, query)
       stmt = _new(dbname, query)
       return stmt if !block_given?
-      begin yield stmt ensure stmt.drop end
-    end
+      begin
+        yield stmt
+      ensure
+        stmt.drop
+      end
     end
   end # class Statement
 
+  # The +Slob+ class
   class Slob
+    alias pos tell
+
     class << self
-    alias _new new
+      alias _new new
+    end
 
     # Creates a Smart Large Object of type <i>type</i> in the <i>db</i>
     # <code>Database</code> object.
@@ -204,11 +225,10 @@ module Informix
     #
     #   Slob.new(db, type = Slob::CLOB, options = nil)                  => slob
     #   Slob.new(db, type = Slob::CLOB, options = nil) {|slob| block }  => obj
-    def new(dbname, query)
+    def self.new(dbname, query)
       slob = _new(dbname, query)
       return slob if !block_given?
       begin yield slob ensure slob.close end
-    end
     end
   end # class Slob
 

@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.11 2008/03/28 20:33:14 santana Exp $ */
+/* $Id: informixc.ec,v 1.12 2008/03/29 05:19:00 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.11 2008/03/28 20:33:14 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.12 2008/03/29 05:19:00 santana Exp $";
 
 #include "ruby.h"
 
@@ -3080,7 +3080,6 @@ void Init_informixc(void)
 	rb_define_method(rb_cSlob, "write", rb_slob_write, 1);
 	rb_define_method(rb_cSlob, "seek", rb_slob_seek, 2);
 	rb_define_method(rb_cSlob, "tell", rb_slob_tell, 0);
-	rb_define_alias(rb_cSlob, "pos", "tell");
 	rb_define_method(rb_cSlob, "pos=", rb_slob_set_pos, 1);
 	rb_define_method(rb_cSlob, "truncate", rb_slob_truncate, 1);
 	rb_define_method(rb_cSlob, "stat", rb_slob_stat, 0);
@@ -3155,10 +3154,7 @@ void Init_informixc(void)
 	rb_define_alloc_func(rb_cDatabase, database_alloc);
 	rb_define_method(rb_cDatabase, "initialize", rb_database_initialize, -1);
 	rb_define_method(rb_cDatabase, "close", rb_database_close, 0);
-	rb_define_alias(rb_cDatabase, "disconnect", "close");
 	rb_define_method(rb_cDatabase, "immediate", rb_database_immediate, 1);
-	rb_define_alias(rb_cDatabase, "do", "immediate");
-	rb_define_alias(rb_cDatabase, "execute", "immediate");
 	rb_define_method(rb_cDatabase, "rollback", rb_database_rollback, 0);
 	rb_define_method(rb_cDatabase, "commit", rb_database_commit, 0);
 	rb_define_method(rb_cDatabase, "transaction", rb_database_transaction, 0);
@@ -3169,8 +3165,6 @@ void Init_informixc(void)
 	rb_define_alloc_func(rb_cStatement, statement_alloc);
 	rb_define_method(rb_cStatement, "initialize", statement_initialize, 2);
 	rb_define_method(rb_cStatement, "[]", statement_call, -1);
-	rb_define_alias(rb_cStatement, "call", "[]");
-	rb_define_alias(rb_cStatement, "execute", "[]");
 	rb_define_method(rb_cStatement, "drop", statement_drop, 0);
 
 	/* class CursorBase --------------------------------------------------- */
