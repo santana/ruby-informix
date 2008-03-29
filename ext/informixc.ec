@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.17 2008/03/29 18:19:21 santana Exp $ */
+/* $Id: informixc.ec,v 1.18 2008/03/29 19:43:03 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.17 2008/03/29 18:19:21 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.18 2008/03/29 19:43:03 santana Exp $";
 
 #include "ruby.h"
 
@@ -2012,7 +2012,17 @@ rb_database_close(VALUE self)
  *
  * Executes <i>query</i> and returns the number of rows affected.
  * <i>query</i> must not return rows. Executes efficiently any
- * non-parameterized or DQL statement.
+ * DDL (CREATE, DROP, ALTER), DCL (GRANT, REVOKE) and non-parameterized
+ * DML (INSERT, UPDATE, DELETE) statements, except SELECT.
+ *
+ * Examples:
+ *
+ * Granting CONNECT to user:
+ *   db.immediate 'grant connect to #{user}'
+ * Creating a table:
+ *   db.immediate 'create table test(id serial, code char(2), desc varchar(30))'
+ * Deleting records:
+ *   db.immediate 'delete from test where id = 7'
  */
 
 static VALUE
@@ -2098,6 +2108,20 @@ database_transfail(VALUE self)
  * otherwise.
  *
  * Returns __self__.
+ *
+ * Examples:
+ *
+ * A bulk insert using an insert cursor. Requires a transaction:
+ *   db.transaction do |db|
+ *     db.cursor('insert into stock values(?, ?, ?, ?, ?, ?)') |cur|
+ *       cur.open
+ *       # Loading a file separated by '|'
+ *       File.open(filename).each do |line|
+ *         fields = line.split('|')
+ *         cur.put(*fields)
+ *       end
+ *     end
+ *   end
  */
 static VALUE
 rb_database_transaction(VALUE self)
@@ -2661,10 +2685,24 @@ each_by(VALUE self, VALUE n, VALUE type)
  * call-seq:
  * cursor.put(*params)
  *
- * Binds <i>params</i> as input parameters and executes the insert statement.
+ * Binds +params+ as input parameters and executes the insert statement.
  * The records are not written immediatly to disk, unless the insert buffer
- * is full, the <code>flush</code> method is called, the cursor is closed or
+ * is full, the +flush+ method is called, the cursor is closed or
  * the transaction is commited.
+ *
+ * Examples:
+ *
+ * A bulk insert using an insert cursor. Requires a transaction:
+ *   db.transaction do |db|
+ *     db.cursor('insert into stock values(?, ?, ?, ?, ?, ?)') |cur|
+ *       cur.open
+ *       # Loading a file separated by '|'
+ *       File.open(filename).each do |line|
+ *         fields = line.split('|')
+ *         cur.put(*fields)
+ *       end
+ *     end
+ *   end
  */
 static VALUE
 inscur_put(int argc, VALUE *argv, VALUE self)
@@ -3092,7 +3130,7 @@ void Init_informixc(void)
 	 *
 	 * Examples:
 	 *
-	 *   # Storing a BLOB
+	 *   # Storing BLOBs read from files
 	 *   Slob = Informix::Slob
 	 *   db.execute("create table album (filename varchar(30), picture blob)")
 	 *   stmt_insert = db.prepare("insert into album values(?, ?)")
@@ -3104,7 +3142,7 @@ void Init_informixc(void)
 	 *    end
 	 *
 	 *
-	 *   # Retrieving a BLOB
+	 *   # Retrieving BLOBs and writing them to files
 	 *   db.each_hash("select filename, picture from album") do |r|
 	 *     slob = r['picture'].open
 	 *     File.open(r['filename'], "w") do |f|
@@ -3194,7 +3232,7 @@ void Init_informixc(void)
 
 	/*
 	 * The +Database+ class lets you open a connection to an existing database
-	 * (usually done with +Informix+.+connect+) and provides shortcuts for
+	 * (usually done with <tt>Informix.connect</tt>) and provides shortcuts for
 	 * creating +Cursor+, +Statement+ and +Slob+ objects, among other database
 	 * actions.
 	 */
@@ -3210,7 +3248,7 @@ void Init_informixc(void)
 
 	/*
 	 * The +Statement+ class lets you prepare and execute any SQL statement,
-	 * (usually done with +Database#prepare+)
+	 * (usually done with <tt>Database#prepare</tt>)
 	 * paremeterized or not, that does not return records. This includes
 	 * DDL (CREATE, DROP, ALTER), DCL (GRANT, REVOKE) and DML (INSERT, UPDATE,
 	 * DELETE) statements, and SELECTs that return <b>only one</b> record at

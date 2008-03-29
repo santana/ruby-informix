@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.10 2008/03/29 18:56:34 santana Exp $
+# $Id: informix.rb,v 1.11 2008/03/29 19:43:03 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -98,7 +98,7 @@ module Informix
     #
     # +query+ may contain '?' placeholders for input parameters;
     # it must <b>NOT</b> be a query returning more than one row
-    # (use +Database#cursor+ instead.)
+    # (use <tt>Database#cursor</tt> instead.)
     #
     # Examples:
     #
@@ -303,7 +303,11 @@ module Informix
       end
       cur = new0(db, query, options)
       return cur unless block_given?
-      begin yield cur ensure cur.drop end
+      begin
+        yield cur
+      ensure
+        cur.drop
+      end
     end
 
     # Shortcut to create <b>and open</b> a cursor object based on +query+
@@ -328,7 +332,11 @@ module Informix
       cur = new(db, query, options)
       params ? cur.open(*params) : cur.open
       return cur unless block_given?
-      begin yield cur ensure cur.drop end
+      begin
+        yield cur
+      ensure
+        cur.drop
+      end
     end
   end # module Cursor
 end # module Informix
