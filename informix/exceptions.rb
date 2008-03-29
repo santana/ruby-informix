@@ -1,4 +1,4 @@
-# $Id: exceptions.rb,v 1.1 2008/03/28 13:03:39 santana Exp $
+# $Id: exceptions.rb,v 1.2 2008/03/29 00:23:09 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -27,8 +27,10 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+#--
 # The following code is a translation of the original C code written
 # by Edwin M. Fine <emofine at finecomputerconsultants dot com>
+#++
 
 module Informix
   ExcInfo = Struct.new(:sql_code, :sql_state, :class_origin, :subclass_origin,

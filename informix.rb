@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.5 2008/03/28 20:33:14 santana Exp $
+# $Id: informix.rb,v 1.6 2008/03/29 00:23:08 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -31,8 +31,12 @@ require 'informixc'
 require 'informix/seqcursor'
 require 'informix/scrollcursor'
 
+# The +Informix+ module contains the mechanisms for connecting to and
+# taking advantage of an existing Informix database by means of a
+# simple model, similar to the one found in ESQL/C
 module Informix
-  VERSION = "0.7.0".freeze
+  VERSION = "0.7.0"
+  VERSION.freeze
 
   # Informix.connect(dbname,user=nil,password=nil)              => db
   # Informix.connect(dbname,user=nil,password=nil){|db| block}  => obj
@@ -58,6 +62,7 @@ module Informix
 
   class Database
     private_class_method :new
+
     # Database.open(dbname, user=nil, password=nil)            => db
     # Database.open(dbname,user=nil,password=nil){|db| block}  => obj
     #
