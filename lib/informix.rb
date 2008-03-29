@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.9 2008/03/29 18:47:40 santana Exp $
+# $Id: informix.rb,v 1.10 2008/03/29 18:56:34 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -80,7 +80,7 @@ module Informix
     # The +Database+ object is passed to the block if it's given, and
     # automatically closes the connection when the block terminates, returning
     # the value of the block.
-    def self.open(dbname, user=nil, password=nil)
+    def self.open(dbname, user = nil, password = nil)
       db = new(dbname, user, password)
       return db unless block_given?
       begin
@@ -273,7 +273,7 @@ module Informix
     #   :maxbytes    => Maximum size
     #   :col_info    => Get the previous values from the column-level storage
     #                   characteristics for the specified database column
-    def self.new(dbname, query, options)
+    def self.new(dbname, query, options = nil)
       slob = _new(dbname, query, options)
       return slob if !block_given?
       begin
@@ -297,11 +297,11 @@ module Informix
     #
     #   :scroll => true or false
     #   :hold   => true or false
-    def self.new(db, query, options = nil, &block)
+    def self.new(db, query, options = nil)
       if options
         Hash === options||raise(TypeError,"options must be supplied as a Hash")
       end
-      cur = new0(db, query, options, &block)
+      cur = new0(db, query, options)
       return cur unless block_given?
       begin yield cur ensure cur.drop end
     end
@@ -318,7 +318,7 @@ module Informix
     #   :scroll => true or false
     #   :hold   => true or false
     #   :params => input parameters as an Array or nil
-    def self.open(db, query, options = nil, &block)
+    def self.open(db, query, options = nil)
       params = nil
       if options
         Hash === options||raise(TypeError,"options must be supplied as a Hash")
