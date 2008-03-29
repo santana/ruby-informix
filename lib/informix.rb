@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.8 2008/03/29 18:20:10 santana Exp $
+# $Id: informix.rb,v 1.9 2008/03/29 18:47:40 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -186,12 +186,15 @@ module Informix
       self
     end
 
-    # Creates a Smart Large Object of type <i>type</i>.
-    # Returns a <code>Slob</code> object pointing to it.
+    # Shortcut to create a +Slob+ object.
     #
-    # <i>type</i> can be Slob::BLOB or Slob::CLOB
+    # The +Slob+ object is passed to the block if it's given, and
+    # automatically closes it when the block terminates, returning
+    # the value of the block.
     #
-    # <i>options</i> can be nil or a Hash object with the following possible
+    # +type+ can be Slob::BLOB or Slob::CLOB
+    #
+    # +options+ can be a Hash object with the following possible
     # keys:
     #
     #   :sbspace     => Sbspace name
@@ -203,8 +206,14 @@ module Informix
     #   :col_info    => Get the previous values from the column-level storage
     #                   characteristics for the specified database column
     #
-    #   db.slob(type = Slob::CLOB, options = nil)                  => slob
-    #   db.slob(type = Slob::CLOB, options = nil) {|slob| block }  => obj
+    # Examples:
+    #
+    # Creating a CLOB:
+    #   slob = db.slob
+    # Creating a BLOB without log and passing it to a block:
+    #   slob = db.slob(Slob::BLOB, :createflags=>Slob:NOLOG) do |slob|
+    #     # do something with slob
+    #   end
     def slob(type = Slob::CLOB, options = nil, &block)
       Slob.new(self, type, options, &block)
     end
@@ -218,20 +227,15 @@ module Informix
       alias _new new
     end
 
-    # Creates a <code>Statement</code> object based on <i>query</i> in the
-    # context of the <i>db</i> <code>Database</code> object.
+    # Creates a +Statement+ object from +query+.
     #
-    # In the first form the <code>Statement</code> object is returned.
-    # In the second form the Statement object is passed to the block and when it
-    # terminates, the Statement object is dropped, returning the value of the
-    # block.
+    # The +Statement+ object is passed to the block if it's given, and
+    # automatically dropped when the block terminates, returning
+    # the value of the block.
     #
-    # <i>query</i> may contain '?' placeholders for input parameters;
-    # it must not be a query returning more than one row
-    # (use <code>Cursor</code> instead.)
-    #
-    #   Statement.new(db, query)                 => statement
-    #   Statement.new(db, query) {|stmt| block } => obj
+    # +query+ may contain '?' placeholders for input parameters;
+    # it must <b>NOT</b> be a query returning more than one row
+    # (use +Cursor+ instead.)
     def self.new(dbname, query)
       stmt = _new(dbname, query)
       return stmt if !block_given?
@@ -250,14 +254,15 @@ module Informix
       alias _new new
     end
 
-    # Creates a Smart Large Object of type <i>type</i> in the <i>db</i>
-    # <code>Database</code> object.
+    # Creates a +Slob+ object.
     #
-    # Returns an <code>Slob</code> object pointing to it.
+    # The +Slob+ object is passed to the block if it's given, and
+    # automatically closes it when the block terminates, returning
+    # the value of the block.
     #
-    # <i>type</i> can be Slob::BLOB or Slob::CLOB
+    # +type+ can be Slob::BLOB or Slob::CLOB
     #
-    # <i>options</i> can be nil or a Hash object with the following possible
+    # +options+ can be a Hash object with the following possible
     # keys:
     #
     #   :sbspace     => Sbspace name
@@ -268,11 +273,8 @@ module Informix
     #   :maxbytes    => Maximum size
     #   :col_info    => Get the previous values from the column-level storage
     #                   characteristics for the specified database column
-    #
-    #   Slob.new(db, type = Slob::CLOB, options = nil)                  => slob
-    #   Slob.new(db, type = Slob::CLOB, options = nil) {|slob| block }  => obj
-    def self.new(dbname, query)
-      slob = _new(dbname, query)
+    def self.new(dbname, query, options)
+      slob = _new(dbname, query, options)
       return slob if !block_given?
       begin
         yield slob
