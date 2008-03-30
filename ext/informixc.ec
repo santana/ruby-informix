@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.20 2008/03/29 20:20:17 santana Exp $ */
+/* $Id: informixc.ec,v 1.21 2008/03/30 03:07:40 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.20 2008/03/29 20:20:17 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.21 2008/03/30 03:07:40 santana Exp $";
 
 #include "ruby.h"
 
@@ -3150,12 +3150,12 @@ void Init_informixc(void)
 	 *   # Storing BLOBs read from files
 	 *   Slob = Informix::Slob
 	 *   db.execute("create table album (filename varchar(30), picture blob)")
-	 *   stmt_insert = db.prepare("insert into album values(?, ?)")
+	 *   st = db.prepare("insert into album values(?, ?)")
 	 *   Dir.glob("*jpg") do |filename|
 	 *      slob = db.slob(Slob::BLOB)
 	 *      slob.write(File.read(filename)) # same as slob <<File.read(filename)
 	 *      slob.close
-	 *      stmt_insert.execute(filename, slob)
+	 *      st.execute(filename, slob)
 	 *    end
 	 *
 	 *
