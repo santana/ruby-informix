@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.23 2008/03/30 10:38:13 santana Exp $ */
+/* $Id: informixc.ec,v 1.24 2008/03/30 17:54:17 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.23 2008/03/30 10:38:13 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.24 2008/03/30 17:54:17 santana Exp $";
 
 #include "ruby.h"
 
@@ -2376,7 +2376,7 @@ statement_alloc(VALUE klass)
 
 /* :nodoc: */
 static VALUE
-statement_initialize(VALUE self, VALUE db, VALUE query)
+rb_statement_initialize(VALUE self, VALUE db, VALUE query)
 {
 	struct sqlda *output;
 	cursor_t *c;
@@ -2441,7 +2441,7 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
  *          end
  */
 static VALUE
-statement_call(int argc, VALUE *argv, VALUE self)
+rb_statement_call(int argc, VALUE *argv, VALUE self)
 {
 	struct sqlda *input, *output;
 	cursor_t *c;
@@ -2503,7 +2503,7 @@ statement_call(int argc, VALUE *argv, VALUE self)
  * Frees the statement and the memory associated with it.
  */
 static VALUE
-statement_drop(VALUE self)
+rb_statement_drop(VALUE self)
 {
 	cursor_t *c;
 
@@ -2713,7 +2713,7 @@ each_by(VALUE self, VALUE n, VALUE type)
  *   end
  */
 static VALUE
-inscur_put(int argc, VALUE *argv, VALUE self)
+rb_inscur_put(int argc, VALUE *argv, VALUE self)
 {
 	struct sqlda *input;
 	cursor_t *c;
@@ -2756,7 +2756,7 @@ inscur_put(int argc, VALUE *argv, VALUE self)
  * Returns __self__.
  */
 static VALUE
-inscur_flush(VALUE self)
+rb_inscur_flush(VALUE self)
 {
 	cursor_t *c;
 	EXEC SQL begin declare section;
@@ -2784,7 +2784,7 @@ inscur_flush(VALUE self)
  * cursor[index] syntax
  */
 static VALUE
-scrollcur_entry(VALUE self, VALUE index, VALUE type, VALUE bang)
+rb_scrollcur_entry(VALUE self, VALUE index, VALUE type, VALUE bang)
 {
 	cursor_t *c;
 	struct sqlda *output;
@@ -2831,7 +2831,7 @@ scrollcur_entry(VALUE self, VALUE index, VALUE type, VALUE bang)
  * Base function for prev* and next* methods
  */
 static VALUE
-scrollcur_rel(VALUE self, VALUE offset, VALUE type, VALUE bang)
+rb_scrollcur_rel(VALUE self, VALUE offset, VALUE type, VALUE bang)
 {
 	short c_bang;
 	cursor_t *c;
@@ -3269,9 +3269,9 @@ void Init_informixc(void)
 	 */
 	rb_cStatement = rb_define_class_under(rb_mInformix, "Statement",rb_cObject);
 	rb_define_alloc_func(rb_cStatement, statement_alloc);
-	rb_define_method(rb_cStatement, "initialize", statement_initialize, 2);
-	rb_define_method(rb_cStatement, "[]", statement_call, -1);
-	rb_define_method(rb_cStatement, "drop", statement_drop, 0);
+	rb_define_method(rb_cStatement, "initialize", rb_statement_initialize, 2);
+	rb_define_method(rb_cStatement, "[]", rb_statement_call, -1);
+	rb_define_method(rb_cStatement, "drop", rb_statement_drop, 0);
 
 	/*
 	 * The +CursorBase+ class provides the basic functionality for any cursor.
@@ -3298,16 +3298,16 @@ void Init_informixc(void)
 	 * class.
 	 */
 	rb_cInsertCursor = rb_define_class_under(rb_mInformix, "InsertCursor", rb_cCursorBase);
-	rb_define_method(rb_cInsertCursor, "put", inscur_put, -1);
-	rb_define_method(rb_cInsertCursor, "flush", inscur_flush, 0);
+	rb_define_method(rb_cInsertCursor, "put", rb_inscur_put, -1);
+	rb_define_method(rb_cInsertCursor, "flush", rb_inscur_flush, 0);
 
 	/*
 	 * The +ScrollCursor+ class adds +Array+-like capabilities to the
 	 * +SequentialCursor+ class
 	 */
 	rb_cScrollCursor = rb_define_class_under(rb_mInformix, "ScrollCursor", rb_cSequentialCursor);
-	rb_define_private_method(rb_cScrollCursor, "entry", scrollcur_entry, 3);
-	rb_define_private_method(rb_cScrollCursor, "rel", scrollcur_rel, 3);
+	rb_define_private_method(rb_cScrollCursor, "entry", rb_scrollcur_entry, 3);
+	rb_define_private_method(rb_cScrollCursor, "rel", rb_scrollcur_rel, 3);
 
 	/*
 	 * The +Cursor+ module provides shortcuts for creating cursor objects that
