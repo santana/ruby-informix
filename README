@@ -1,7 +1,8 @@
-= Ruby/Informix -- Ruby extension for connecting to IBM Informix.
+= Ruby/Informix -- Ruby library for connecting to IBM Informix.
 
 == Motivation
 The situation that started it all [link][http://santanatechnotes.blogspot.com/2006/03/informix-driver-for-ruby.html].
+
 == Download
 
 The latest version of Ruby/Informix can be found at:
