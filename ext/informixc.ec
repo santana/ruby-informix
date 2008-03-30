@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.21 2008/03/30 03:07:40 santana Exp $ */
+/* $Id: informixc.ec,v 1.22 2008/03/30 03:38:12 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.21 2008/03/30 03:07:40 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.22 2008/03/30 03:38:12 santana Exp $";
 
 #include "ruby.h"
 
@@ -2430,9 +2430,9 @@ statement_initialize(VALUE self, VALUE db, VALUE query)
  *     st['TX', 'Texas')
  *   end
  * Selecting one record (returns a hash):
- * cust = db.prepare('select * from customer where num = 101') do |st|
- *          st.execute
- *        end
+ *   cust = db.prepare('select * from customer where num = 101') do |st|
+ *            st.execute
+ *          end
  */
 static VALUE
 statement_call(int argc, VALUE *argv, VALUE self)
