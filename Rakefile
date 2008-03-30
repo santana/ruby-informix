@@ -1,4 +1,4 @@
-# $Id: Rakefile,v 1.9 2008/03/29 06:02:48 santana Exp $
+# $Id: Rakefile,v 1.10 2008/03/30 20:14:34 santana Exp $
 
 require 'rubygems'
 require 'rake'
@@ -12,14 +12,13 @@ PKG_FILES = %w{ext/informixc.ec lib/informix.rb} + Dir["lib/informix/*"] +
 spec = Gem::Specification.new do |s|
   s.name = PKG_NAME
   s.version = PKG_VERSION
-  s.summary = 'Ruby extension for IBM Informix'
-  s.description = 'Ruby extension for connecting to IBM Informix 7.x and above'
+  s.summary = 'Ruby library for IBM Informix'
+  s.description = 'Ruby library for connecting to IBM Informix 7 and above'
   s.files = PKG_FILES
   s.require_path = 'lib'
   s.autorequire = 'informix'
   s.has_rdoc = true
-  s.rdoc_options << '--title' <<
-                    'Ruby/Informix -- Ruby extension for IBM Informix' <<
+  s.rdoc_options << '--title' << "Ruby/Informix -- #{s.summary}" <<
                     '--exclude' << 'test' << '--exclude' << 'extconf.rb' <<
                     '--inline-source' << '--line-numbers' <<
                     '--main' << 'README'
