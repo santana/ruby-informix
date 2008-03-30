@@ -103,7 +103,7 @@ http://ruby-informix.rubyforge.org/examples.html
 
 NULL values can be inserted and are retrieved as +nil+.
 
-BYTE and TEXT are retrieved as Srings, but for supplying them as input
+BYTE and TEXT are retrieved as Strings, but for supplying them as input
 parameters, a StringIO object, or a anyother IO-like object that provides
 a #read method must be used.
 
