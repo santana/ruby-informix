@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.22 2008/03/30 03:38:12 santana Exp $ */
+/* $Id: informixc.ec,v 1.23 2008/03/30 10:38:13 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.22 2008/03/30 03:38:12 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.23 2008/03/30 10:38:13 santana Exp $";
 
 #include "ruby.h"
 
@@ -2339,22 +2339,28 @@ statement_mark(cursor_t *c)
 }
 
 static void
-statement_free(void *p)
+st_free(cursor_t *c)
 {
 	EXEC SQL begin declare section;
 		char *sid, *did;
 	EXEC SQL end   declare section;
 
-	free_input_slots(p);
-	free_output_slots(p);
+	free_input_slots(c);
+	free_output_slots(c);
 
-	did = ((cursor_t *)p)->database_id;
+	did = c->database_id;
 	EXEC SQL set connection :did;
-	if (SQLCODE >= 0) {
-		sid = ((cursor_t *)p)->stmt_id;
-		EXEC SQL free :sid;
-	}
+	if (SQLCODE < 0)
+		return;
 
+	sid = c->stmt_id;
+	EXEC SQL free :sid;
+}
+
+static void
+statement_free(void *p)
+{
+	st_free(p);
 	xfree(p);
 }
 
@@ -2500,20 +2506,9 @@ static VALUE
 statement_drop(VALUE self)
 {
 	cursor_t *c;
-	EXEC SQL begin declare section;
-		char *sid, *did;
-	EXEC SQL end   declare section;
 
 	Data_Get_Struct(self, cursor_t, c);
-	free_input_slots(c);
-	free_output_slots(c);
-
-	did = c->database_id;
-	EXEC SQL set connection :did;
-	if (SQLCODE < 0)
-		return Qnil;
-	sid = c->stmt_id;
-	EXEC SQL free :sid;
+	st_free(c);
 
 	return Qnil;
 }
@@ -2886,24 +2881,22 @@ cursorbase_close_or_free(cursor_t *c, short op)
 		return;
 
 	c->is_open = 0;
-	if (op == 1)
+
+	switch(op) {
+	case 1:
 		clean_input_slots(c);
-	else {
-		free_input_slots(c);
-		free_output_slots(c);
-	}
-
-	did = c->database_id;
-	EXEC SQL set connection :did;
-	if (SQLCODE < 0)
-		return;
-
-	cid = c->cursor_id;
-	EXEC SQL close :cid;
-
-	if (op == 2) {
-		sid = c->stmt_id;
-		EXEC SQL free :cid; EXEC SQL free :sid;
+	case 2:
+		did = c->database_id;
+		EXEC SQL set connection :did;
+		if (SQLCODE < 0)
+			return;
+		cid = c->cursor_id;
+		EXEC SQL close :cid;
+		if (op == 1)
+			break;
+		EXEC SQL free :cid;
+		st_free(c);
+		break;
 	}
 }
 
