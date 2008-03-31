@@ -19,6 +19,9 @@ New features:
 	* Database#each and Database#each_hash shortcut methods for declaring and
 	  opening a cursor in a single step.
 	  Contributed by Reid Morrison <reidmo at gmail>
+	* Database#execute is not an alias for Database#immediate any more.
+	  It has become a shortcut for preparing and executing a statement in a
+	  single step.
 	* SequentialCursor includes Enumerable
 	* Ruby 1.9 compatible
 	* More and better documentation
@@ -28,8 +31,12 @@ Bugs fixed:
 
 Remarks:
 	* Database.new deprecated in favor of Database.open
+	* Database#do was removed
 	* A lot of C code has been reimplemented in Ruby
 	* Modules and classes have been reorganized
+	* Database#execute still behaves the same, except that it can also accept
+	  input parameters and return at most one record. Database#immediate is
+	  more efficient though.
 
 
 0.6.2  10/20/2007

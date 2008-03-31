@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.11 2008/03/29 19:43:03 santana Exp $
+# $Id: informix.rb,v 1.12 2008/03/31 18:02:05 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -70,8 +70,6 @@ module Informix
     private_class_method :new
 
     alias disconnect close
-    alias do immediate
-    alias execute immediate
 
     # Creates a +Database+ object connected to +dbname+ as
     # +user+ with +password+. If these are not given, connects to
@@ -113,6 +111,27 @@ module Informix
     #   end
     def prepare(query, &block)
       Statement.new(self, query, &block)
+    end
+
+    # Shortcut to create, <b>execute and drop</b> a +Statement+ object from
+    # +query+.
+    #
+    # +query+ may contain '?' placeholders for input parameters;
+    # it <b>cannot</b> be a query returning <b>more than one</b> row
+    # (use <tt>Database#cursor</tt> instead.)
+    #
+    # Returns the record retrieved, in the case of a singleton select, or the
+    # number of rows affected, in the case of any other statement.
+    #
+    # Examples:
+    #
+    # Deleting records:
+    #   db.execute('delete from orders where order_date = ?', Date.today)
+    #
+    # Updating a record:
+    #   db.execute('update items set quantity = ? where item_num = ?', 10, 101)
+    def execute(query, *args)
+      Statement.new(self, query) {|stmt| stmt.execute(*args) }
     end
 
     # Shortcut to create a cursor object based on +query+ using +options+.
