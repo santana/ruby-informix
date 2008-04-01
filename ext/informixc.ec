@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.24 2008/03/30 17:54:17 santana Exp $ */
+/* $Id: informixc.ec,v 1.25 2008/04/01 01:17:21 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.24 2008/03/30 17:54:17 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.25 2008/04/01 01:17:21 santana Exp $";
 
 #include "ruby.h"
 
@@ -47,6 +47,7 @@ static VALUE rb_cSlob, rb_cSlobStat;
 static VALUE rb_cDatabase;
 static VALUE rb_cStatement, rb_cCursorBase;
 static VALUE rb_cSequentialCursor, rb_cScrollCursor, rb_cInsertCursor;
+static VALUE rb_cIfxVersion;
 
 static VALUE rb_cArray;
 
@@ -1948,10 +1949,15 @@ database_alloc(VALUE klass)
 static VALUE
 rb_database_initialize(int argc, VALUE *argv, VALUE self)
 {
-	VALUE arg[3];
+	VALUE arg[3], version;
+	VALUE server_type, major, minor, os, level, full;
 
 	EXEC SQL begin declare section;
 		char *dbname, *user = NULL, *pass = NULL, *did;
+		struct version_t {
+			varchar server_type[41], major[3], minor[3], os[3], level[3];
+			varchar full[61];
+		} c_version;
 	EXEC SQL end   declare section;
 
 	rb_scan_args(argc, argv, "12", &arg[0], &arg[1], &arg[2]);
@@ -1978,6 +1984,27 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
 
 	if (SQLCODE < 0)
 		raise_ifx_extended();
+
+	EXEC SQL select dbinfo('version', 'server-type'),
+					dbinfo('version', 'major'),
+					dbinfo('version', 'minor'),
+					dbinfo('version', 'os'),
+					dbinfo('version', 'level'),
+					dbinfo('version', 'full')
+			  into :c_version from systables where tabid = 1;
+
+
+	OBJ_FREEZE(server_type = rb_str_new2(c_version.server_type));
+	OBJ_FREEZE(major = rb_str_new2(c_version.major));
+	OBJ_FREEZE(minor = rb_str_new2(c_version.minor));
+	OBJ_FREEZE(os = rb_str_new2(c_version.os));
+	OBJ_FREEZE(level = rb_str_new2(c_version.level));
+	OBJ_FREEZE(full = rb_str_new2(c_version.full));
+
+	version = rb_struct_new(rb_cIfxVersion, server_type, major, minor, os,
+							level, full, NULL);
+	OBJ_FREEZE(version);
+	rb_iv_set(self, "@version", version);
 
 	return self;
 }
@@ -3256,6 +3283,11 @@ void Init_informixc(void)
 	rb_define_method(rb_cDatabase, "commit", rb_database_commit, 0);
 	rb_define_method(rb_cDatabase, "transaction", rb_database_transaction, 0);
 	rb_define_method(rb_cDatabase, "columns", rb_database_columns, 1);
+
+	rb_define_const(rb_cDatabase, "IfxVersion",
+					rb_struct_define("IfxVersion", "server_type", "major",
+									"minor", "level", "os", "full", NULL));
+	rb_cIfxVersion = rb_const_get(rb_cDatabase, rb_intern("IfxVersion"));
 
 	/*
 	 * The +Statement+ class lets you prepare and execute any SQL statement,

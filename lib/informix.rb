@@ -1,4 +1,4 @@
-# $Id: informix.rb,v 1.12 2008/03/31 18:02:05 santana Exp $
+# $Id: informix.rb,v 1.13 2008/04/01 01:17:21 santana Exp $
 #
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
@@ -70,6 +70,25 @@ module Informix
     private_class_method :new
 
     alias disconnect close
+
+    # Exact version of the database server to which a Database object is
+    # connected
+    attr_reader :version 
+
+    # The +IfxVersion+ struct provides the exact version of the database server
+    # to which a Database object is connected.
+    #
+    # Examples:
+    #
+    #   db.version.server_type #=> "IBM Informix Dynamic Server"
+    #   db.version.level       #=> "C6"
+    #   db.version.to_s        #=> "IBM Informix Dynamic Server Version 9.40.FC6"
+    class IfxVersion
+      # Returns the complete version string
+      def to_s
+        full.rstrip
+      end
+    end
 
     # Creates a +Database+ object connected to +dbname+ as
     # +user+ with +password+. If these are not given, connects to
