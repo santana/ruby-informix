@@ -16,6 +16,8 @@ New features:
 		- to_s method for displaying an Interval object as an string according
 		  to ANSI SQL standards
 		- includes Comparable
+	* Database#version returns a struct with version information of the database
+	  server.
 	* Database#each and Database#each_hash shortcut methods for declaring and
 	  opening a cursor in a single step.
 	  Contributed by Reid Morrison <reidmo at gmail>
