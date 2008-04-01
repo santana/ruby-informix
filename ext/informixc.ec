@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.25 2008/04/01 01:17:21 santana Exp $ */
+/* $Id: informixc.ec,v 1.26 2008/04/01 05:30:21 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.25 2008/04/01 01:17:21 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.26 2008/04/01 05:30:21 santana Exp $";
 
 #include "ruby.h"
 
@@ -107,7 +107,7 @@ do { \
 do { \
 	char str[21]; \
 	mint ret; \
-	ifx_int8toasc((int8addr), str, sizeof(str) - 1); \
+	ret = ifx_int8toasc((int8addr), str, sizeof(str) - 1); \
 	if (ret < 0) \
 		rb_raise(rb_eOperationalError, \
 			"Unable to convert INT8 to Bignum [Error %d]", ret); \
