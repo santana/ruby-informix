@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.27 2008/04/01 21:34:24 santana Exp $ */
+/* $Id: informixc.ec,v 1.28 2008/04/02 19:28:06 santana Exp $ */
 /*
 * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.27 2008/04/01 21:34:24 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.28 2008/04/02 19:28:06 santana Exp $";
 
 #include "ruby.h"
 
@@ -3072,6 +3072,7 @@ rb_cursor_s_new0(int argc, VALUE *argv, VALUE self)
 	VALUE scroll, hold;
 	struct sqlda *output;
 	cursor_t c, *cur;
+	long id;
 	EXEC SQL begin declare section;
 		char *c_query;
 		char *cid, *sid, *did;
@@ -3088,8 +3089,9 @@ rb_cursor_s_new0(int argc, VALUE *argv, VALUE self)
 	c.db = db;
 	c.database_id = did;
 	scroll = hold = Qfalse;
-	snprintf(c.cursor_id, sizeof(c.cursor_id), "CUR%lX", self);
-	snprintf(c.stmt_id, sizeof(c.stmt_id), "STMT%lX", self);
+	id = random();
+	snprintf(c.cursor_id, sizeof(c.cursor_id), "CUR%lX", id);
+	snprintf(c.stmt_id, sizeof(c.stmt_id), "STMT%lX", id);
 	cid = c.cursor_id; sid = c.stmt_id;
 	c_query = StringValueCStr(query);
 
