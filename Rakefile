@@ -1,11 +1,11 @@
-# $Id: Rakefile,v 1.10 2008/03/30 20:14:34 santana Exp $
+# $Id: Rakefile,v 1.11 2008/04/02 19:28:32 santana Exp $
 
 require 'rubygems'
 require 'rake'
 require 'rake/gempackagetask'
 
 PKG_NAME = 'ruby-informix'
-PKG_VERSION = '0.7.0'
+PKG_VERSION = '0.7.1'
 PKG_FILES = %w{ext/informixc.ec lib/informix.rb} + Dir["lib/informix/*"] +
             Dir["test/*rb"] + %w{COPYRIGHT Changelog README}
 
