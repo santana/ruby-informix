@@ -2,9 +2,11 @@
 ------------------
 Bugs fixed:
 	* The name of Informix resources was not unique. This problem was
-	  introduced in 0.7.0.
+	  introduced in 0.7.0. It doesn't affect previous versions.
 	* The documentation insisted that Database#execute is an alias for
 	  Database#immediate.
+	* Cursor for Database#columns was prepared and declared every time it was
+	  called.
 
 
 0.7.0  03/31/2008
