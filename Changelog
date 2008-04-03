@@ -1,7 +1,7 @@
-0.7.1  04/2/2008
+0.7.1  04/02/2008
 ------------------
 Bugs fixed:
-	* The name of Informix resources was not unique. This problem was
+	* The name of Informix resources were not unique. This problem was
 	  introduced in 0.7.0. It doesn't affect previous versions.
 	* The documentation insisted that Database#execute is an alias for
 	  Database#immediate.
