@@ -1,6 +1,6 @@
-/* $Id: informixc.ec,v 1.28 2008/04/02 19:28:06 santana Exp $ */
+/* $Id: informixc.ec,v 1.29 2008/04/03 00:50:20 santana Exp $ */
 /*
-* Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
+ * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.28 2008/04/02 19:28:06 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.29 2008/04/03 00:50:20 santana Exp $";
 
 #include "ruby.h"
 
@@ -68,6 +68,13 @@ static VALUE sym_createflags, sym_openflags, sym_maxbytes;
 static VALUE sym_params;
 
 #define IDSIZE 30
+
+typedef struct {
+	char database_id[IDSIZE];
+	char cursor_id[IDSIZE];
+	char stmt_id[IDSIZE];
+	long idcount;
+} database_t;
 
 typedef struct {
 	short is_select, is_open;
@@ -1926,23 +1933,26 @@ make_result(cursor_t *c, VALUE record)
 static void
 database_free(void *p)
 {
+	database_t *dbt;
 	EXEC SQL begin declare section;
-		char *did;
+		char *id;
 	EXEC SQL end   declare section;
 
-	did = p;
-	EXEC SQL disconnect :did;
+	dbt = p;
+	id = dbt->database_id;
+	EXEC SQL disconnect :id;
 	xfree(p);
 }
 
 static VALUE
 database_alloc(VALUE klass)
 {
-	char *did;
+	database_t *dbt;
 
-	did = ALLOC_N(char, IDSIZE<<1);
-	did[0] = did[IDSIZE] = 0;
-	return Data_Wrap_Struct(klass, 0, database_free, did);
+	dbt = ALLOC(database_t);
+	dbt->database_id[0] = dbt->cursor_id[0] = dbt->stmt_id[0] = 0;
+	dbt->idcount = 0;
+	return Data_Wrap_Struct(klass, 0, database_free, dbt);
 }
 
 /* :nodoc: */
@@ -1951,9 +1961,11 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
 {
 	VALUE arg[3], version;
 	VALUE server_type, major, minor, os, level, full;
+	database_t *dbt;
 
 	EXEC SQL begin declare section;
-		char *dbname, *user = NULL, *pass = NULL, *did;
+		char *dbname, *user = NULL, *pass = NULL;
+		char *did, *cid, *sid;
 		struct version_t {
 			varchar server_type[41], major[3], minor[3], os[3], level[3];
 			varchar full[61];
@@ -1965,10 +1977,14 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
 	if (NIL_P(arg[0]))
 		rb_raise(rb_eProgrammingError, "A database name must be specified");
 
-	Data_Get_Struct(self, char, did);
+	Data_Get_Struct(self, database_t, dbt);
 
 	dbname  = StringValueCStr(arg[0]);
-	snprintf(did, IDSIZE, "DB%lX", self);
+	snprintf(dbt->database_id, IDSIZE, "DB%lX", self);
+	snprintf(dbt->cursor_id, IDSIZE, "CUR%lX", dbt->idcount);
+	snprintf(dbt->stmt_id, IDSIZE, "STMT%lX", dbt->idcount);
+	++dbt->idcount;
+	did = dbt->database_id;
 
 	if (!NIL_P(arg[1]))
 		user = StringValueCStr(arg[1]);
@@ -1981,6 +1997,24 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
 			using :pass with concurrent transaction;
 	else
 		EXEC SQL connect to :dbname as :did with concurrent transaction;
+
+	if (SQLCODE < 0)
+		raise_ifx_extended();
+
+	cid = dbt->cursor_id;
+	sid = dbt->stmt_id;
+
+	EXEC SQL prepare :sid from
+		'select colname, coltype, collength, extended_id,
+			type, default, c.colno
+		from syscolumns c, outer sysdefaults d
+		where c.tabid = ? and c.tabid = d.tabid and c.colno = d.colno
+		order by c.colno';
+
+	if (SQLCODE < 0)
+		raise_ifx_extended();
+
+	EXEC SQL declare :cid cursor for :sid;
 
 	if (SQLCODE < 0)
 		raise_ifx_extended();
@@ -2013,23 +2047,21 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
  * call-seq:
  * db.close  => db
  *
- * Disconnects <i>db</i> and returns __self__
+ * Disconnects <i>db</i> and returns nil.
  */
 static VALUE
 rb_database_close(VALUE self)
 {
+	database_t *dbt;
 	EXEC SQL begin declare section;
-		char *did;
+		char *id;
 	EXEC SQL end   declare section;
 
-	Data_Get_Struct(self, char, did);
-	did += IDSIZE;
-	if (*did)
-		EXEC SQL free :did;
-	did -= IDSIZE;
-	EXEC SQL disconnect :did;
+	Data_Get_Struct(self, database_t, dbt);
+	id = dbt->database_id;
+	EXEC SQL disconnect :id;
 
-	return self;
+	return Qnil;
 }
 
 /*
@@ -2054,13 +2086,15 @@ rb_database_close(VALUE self)
 static VALUE
 rb_database_immediate(VALUE self, VALUE arg)
 {
+	database_t *dbt;
 	EXEC SQL begin declare section;
 		char *query, *did;
 	EXEC SQL end   declare section;
 
-	Data_Get_Struct(self, char, did);
-
+	Data_Get_Struct(self, database_t, dbt);
+	did = dbt->database_id;
 	EXEC SQL set connection :did;
+
 	if (SQLCODE < 0)
 		raise_ifx_extended();
 
@@ -2081,17 +2115,20 @@ rb_database_immediate(VALUE self, VALUE arg)
 static VALUE
 rb_database_rollback(VALUE self)
 {
+	database_t *dbt;
 	EXEC SQL begin declare section;
 		char *did;
 	EXEC SQL end   declare section;
 
-	Data_Get_Struct(self, char, did);
-
+	Data_Get_Struct(self, database_t, dbt);
+	did = dbt->database_id;
 	EXEC SQL set connection :did;
+
 	if (SQLCODE < 0)
 		raise_ifx_extended();
 
 	EXEC SQL rollback;
+
 	return self;
 }
 
@@ -2104,17 +2141,20 @@ rb_database_rollback(VALUE self)
 static VALUE
 rb_database_commit(VALUE self)
 {
+	database_t *dbt;
 	EXEC SQL begin declare section;
 		char *did;
 	EXEC SQL end   declare section;
 
-	Data_Get_Struct(self, char, did);
-
+	Data_Get_Struct(self, database_t, dbt);
+	did = dbt->database_id;
 	EXEC SQL set connection :did;
+
 	if (SQLCODE < 0)
 		raise_ifx_extended();
 
 	EXEC SQL commit;
+
 	return self;
 }
 
@@ -2153,23 +2193,27 @@ static VALUE
 rb_database_transaction(VALUE self)
 {
 	VALUE ret;
+	database_t *dbt;
 	EXEC SQL begin declare section;
 		char *did;
 	EXEC SQL end   declare section;
 
-	Data_Get_Struct(self, char, did);
-
+	Data_Get_Struct(self, database_t, dbt);
+	did = dbt->database_id;
 	EXEC SQL set connection :did;
+
 	if (SQLCODE < 0)
 		raise_ifx_extended();
 
 	EXEC SQL commit;
-
 	EXEC SQL begin work;
 	ret = rb_rescue(rb_yield, self, database_transfail, self);
+
 	if (ret == Qundef)
 		rb_raise(rb_eOperationalError, "Transaction rolled back");
+
 	EXEC SQL commit;
+
 	return self;
 }
 
@@ -2196,6 +2240,7 @@ rb_database_columns(VALUE self, VALUE tablename)
 		"YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"
 	};
 
+	database_t *dbt;
 	EXEC SQL begin declare section;
 		char *did, *cid;
 		char *tabname;
@@ -2206,9 +2251,10 @@ rb_database_columns(VALUE self, VALUE tablename)
 		varchar defvalue[257];
 	EXEC SQL end   declare section;
 
-	Data_Get_Struct(self, char, did);
-
+	Data_Get_Struct(self, database_t, dbt);
+	did = dbt->database_id;
 	EXEC SQL set connection :did;
+
 	if (SQLCODE < 0)
 		raise_ifx_extended();
 
@@ -2220,32 +2266,9 @@ rb_database_columns(VALUE self, VALUE tablename)
 		rb_raise(rb_eProgrammingError, "Table '%s' doesn't exist", tabname);
 
 	result = rb_ary_new();
-
-	cid = did + IDSIZE;
-
-	if (!*cid) {
-		EXEC SQL begin declare section;
-			char sid[IDSIZE];
-		EXEC SQL end   declare section;
-
-		snprintf(sid, IDSIZE, "COLS%lX", self);
-		snprintf(cid, IDSIZE, "COLC%lX", self);
-
-		EXEC SQL prepare :sid from
-			'select colname, coltype, collength, extended_id,
-				type, default, c.colno
-			from syscolumns c, outer sysdefaults d
-			where c.tabid = ? and c.tabid = d.tabid
-				and c.colno = d.colno
-			order by c.colno';
-		EXEC SQL declare :cid cursor for :sid;
-		if (SQLCODE < 0) {
-			cid[0] = 0;
-			raise_ifx_extended();
-		}
-	}
-
+	cid = dbt->cursor_id;
 	EXEC SQL open :cid using :tabid;
+
 	if (SQLCODE < 0)
 		raise_ifx_extended();
 
@@ -2406,11 +2429,13 @@ rb_statement_initialize(VALUE self, VALUE db, VALUE query)
 {
 	struct sqlda *output;
 	cursor_t *c;
+	database_t *dbt;
 	EXEC SQL begin declare section;
 		char *c_query, *sid, *did;
 	EXEC SQL end   declare section;
 
-	Data_Get_Struct(db, char, did);
+	Data_Get_Struct(db, database_t, dbt);
+	did = dbt->database_id;
 	EXEC SQL set connection :did;
 	if (SQLCODE < 0)
 		raise_ifx_extended();
@@ -2419,7 +2444,7 @@ rb_statement_initialize(VALUE self, VALUE db, VALUE query)
 	c->db = db;
 	c->database_id = did;
 	output = c->daOutput;
-	snprintf(c->stmt_id, sizeof(c->stmt_id), "STMT%lX", self);
+	snprintf(c->stmt_id, sizeof(c->stmt_id), "STMT%lX", dbt->idcount++);
 	sid = c->stmt_id;
 	c_query = StringValueCStr(query);
 
@@ -3072,6 +3097,7 @@ rb_cursor_s_new0(int argc, VALUE *argv, VALUE self)
 	VALUE scroll, hold;
 	struct sqlda *output;
 	cursor_t c, *cur;
+	database_t *dbt;
 	long id;
 	EXEC SQL begin declare section;
 		char *c_query;
@@ -3080,16 +3106,17 @@ rb_cursor_s_new0(int argc, VALUE *argv, VALUE self)
 
 	memset(&c, 0, sizeof(c));
 	rb_scan_args(argc, argv, "21", &db, &query, &options);
-	Data_Get_Struct(db, char, did);
-
+	Data_Get_Struct(db, database_t, dbt);
+	did = dbt->database_id;
 	EXEC SQL set connection :did;
+
 	if (SQLCODE < 0)
 		raise_ifx_extended();
 
 	c.db = db;
 	c.database_id = did;
 	scroll = hold = Qfalse;
-	id = random();
+	id = dbt->idcount++;
 	snprintf(c.cursor_id, sizeof(c.cursor_id), "CUR%lX", id);
 	snprintf(c.stmt_id, sizeof(c.stmt_id), "STMT%lX", id);
 	cid = c.cursor_id; sid = c.stmt_id;
