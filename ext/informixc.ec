@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.29 2008/04/03 00:50:20 santana Exp $ */
+/* $Id: informixc.ec,v 1.30 2008/04/06 04:18:25 santana Exp $ */
 /*
  * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.29 2008/04/03 00:50:20 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.30 2008/04/06 04:18:25 santana Exp $";
 
 #include "ruby.h"
 
@@ -180,82 +180,74 @@ rbifx_ext_exception(VALUE exception_class)
 	mint i;
 	EXEC SQL END DECLARE SECTION;
 
-    new_instance = rb_class_new_instance(0, 0, exception_class);
+	new_instance = rb_class_new_instance(0, 0, exception_class);
 
-    /* Check that instance of exception_class is derived from
-     * Informix::Error
-     */
-    if (!rb_obj_is_kind_of(new_instance, rb_eError) &&
-        !rb_obj_is_kind_of(new_instance, rb_eWarning)) {
-        rb_raise(rb_eRuntimeError,
-                "Can't instantiate exception from %s, only from %s or %s or their children",
-                rb_class2name(exception_class),
-                rb_class2name(rb_eWarning),
-                rb_class2name(rb_eError));
-    }
+	/* Check that instance of exception_class is derived from Informix::Error */
+	if (!rb_obj_is_kind_of(new_instance, rb_eError) &&
+		!rb_obj_is_kind_of(new_instance, rb_eWarning)) {
+		rb_raise(rb_eRuntimeError, "Can't instantiate exception from %s, "
+				"only from %s or %s or their children",
+				rb_class2name(exception_class),
+				rb_class2name(rb_eWarning),
+				rb_class2name(rb_eError));
+	}
     
-    EXEC SQL GET DIAGNOSTICS :exc_count = NUMBER;
+	EXEC SQL GET DIAGNOSTICS :exc_count = NUMBER;
 
-    if (exc_count == 0) { /* Something went wrong */
-        char message[128];
-        snprintf(message,
-                 sizeof(message),
-                 "SQL ERROR: SQLCODE %d (sorry, no GET DIAGNOSTICS information available)",
-                 SQLCODE);
+	if (exc_count == 0) { /* Something went wrong */
+		char message[128];
+		snprintf(message, sizeof(message), "SQL ERROR: SQLCODE %d "
+				"(sorry, no GET DIAGNOSTICS information available)", SQLCODE);
+		{
+		VALUE argv[] = { rb_str_new2(message) };
+		return rb_class_new_instance(NUM_ELEMS(argv),argv,rb_eOperationalError);
+		}
+	}
 
-        {
-            VALUE argv[] = { rb_str_new2(message) };
-            return rb_class_new_instance(NUM_ELEMS(argv), argv, rb_eOperationalError);
-        }
-    }
+	for (i = 0; i < exc_count; ++i) {
+		sql_exception_number = i + 1;
 
-    for (i = 0; i < exc_count; ++i) {
-        sql_exception_number = i + 1;
+		EXEC SQL GET DIAGNOSTICS EXCEPTION :sql_exception_number
+			:sql_code            = INFORMIX_SQLCODE,
+			:sql_state           = RETURNED_SQLSTATE,
+			:class_origin_val    = CLASS_ORIGIN,
+			:subclass_origin_val = SUBCLASS_ORIGIN,
+			:message             = MESSAGE_TEXT,
+			:message_len         = MESSAGE_LENGTH,
+			:server_name         = SERVER_NAME,
+			:connection_name     = CONNECTION_NAME
+			;
 
-        EXEC SQL GET DIAGNOSTICS EXCEPTION :sql_exception_number
-            :sql_code            = INFORMIX_SQLCODE,
-            :sql_state           = RETURNED_SQLSTATE,
-            :class_origin_val    = CLASS_ORIGIN,
-            :subclass_origin_val = SUBCLASS_ORIGIN,
-            :message             = MESSAGE_TEXT,
-            :message_len         = MESSAGE_LENGTH,
-            :server_name         = SERVER_NAME,
-            :connection_name     = CONNECTION_NAME
-            ;
-        
-        TRIM_BLANKS(class_origin_val);
-        TRIM_BLANKS(subclass_origin_val);
-        TRIM_BLANKS(server_name);
-        TRIM_BLANKS(connection_name);
-        message[message_len - 1] = '\0';
-        TRIM_BLANKS(message);
+		TRIM_BLANKS(class_origin_val);
+		TRIM_BLANKS(subclass_origin_val);
+		TRIM_BLANKS(server_name);
+		TRIM_BLANKS(connection_name);
+		message[message_len - 1] = '\0';
+		TRIM_BLANKS(message);
 
-        {
-            VALUE sprintf_args[] = { rb_str_new2(message), rb_str_new2(sqlca.sqlerrm) };
-            VALUE argv[] = {
-                INT2FIX(sql_code),
-                rb_str_new2(sql_state),
-                rb_str_new2(class_origin_val),
-                rb_str_new2(subclass_origin_val),
-                rb_f_sprintf(NUM_ELEMS(sprintf_args), sprintf_args),
-                rb_str_new2(server_name),
-                rb_str_new2(connection_name)
-            };
+		{
+		VALUE sprintf_args[] = { rb_str_new2(message), rb_str_new2(sqlca.sqlerrm) };
+		VALUE argv[] = {
+			INT2FIX(sql_code),
+			rb_str_new2(sql_state),
+			rb_str_new2(class_origin_val),
+			rb_str_new2(subclass_origin_val),
+			rb_f_sprintf(NUM_ELEMS(sprintf_args), sprintf_args),
+			rb_str_new2(server_name),
+			rb_str_new2(connection_name)
+		};
 
-			rb_funcall(new_instance, s_add_info, 1, rb_ary_new4(7, argv));
-        }
-    }
-    
-    return new_instance;
+		rb_funcall(new_instance, s_add_info, 1, rb_ary_new4(7, argv));
+		}
+	}
+
+	return new_instance;
 }
 
-/*
- * C helper functions (see ifx_except.h for documentation)
- */
 static void
 raise_ifx_extended(void)
 {
-    rb_exc_raise(rbifx_ext_exception(rb_eDatabaseError));
+	rb_exc_raise(rbifx_ext_exception(rb_eDatabaseError));
 }
 /*
  *****************************************************************************
