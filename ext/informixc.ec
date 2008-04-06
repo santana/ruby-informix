@@ -1,4 +1,4 @@
-/* $Id: informixc.ec,v 1.30 2008/04/06 04:18:25 santana Exp $ */
+/* $Id: informixc.ec,v 1.31 2008/04/06 07:35:03 santana Exp $ */
 /*
  * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: informixc.ec,v 1.30 2008/04/06 04:18:25 santana Exp $";
+static const char rcsid[] = "$Id: informixc.ec,v 1.31 2008/04/06 07:35:03 santana Exp $";
 
 #include "ruby.h"
 
@@ -2917,7 +2917,7 @@ static void
 cursorbase_close_or_free(cursor_t *c, short op)
 {
 	EXEC SQL begin declare section;
-		char *cid, *sid, *did;
+		char *cid, *did;
 	EXEC SQL end   declare section;
 
 	if (op == 1 && !c->is_open)
