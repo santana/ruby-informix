@@ -5,18 +5,18 @@ informixdir = ENV["INFORMIXDIR"]
 MSWindows = /djgpp|(cyg|ms|bcc)win|mingw/
 
 if informixdir.nil?
-  informixdir = RUBY_PLATFORM =~ MSWindows ? "C:\\informix" : "/usr/informix"
+  informixdir = RUBY_PLATFORM =~ MSWindows ? "C:/informix" : "/usr/informix"
 end
 
-esql = File.join(informixdir, "bin", "esql")
-idefault = File.join(informixdir, "incl", "esql")
-ldefault = [ File.join(informixdir, "lib") ]
-ldefault<< File.join(informixdir, "lib", "esql") if RUBY_PLATFORM !~ MSWindows
+esql = informixdir + "/bin/esql"
+idefault = informixdir + "/incl/esql"
+ldefault = [ informixdir + "/lib" ]
+ldefault << informixdir + "/lib/esql" if RUBY_PLATFORM !~ MSWindows
 
 dir_config("informix", idefault, ldefault)
 
 if RUBY_PLATFORM =~ MSWindows
-  $libs += " isqlt09a.lib"
+  $libs += informixdir + "/lib/isqlt09a.lib"
 else
   env = "/usr/bin/env"
 
