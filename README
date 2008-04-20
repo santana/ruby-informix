@@ -103,12 +103,12 @@ http://ruby-informix.rubyforge.org/examples.html
 
 NULL values can be inserted and are retrieved as +nil+.
 
-BYTE and TEXT are retrieved as Strings, but for supplying them as input
-parameters, a StringIO object, or a anyother IO-like object that provides
-a #read method must be used.
+Any IO-like object that provides a read method, e.g. StringIO or File objects,
+can be used to insert data in BYTE or TEXT fields. Data retrieved from
+BYTE and TEXT fields are stored in String objects.
 
-Strings can be used in the cases where Informix accepts them for non-character
-data types, like DATE, DATETIME, INTERVAL, BOOL, DECIMAL and MONEY
+Strings can be used where Informix accepts them for non-character data types,
+like DATE, DATETIME, INTERVAL, BOOL, DECIMAL and MONEY
 
 
 == Recommendations
@@ -140,7 +140,3 @@ questions directly to my mailbox or the following forums:
 Ruby/Informix is available under the three-clause BSD license
 
 :include: COPYRIGHT
-
------------------------------------------
-Gerardo Santana <gerardo.santana gmail>
-http://santanatechnotes.blogspot.com
