@@ -1,5 +1,3 @@
-# $Id: Rakefile,v 1.11 2008/04/02 19:28:32 santana Exp $
-
 require 'rubygems'
 require 'rake'
 require 'rake/gempackagetask'

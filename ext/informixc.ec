@@ -1,4 +1,3 @@
-/* $Id: informixc.ec,v 1.31 2008/04/06 07:35:03 santana Exp $ */
 /*
  * Copyright (c) 2006-2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
@@ -27,8 +26,6 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
-static const char rcsid[] = "$Id: informixc.ec,v 1.31 2008/04/06 07:35:03 santana Exp $";
 
 #include "ruby.h"
 

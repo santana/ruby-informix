@@ -1,5 +1,4 @@
-# $Id: informix.rb,v 1.13 2008/04/01 01:17:21 santana Exp $
-#
+#--
 # Copyright (c) 2008, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
 # 
@@ -26,6 +25,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+#++
 
 require 'informixc'
 require 'informix/seqcursor'
