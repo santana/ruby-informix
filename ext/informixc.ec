@@ -46,8 +46,6 @@ static VALUE rb_cStatement, rb_cCursorBase;
 static VALUE rb_cSequentialCursor, rb_cScrollCursor, rb_cInsertCursor;
 static VALUE rb_cIfxVersion;
 
-static VALUE rb_cArray;
-
 /* Exceptions */
 static VALUE rb_eError, rb_eWarning, rb_eInternalError;
 static VALUE rb_eProgrammingError, rb_eOperationalError, rb_eDatabaseError;
@@ -3370,8 +3368,6 @@ void Init_informixc(void)
 	rb_define_singleton_method(rb_mCursor, "new0", rb_cursor_s_new0, -1);
 
 	/* Global constants --------------------------------------------------- */
-	rb_cArray = rb_const_get(rb_cObject, rb_intern("Array"));
-
 	rb_require("date");
 	rb_cDate = rb_const_get(rb_cObject, rb_intern("Date"));
 
