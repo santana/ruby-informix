@@ -195,34 +195,38 @@ module Informix
     # Examples:
     #
     # Iterating over a table:
-    #   db.each('select * from customer') do |cust|
+    #   db.foreach('select * from customer') do |cust|
     #     # do something with cust
     #     puts "#{cust[0] cust[1]}"
     #   end
     # Same thing, using input parameters:
     #   query = 'select * from orders where order_date = ?'
-    #   db.each(query, :params => [Date.today]) do |order|
+    #   db.foreach(query, :params => [Date.today]) do |order|
     #     # do something with order
     #   end
-    def each(query, options = nil, &block)
+    def foreach(query, options = nil, &block)
       Cursor.open(self, query, options) {|cur| cur.each(&block)}
       self
     end
+
+    alias each foreach
  
-    # Similar to +Database#each+, except that retrieves records as hashes
+    # Similar to +Database#foreach+, except that retrieves records as hashes
     # instead of arrays.
     #
     # Examples:
     #
     # Iterating over a table:
-    #   db.each_hash('select * from customer') do |cust|
+    #   db.foreach_hash('select * from customer') do |cust|
     #     # do something with cust
     #     puts "#{cust['fname'] cust['lname']}"
     #   end
-    def each_hash(query, options = nil, &block)
+    def foreach_hash(query, options = nil, &block)
       Cursor.open(self, query, options) {|cur| cur.each_hash(&block)}
       self
     end
+
+    alias each_hash foreach_hash
 
     # Shortcut to create a +Slob+ object.
     #
