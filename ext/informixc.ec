@@ -1498,7 +1498,7 @@ free_output_slots(cursor_t *c)
 {
 	if (c->daOutput != NULL) {
 		struct sqlvar_struct *var = c->daOutput->sqlvar;
-		if (var) {
+		if (var != NULL) {
 			register int i;
 			for (i = 0; i < c->daOutput->sqld; i++, var++) {
 				if (ISBLOBTYPE(var->sqltype)) {
@@ -1509,6 +1509,7 @@ free_output_slots(cursor_t *c)
 				if (ISSMARTBLOB(var->sqltype, var->sqlxid))
 					xfree(var->sqldata);
 			}
+			c->daOutput->sqlvar = NULL;
 		}
 		xfree(c->daOutput);
 		c->daOutput = NULL;
