@@ -110,7 +110,7 @@ module Informix
     # Shortcut to create a +Statement+ object from +query+.
     #
     # The +Statement+ object is passed to the block if it's given, and
-    # automatically dropped when the block terminates, returning
+    # automatically released when the block terminates, returning
     # the value of the block.
     #
     # +query+ may contain '?' placeholders for input parameters;
@@ -132,7 +132,7 @@ module Informix
       Statement.new(self, query, &block)
     end
 
-    # Shortcut to create, <b>execute and drop</b> a +Statement+ object from
+    # Shortcut to create, <b>execute and release</b> a +Statement+ object from
     # +query+.
     #
     # +query+ may contain '?' placeholders for input parameters;
@@ -156,7 +156,7 @@ module Informix
     # Shortcut to create a cursor object based on +query+ using +options+.
     #
     # The cursor object is passed to the block if it's given, and
-    # automatically dropped when the block terminates, returning
+    # automatically released when the block terminates, returning
     # the value of the block.
     #
     # +query+ may contain '?' placeholders for input parameters.
@@ -182,7 +182,7 @@ module Informix
     # +query+ using +options+. The records are retrieved as arrays.
     #
     # The cursor object is passed to the block and
-    # automatically dropped when the block terminates. Returns __self__.
+    # automatically released when the block terminates. Returns __self__.
     #
     # +query+ may contain '?' placeholders for input parameters.
     #
@@ -272,7 +272,7 @@ module Informix
     # Creates a +Statement+ object from +query+.
     #
     # The +Statement+ object is passed to the block if it's given, and
-    # automatically dropped when the block terminates, returning
+    # automatically released when the block terminates, returning
     # the value of the block.
     #
     # +query+ may contain '?' placeholders for input parameters;
@@ -284,7 +284,7 @@ module Informix
       begin
         yield stmt
       ensure
-        stmt.drop
+        stmt.free
       end
     end
   end # class Statement
@@ -332,7 +332,7 @@ module Informix
     # Shortcut to create a cursor object based on +query+ using +options+.
     #
     # The cursor object is passed to the block if it's given, and
-    # automatically dropped when the block terminates, returning
+    # automatically released when the block terminates, returning
     # the value of the block.
     #
     # +options+ can be a Hash object with the following possible keys:
@@ -348,7 +348,7 @@ module Informix
       begin
         yield cur
       ensure
-        cur.drop
+        cur.free
       end
     end
 
@@ -356,7 +356,7 @@ module Informix
     # using +options+ in a single step.
     #
     # The cursor object is passed to the block if it's given, and
-    # automatically dropped when the block terminates, returning
+    # automatically released when the block terminates, returning
     # the value of the block.
     #
     # +options+ can be a Hash object with the following possible keys:
@@ -377,7 +377,7 @@ module Informix
       begin
         yield cur
       ensure
-        cur.drop
+        cur.free
       end
     end
   end # module Cursor

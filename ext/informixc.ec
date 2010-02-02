@@ -2537,12 +2537,12 @@ rb_statement_call(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
- * st.drop
+ * st.free
  *
  * Frees the statement and the memory associated with it.
  */
 static VALUE
-rb_statement_drop(VALUE self)
+rb_statement_free(VALUE self)
 {
 	cursor_t *c;
 
@@ -3056,13 +3056,13 @@ rb_cursorbase_close(VALUE self)
 
 /*
  * call-seq:
- * cursor.drop => nil
+ * cursor.free => nil
  *
  * Closes the cursor and frees the memory associated with it. The cursor
  * cannot be opened again.
  */
 static VALUE
-rb_cursorbase_drop(VALUE self)
+rb_cursorbase_free(VALUE self)
 {
 	cursor_t *c;
 
@@ -3319,7 +3319,7 @@ void Init_informixc(void)
 	rb_define_alloc_func(rb_cStatement, statement_alloc);
 	rb_define_method(rb_cStatement, "initialize", rb_statement_initialize, 2);
 	rb_define_method(rb_cStatement, "[]", rb_statement_call, -1);
-	rb_define_method(rb_cStatement, "drop", rb_statement_drop, 0);
+	rb_define_method(rb_cStatement, "free", rb_statement_free, 0);
 
 	/*
 	 * The +CursorBase+ class provides the basic functionality for any cursor.
@@ -3329,7 +3329,7 @@ void Init_informixc(void)
 	rb_define_method(rb_cCursorBase, "id", rb_cursorbase_id, 0);
 	rb_define_method(rb_cCursorBase, "open", rb_cursorbase_open, -1);
 	rb_define_method(rb_cCursorBase, "close", rb_cursorbase_close, 0);
-	rb_define_method(rb_cCursorBase, "drop", rb_cursorbase_drop, 0);
+	rb_define_method(rb_cCursorBase, "free", rb_cursorbase_free, 0);
 
 	/*
 	 * The +SequentialCursor+ class adds fetching capabilities and iterators
