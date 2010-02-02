@@ -17,6 +17,7 @@ Informix CSDK 2.81 and above, on the following platforms:
   Operating System     Architecture
   -----------------------------------------
   Solaris              SPARC64      
+  Mac OS X             x86-64
   GNU/Linux            x86, x86-64
   Windows XP/2000      x86
   HP-UX 11.11          PA-RISC 2.0 64-bit
@@ -53,14 +54,13 @@ http://ruby-informix.rubyforge.org/doc
 
     db = Informix.connect('stores')
 
+=== Traversing a table
+
+    db.each('select * from stock') do |r|
+      # do something with the record
+    end
+
 === Fetching all records from a table
-
-    cur = db.cursor('select * from stock')
-    cur.open
-    records = cur.fetch_all
-    cur.drop # or close, if you want to reopen it later
-
-=== Same thing, with blocks
 
     records = db.cursor('select * from stock') do |cur|
       cur.open
@@ -113,9 +113,9 @@ like DATE, DATETIME, INTERVAL, BOOL, DECIMAL and MONEY
 
 == Recommendations
 
-* use blocks to release Informix resources automatically as soon as possible,
-  or use #drop
-* you can optimize cursor execution by changing the size of fetch and insert
+* Use blocks to release Informix resources automatically as soon as possible.
+  Alternatively, use #free.
+* You can optimize cursor execution by changing the size of fetch and insert
   buffers, setting the environment variable FET_BUF_SIZE to up to 32767.
 
 
