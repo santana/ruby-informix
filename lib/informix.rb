@@ -32,7 +32,7 @@ require 'informix/seqcursor'
 require 'informix/scrollcursor'
 
 module Informix
-  VERSION = "0.7.2"
+  VERSION = "0.7.3"
   VERSION.freeze
 
   # Shortcut to create a +Database+ object connected to +dbname+ as
@@ -209,8 +209,6 @@ module Informix
       self
     end
 
-    alias each foreach
- 
     # Similar to +Database#foreach+, except that retrieves records as hashes
     # instead of arrays.
     #
@@ -225,8 +223,6 @@ module Informix
       Cursor.open(self, query, options) {|cur| cur.each_hash(&block)}
       self
     end
-
-    alias each_hash foreach_hash
 
     # Shortcut to create a +Slob+ object.
     #
