@@ -3,7 +3,7 @@ require 'rake'
 require 'rake/gempackagetask'
 
 PKG_NAME = 'ruby-informix'
-PKG_VERSION = '0.7.2'
+PKG_VERSION = '0.7.3'
 PKG_FILES = %w{ext/informixc.ec lib/informix.rb} + Dir["lib/informix/*"] +
             Dir["test/*rb"] + %w{COPYRIGHT Changelog README}
 
