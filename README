@@ -56,7 +56,7 @@ http://ruby-informix.rubyforge.org/doc
 
 === Traversing a table
 
-    db.each('select * from stock') do |r|
+    db.foreach('select * from stock') do |r|
       # do something with the record
     end
 
@@ -76,7 +76,7 @@ http://ruby-informix.rubyforge.org/doc
 
 === Iterating over a table using a hash (shortcut)
 
-    db.each_hash('select * from customers') do |cust|
+    db.foreach_hash('select * from customers') do |cust|
       puts "#{cust['firstname']} #{cust['lastname']}"
     end
 
