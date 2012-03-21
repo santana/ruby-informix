@@ -995,7 +995,7 @@ rb_slob_unlock(VALUE self, VALUE offset, VALUE whence, VALUE range)
 typedef enum {
 	slob_estbytes, slob_extsz, slob_flags, slob_maxbytes, slob_sbspace
 } slob_option_t;
-static char *str_slob_options[] = {
+static const char *str_slob_options[] = {
 	"estbytes", "extsz", "flags", "maxbytes", "sbspace"};
 /*
  * Base function for getting storage charasteristics
@@ -1207,7 +1207,7 @@ rb_slob_set_flags(VALUE self, VALUE value)
 }
 
 typedef enum { slob_atime, slob_ctime, slob_mtime, slob_refcnt, slob_size } slob_stat_t;
-static char *str_slob_stats[] = {
+static const char *str_slob_stats[] = {
 	"atime", "ctime", "mtime", "refcnt", "size"
 };
 
@@ -2215,8 +2215,8 @@ static VALUE
 rb_database_columns(VALUE self, VALUE tablename)
 {
 	VALUE v, column, result;
-	char *stype;
-	static char *stypes[] = {
+	const char *stype;
+	static const char *stypes[] = {
 		"CHAR", "SMALLINT", "INTEGER", "FLOAT", "SMALLFLOAT", "DECIMAL",
 		"SERIAL", "DATE", "MONEY", "NULL", "DATETIME", "BYTE",
 		"TEXT", "VARCHAR", "INTERVAL", "NCHAR", "NVARCHAR", "INT8",
@@ -2224,7 +2224,7 @@ rb_database_columns(VALUE self, VALUE tablename)
 		"VARIABLE-LENGTH OPAQUE TYPE"
 	};
 
-	static char *qualifiers[] = {
+	static const char *qualifiers[] = {
 		"YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"
 	};
 
