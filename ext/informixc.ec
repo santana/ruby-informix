@@ -3375,8 +3375,6 @@ void Init_informixc(void)
 	rb_require("bigdecimal");
 	rb_cBigDecimal = rb_const_get(rb_cObject, rb_intern("BigDecimal"));
 
-	rb_cRational = rb_const_get(rb_cObject, rb_intern("Rational"));
-
 	rb_require("informix/exceptions");
 	rb_eError = rb_const_get(rb_mInformix, rb_intern("Error"));
 	rb_eWarning = rb_const_get(rb_mInformix, rb_intern("Warning"));
