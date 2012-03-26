@@ -22,7 +22,7 @@ class IfxTestXFetchNEach < Informix::TestCase
   end
 
   def teardown
-    @c.drop
+    @c.free
   end
 
   def test_fetch_each_each_by
