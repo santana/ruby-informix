@@ -63,7 +63,7 @@ class IfxTestExceptions < Informix::TestCase
   end
   
   def test_sqlcode
-    assert_equal -100, @test_exc.sql_code
+    assert_equal(-100, @test_exc.sql_code)
     assert_equal 0, Informix::Error.new.sql_code
   end
   
