@@ -97,7 +97,7 @@ module Informix
     def populate_test_table
       sql = "insert into test values(#{quote_strings(@rows[0]).join(',')})"
 
-      assert_nothing_raised(Informix::Error, "Inserting record with db.do, sql = [#{sql}]") do
+      assert_nothing_raised(Informix::Error, "Inserting record with db.execute, sql = [#{sql}]") do
         db.execute sql
       end
 
