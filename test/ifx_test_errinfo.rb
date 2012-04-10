@@ -3,7 +3,6 @@ $LOAD_PATH.unshift testdir
 $LOAD_PATH.unshift File.join(testdir, "..")
 
 require 'informix'
-require 'test/unit'
 require 'testcase'
 
 # Informix::ExcInfo is just a struct, not much testing needed
