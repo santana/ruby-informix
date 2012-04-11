@@ -1,11 +1,7 @@
 testdir = File.expand_path(File.dirname(__FILE__))
 $LOAD_PATH.unshift testdir
-$LOAD_PATH.unshift File.join(testdir, "..")
 
-require 'informix'
 require 'testcase'
-require 'stringio'
-require 'date'
 
 class IfxTestSelect < Informix::TestCase
   def setup
@@ -18,9 +14,8 @@ class IfxTestSelect < Informix::TestCase
 
   def test_select
     rows = nil
-
     assert_nothing_raised(Informix::Error, "Selecting records") do
-      rows = db.cursor('select * from test').open.fetch_all
+      rows = db.cursor('select * from test') { |c| c.open; c.fetch_all }
     end
     
     assert_equal(2, rows.size, "# of records retrieved")
@@ -82,5 +77,3 @@ class IfxTestSelect < Informix::TestCase
     end
   end
 end
-
-

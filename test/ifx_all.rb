@@ -1,5 +1,7 @@
 testdir = File.expand_path(File.dirname(__FILE__))
-$LOAD_PATH.unshift File.join(testdir, "..")
+$LOAD_PATH.unshift testdir
+$LOAD_PATH.unshift File.expand_path(File.join(testdir, "..", "lib"))
+$LOAD_PATH.unshift File.expand_path(File.join(testdir, "..", "ext"))
 
 require 'informix'
 gem 'test-unit'

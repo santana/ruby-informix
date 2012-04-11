@@ -1,5 +1,7 @@
 testdir = File.expand_path(File.dirname(__FILE__))
-$LOAD_PATH.unshift File.join(testdir, "..")
+$LOAD_PATH.unshift testdir
+$LOAD_PATH.unshift File.expand_path(File.join(testdir, "..", "lib"))
+$LOAD_PATH.unshift File.expand_path(File.join(testdir, "..", "ext"))
 
 gem 'test-unit'
 require 'test/unit'
@@ -105,7 +107,7 @@ module Informix
       sql = "insert into test values(#{"?," * (@rows[1].size - 1)}#{"?"})"
 
       assert_nothing_raised(Informix::Error, "Inserting record with stmt.execute, sql = [#{sql}]") do
-        db.prepare sql {|stmt| stmt.execute(*@rows[1]) }
+        db.prepare(sql) {|stmt| stmt.execute(*@rows[1]) }
       end
       ensure
         rewind_data
