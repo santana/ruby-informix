@@ -1,5 +1,5 @@
 #--
-# Copyright (c) 2008-2010, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
+# Copyright (c) 2008-2012, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@ require 'informix/seqcursor'
 require 'informix/scrollcursor'
 
 module Informix
-  VERSION = "0.7.3"
+  VERSION = "0.8.0"
   VERSION.freeze
 
   # Shortcut to create a +Database+ object connected to +dbname+ as
