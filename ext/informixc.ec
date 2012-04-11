@@ -1842,8 +1842,7 @@ make_result(cursor_t *c, VALUE record)
 				value = rb_funcall(value, s_add, 1, LONG2FIX(sign*seconds));
 
 				if (usec != 0) {
-					VALUE argv[2] = { INT2FIX(sign*usec), LONG2FIX(1000000L) };
-					VALUE frac = rb_class_new_instance(2, argv, rb_cRational);
+					VALUE frac = rb_Rational(INT2FIX(sign*usec), LONG2FIX(1000000L));
 					value = rb_funcall(frac, s_add, 1, value);
 				}
 			}
