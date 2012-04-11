@@ -128,8 +128,8 @@ module Informix
       unless args.empty?
         @db ||= Informix.connect(args[0], args[1], args[2])
         @supported = {}
-        @supported["boolean"] = true if supported_data_type?(@db, "boolean")
-        @supported["int8"] = true if supported_data_type?(@db, "int8")
+        @supported["boolean"] = supported_data_type?(@db, "boolean")
+        @supported["int8"] = supported_data_type?(@db, "int8")
 
         @rows = [
           [
