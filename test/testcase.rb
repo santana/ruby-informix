@@ -105,8 +105,7 @@ module Informix
       sql = "insert into test values(#{"?," * (@rows[1].size - 1)}#{"?"})"
 
       assert_nothing_raised(Informix::Error, "Inserting record with stmt.execute, sql = [#{sql}]") do
-        stmt = db.prepare sql
-        stmt.execute(*@rows[1])
+        db.prepare sql {|stmt| stmt.execute(*@rows[1]) }
       end
       ensure
         rewind_data
