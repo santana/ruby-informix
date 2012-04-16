@@ -5,7 +5,8 @@ informixdir = ENV["INFORMIXDIR"]
 MSWindows = /djgpp|(cyg|ms|bcc)win|mingw/
 
 if informixdir.nil?
-  informixdir = RUBY_PLATFORM =~ MSWindows ? "C:/informix" : "/usr/informix"
+  warn "Set the Informix environment variables before installing this library"
+  exit 1
 end
 
 esql = informixdir + "/bin/esql"
