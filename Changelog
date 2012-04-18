@@ -1,3 +1,21 @@
+0.8.0  2012-04-17
+------------------
+Bugs fixed:
+	* test cases were not loading the just built extension
+
+New features:
+	* Ruby 1.9.3 compatibility
+	* Rake task for running tests
+
+Minor changes:
+	* Warns to set the Informix environment variables when installing the gem
+	* gemspec file added
+
+Caveats:
+	* It's no longer compatible with Ruby 1.8
+	* test cases require test-unit
+
+
 0.7.3  2010-02-02
 ------------------
 Bugs fixed:
