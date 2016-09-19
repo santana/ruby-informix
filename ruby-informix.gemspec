@@ -1,5 +1,5 @@
 PKG_NAME = 'ruby-informix'
-PKG_VERSION = '0.8.0'
+PKG_VERSION = '0.8.1'
 PKG_FILES = %w{ext/informixc.ec lib/informix.rb} + Dir["lib/informix/*"] +
             Dir["test/*rb"] + %w{COPYRIGHT Changelog README}
 
