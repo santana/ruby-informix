@@ -2015,12 +2015,19 @@ rb_database_initialize(int argc, VALUE *argv, VALUE self)
 			  into :c_version from systables where tabid = 1;
 
 
-	OBJ_FREEZE(server_type = rb_str_new2(c_version.server_type));
-	OBJ_FREEZE(major = rb_str_new2(c_version.major));
-	OBJ_FREEZE(minor = rb_str_new2(c_version.minor));
-	OBJ_FREEZE(os = rb_str_new2(c_version.os));
-	OBJ_FREEZE(level = rb_str_new2(c_version.level));
-	OBJ_FREEZE(full = rb_str_new2(c_version.full));
+	server_type = rb_str_new2(c_version.server_type);
+	major = rb_str_new2(c_version.major);
+	minor = rb_str_new2(c_version.minor);
+	os = rb_str_new2(c_version.os);
+	level = rb_str_new2(c_version.level);
+	full = rb_str_new2(c_version.full);
+
+	OBJ_FREEZE(server_type);
+	OBJ_FREEZE(major);
+	OBJ_FREEZE(minor);
+	OBJ_FREEZE(os);
+	OBJ_FREEZE(level);
+	OBJ_FREEZE(full);
 
 	version = rb_struct_new(rb_cIfxVersion, server_type, major, minor, os,
 							level, full, NULL);
