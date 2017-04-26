@@ -14,7 +14,7 @@ end
 desc "Build gem"
 task :gem do
   Dir.chdir('ext') do
-    %x(#{ENV['INFORMIXDIR']}/bin/esql -c informixc.ec)
+    %x(#{ENV['INFORMIXDIR']}/bin/esql -e informixc.ec)
   end
   spec = Gem::Specification.load('ruby-informix.gemspec')
   Gem::Package.build spec
