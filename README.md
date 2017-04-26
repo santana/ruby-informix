@@ -37,7 +37,14 @@ you will also need:
 
 ### Rubygem installation
 
-gem install ruby-informix
+    gem install ruby-informix
+
+### From source
+
+Set your INFORMIXDIR environment variable and run:
+
+    rake gem
+    sudo -E gem install ruby-informix*.gem
 
 ## Documentation
 
@@ -45,6 +52,9 @@ RDoc and ri documentation is automatically installed. It can also be found
 [online](http://ruby-informix.rubyforge.org/doc)
 
 ## Examples
+
+*Note*: set LD\_LIBRARY\_PATH (non-macOS) or DYLD\_LIBRARY\_PATH (macOS) to
+search in $INFORMIXDIR/lib and $INFORMIXDIR/lib/esql before loading the gem.
 
 ### Connecting to a database
 
