@@ -32,7 +32,7 @@ require 'informix/seqcursor'
 require 'informix/scrollcursor'
 
 module Informix
-  VERSION = "0.8.2"
+  VERSION = "0.8.3"
   VERSION.freeze
 
   # Shortcut to create a +Database+ object connected to +dbname+ as

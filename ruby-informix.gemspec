@@ -1,6 +1,6 @@
 spec = Gem::Specification.new do |s|
   s.name = 'ruby-informix'
-  s.version = '0.8.2'
+  s.version = '0.8.3'
   s.summary = 'Ruby library for IBM Informix'
   s.description = 'Ruby library for connecting to IBM Informix 7 and above'
   s.license = 'BSD-3-Clause'

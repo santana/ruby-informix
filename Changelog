@@ -1,3 +1,8 @@
+0.8.3  2017-04-26
+------------------
+Bugs fixed:
+	* fixes an error that prevented the gem from being built
+
 0.8.2  2017-04-25
 ------------------
 Minor changes:
