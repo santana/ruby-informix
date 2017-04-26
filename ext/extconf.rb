@@ -1,6 +1,6 @@
 require 'mkmf'
 
-env = nil
+env = libs = nil
 informixdir = ENV["INFORMIXDIR"]
 MSWindows = /djgpp|(cyg|ms|bcc)win|mingw/
 
@@ -9,30 +9,29 @@ if informixdir.nil?
   exit 1
 end
 
-esql = informixdir + "/bin/esql"
-idefault = informixdir + "/incl/esql"
-ldefault = [ informixdir + "/lib" ]
-ldefault << informixdir + "/lib/esql" if RUBY_PLATFORM !~ MSWindows
+esql = File.join(informixdir, 'bin', 'esql')
+idefault = File.join(informixdir, 'incl', 'esql')
+ldefault = [ File.join(informixdir, 'lib') ]
+ldefault << File.join(informixdir, 'lib', 'esql') if RUBY_PLATFORM !~ MSWindows
 
 dir_config("informix", idefault, ldefault)
 
 if RUBY_PLATFORM =~ MSWindows
-  $libs += informixdir + "/lib/isqlt09a.lib"
+  libs += File.join(informixdir, 'lib', 'isqlt09a.lib')
 else
   env = "/usr/bin/env"
 
   %w(ifsql ifasf ifgen ifos ifgls).each do |lib|
-    $libs += " " + format(LIBARG, lib)
+    libs += " " + format(LIBARG, lib)
   end
-  $LIBPATH.each {|path|
-    checkapi = path + "/checkapi.o"
+  $LIBPATH.each do |path|
+    checkapi = File.join(path, 'checkapi.o')
     if File.exist?(checkapi)
-      $libs += " " + checkapi
+      libs += " " + checkapi
       break
     end
-  }
+  end
 end
 
-
-`#{env} #{esql} -e informixc.ec`
+%x{#{env} #{esql} -e informixc.ec}
 create_makefile("informixc")
