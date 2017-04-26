@@ -1,3 +1,9 @@
+0.8.2  2017-04-25
+------------------
+Minor changes:
+	* documentation improved
+	* rake task added for building gem
+
 0.8.1  2016-09-19
 ------------------
 Bugs fixed:

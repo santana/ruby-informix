@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2016, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
+ * Copyright (c) 2006-2017, Gerardo Santana Gomez Garrido <gerardo.santana@gmail.com>
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
